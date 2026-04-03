@@ -1,0 +1,409 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Font family definitions */
+@layer base {
+  :root {
+    --font-serif: 'Crimson Text', 'Times New Roman', serif;
+    --font-display: 'Playfair Display', 'Times New Roman', serif;
+    --font-sans: 'Inter', sans-serif;
+  }
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --color-earth-brown: oklch(0.65 0.15 60);
+  --color-earth-brown-light: oklch(0.75 0.10 70);
+  --color-electric-blue: oklch(0.60 0.20 240);
+  --color-electric-yellow: oklch(0.85 0.15 90);
+  --color-leaf-green: oklch(0.65 0.20 145);
+  --color-leaf-green-light: oklch(0.80 0.18 155);
+  --color-digital-cyan: oklch(0.70 0.15 195);
+  --color-deep-space: oklch(0.18 0.04 260);
+  
+  --primary: var(--color-leaf-green);
+  --primary-foreground: oklch(0.98 0.01 145);
+  --sidebar-primary: oklch(0.55 0.22 260);
+  --sidebar-primary-foreground: var(--color-blue-50);
+  --chart-1: oklch(0.7 0.2 240);
+  --chart-2: oklch(0.7 0.2 140);
+  --chart-3: oklch(0.7 0.2 60);
+  --chart-4: oklch(0.7 0.2 200);
+  --chart-5: oklch(0.6 0.15 300);
+  --radius: 1rem;
+  --background: oklch(0.98 0.005 240);
+  --foreground: oklch(0.2 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.02 260);
+  --secondary: oklch(0.92 0.02 240);
+  --secondary-foreground: oklch(0.3 0.02 260);
+  --muted: oklch(0.95 0.01 240);
+  --muted-foreground: oklch(0.45 0.02 260);
+  --accent: oklch(0.95 0.02 145 / 15%);
+  --accent-foreground: oklch(0.3 0.15 145);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.9 0.02 240);
+  --input: oklch(0.9 0.02 240);
+  --ring: var(--primary);
+  
+  /* Glassmorphism Variables */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+.dark {
+  --primary: oklch(0.7 0.2 145);
+  --primary-foreground: oklch(0.15 0.04 145);
+  --background: oklch(0.12 0.02 260);
+  --foreground: oklch(0.92 0.01 240);
+  --card: oklch(0.16 0.03 260);
+  --card-foreground: oklch(0.92 0.01 240);
+  --popover: oklch(0.16 0.03 260);
+  --popover-foreground: oklch(0.92 0.01 240);
+  --secondary: oklch(0.2 0.04 260);
+  --secondary-foreground: oklch(0.8 0.02 240);
+  --muted: oklch(0.22 0.03 260);
+  --muted-foreground: oklch(0.65 0.02 240);
+  --accent: oklch(0.7 0.2 145 / 15%);
+  --accent-foreground: oklch(0.8 0.15 145);
+  --destructive: oklch(0.5 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 8%);
+  --ring: var(--primary);
+  
+  /* Dark Glassmorphism */
+  --glass-bg: rgba(18, 20, 25, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight;
+  }
+  
+  h2 {
+    @apply text-3xl md:text-4xl font-bold leading-snug tracking-tight;
+  }
+  
+  h3 {
+    @apply text-2xl md:text-3xl font-bold leading-snug;
+  }
+  
+  h4 {
+    @apply text-xl font-semibold leading-normal;
+  }
+  
+  h5 {
+    @apply text-lg font-semibold leading-normal;
+  }
+  
+  h6 {
+    @apply text-base font-semibold leading-normal tracking-wide;
+  }
+  
+  p {
+    @apply text-base leading-relaxed text-foreground;
+  }
+  
+  a {
+    @apply text-primary hover:text-primary/80 transition-colors duration-150;
+  }
+  
+  code {
+    @apply font-mono text-sm bg-muted px-2 py-1 rounded;
+  }
+  
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [type="button"]:not(:disabled),
+  [type="submit"]:not(:disabled),
+  [type="reset"]:not(:disabled),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled) {
+    @apply cursor-pointer;
+  }
+  
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-2 outline-offset-2 outline-ring;
+  }
+  
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    @apply px-3 py-2 border border-input rounded-md bg-background text-foreground transition-colors duration-150;
+  }
+  
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-slate-500;
+  }
+  
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply border-ring ring-2 ring-ring/20;
+  }
+  
+  input:disabled,
+  textarea:disabled,
+  select:disabled {
+    @apply bg-muted text-slate-600 cursor-not-allowed opacity-60;
+  }
+}
+
+@layer components {
+  /* Smooth transitions for interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply transition-all duration-200;
+  }
+  
+  /* Button hover lift effect */
+  button:not(:disabled):hover {
+    @apply -translate-y-0.5;
+  }
+  
+  /**
+   * Custom container utility that centers content and adds responsive padding.
+   *
+   * This overrides Tailwind's default container behavior to:
+   * - Auto-center content (mx-auto)
+   * - Add responsive horizontal padding
+   * - Set max-width for large screens
+   *
+   * Usage: <div className="container">...</div>
+   *
+   * For custom widths, use max-w-* utilities directly:
+   * <div className="max-w-6xl mx-auto px-4">...</div>
+   */
+  .container {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem; /* 16px - mobile padding */
+    padding-right: 1rem;
+  }
+
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .premium-gradient {
+    background: linear-gradient(135deg, var(--color-leaf-green) 0%, var(--color-digital-cyan) 50%, var(--color-electric-blue) 100%);
+  }
+
+  .hero-text-glow {
+    text-shadow: 0 0 30px oklch(0.65 0.2 145 / 40%);
+  }
+
+  .flex {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem; /* 32px - desktop padding */
+      padding-right: 2rem;
+      max-width: 1280px; /* Standard content width */
+    }
+  }
+  
+  /* Category-specific color classes */
+  .category-earth-brown {
+    background: linear-gradient(135deg, var(--color-earth-brown), var(--color-earth-brown-light));
+  }
+  
+  .category-electric-blue {
+    background: linear-gradient(135deg, var(--color-electric-blue), var(--color-electric-yellow));
+  }
+  
+  .category-leaf-green {
+    background: linear-gradient(135deg, var(--color-leaf-green), var(--color-leaf-green-light));
+  }
+  
+  .category-digital-cyan {
+    background: linear-gradient(135deg, var(--color-digital-cyan), oklch(0.95 0.02 200));
+  }
+  
+  /* Hero video overlay */
+  .hero-overlay {
+    background: linear-gradient(
+      to bottom,
+      oklch(0.15 0.02 240 / 0.7),
+      oklch(0.15 0.02 240 / 0.4)
+    );
+  }
+  
+  /* Masonry grid for projects */
+  .masonry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    grid-auto-rows: 10px;
+  }
+  
+  .masonry-item {
+    grid-row-end: span var(--row-span, 20);
+  }
+  
+  /* Wall mode full screen */
+  .wall-mode {
+    @apply fixed inset-0 z-50 bg-black;
+  }
+  
+  /* QR code container */
+  .qr-code-container {
+    @apply bg-white p-4 rounded-lg shadow-lg inline-block;
+  }
+  
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.6s ease-out;
+  }
+  
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slideInUp {
+    animation: slideInUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-scaleIn {
+    animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse-slow 3s ease-in-out infinite;
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+  
+  .animate-shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+  }
+}
