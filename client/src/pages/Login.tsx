@@ -27,12 +27,8 @@ export default function Login() {
   const loginMutation = trpc.auth.loginWithEmail.useMutation({
     onSuccess: () => {
       // Redirect to dashboard based on role
-      const dashboardMap = {
-        admin: "/admin/dashboard",
-        teacher: "/teacher/dashboard",
-        student: "/student/dashboard",
-      };
-      setLocation(dashboardMap[selectedRole]);
+
+      setLocation("/");
     },
     onError: (error) => {
       setError(error.message || "Login failed. Please check your credentials.");

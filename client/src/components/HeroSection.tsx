@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, LayoutDashboard } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 interface CountdownTime {
   days: number;
@@ -13,6 +14,7 @@ interface CountdownTime {
 export default function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const { user, isAuthenticated } = useAuth();
   const [countdown, setCountdown] = useState<CountdownTime>({
     days: 0, hours: 0, minutes: 0, seconds: 0,
   });
@@ -47,13 +49,20 @@ export default function HeroSection() {
 
   const pad = (n: number) => n.toString().padStart(2, "0");
 
+  const dashboardPath =
+    user?.role === "admin"
+      ? "/admin/dashboard"
+      : user?.role === "teacher"
+        ? "/teacher/dashboard"
+        : "/student/dashboard";
+
   return (
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden bg-black"
       style={{ minHeight: "100svh" }}
     >
-      {/* ── Background video ── */}
+      {/* Background video */}
       <video
         ref={videoRef}
         className="absolute inset-0 w-full h-full object-cover"
@@ -73,10 +82,10 @@ export default function HeroSection() {
       {/* Dark overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/45 to-black/60" />
 
-      {/* ── Content — pushed 80px down so it never hides under the Nav ── */}
+      {/* Content */}
       <div
         className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center"
-        style={{ paddingTop: "80px" }}   /* ← height of your Navigation bar */
+        style={{ paddingTop: "80px" }}
       >
         <div className="max-w-5xl mx-auto w-full space-y-8 animate-fade-in">
 
@@ -127,26 +136,43 @@ export default function HeroSection() {
             Um Al-Emarat School's premier sustainability innovation showcase — where students design, build, and present real solutions for a better planet.
           </p>
 
-          {/* CTA */}
+          {/* ── CTA — auth-aware ── */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2">
-            <Link href="/innovation-hub">
-              <Button
-                size="lg"
-                className="premium-gradient text-white font-bold px-10 py-6 text-base rounded-full shadow-2xl shadow-green-900/40 hover:scale-105 active:scale-95 transition-transform duration-200 border-none"
-              >
-                Explore Innovation Hub
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button
-                size="lg"
-                variant="outline"
-                className="bg-white/10 backdrop-blur-md border-white/25 text-white font-bold px-10 py-6 text-base rounded-full hover:bg-white/20 hover:scale-105 active:scale-95 transition-all duration-200"
-              >
-                Sign In To Participate
-              </Button>
-            </Link>
+            {isAuthenticated ? (
+              /* Logged in → single dashboard button */
+              <Link href={dashboardPath}>
+                <Button
+                  size="lg"
+                  className="premium-gradient text-white font-bold px-10 py-6 text-base rounded-full shadow-2xl shadow-green-900/40 hover:scale-105 active:scale-95 transition-transform duration-200 border-none gap-2"
+                >
+                  <LayoutDashboard size={18} />
+                  Go to My Dashboard
+                </Button>
+              </Link>
+            ) : (
+              /* Not logged in → two buttons */
+              <>
+                <Link href="/innovation-hub">
+                  <Button
+                    size="lg"
+                    className="premium-gradient text-white font-bold px-10 py-6 text-base rounded-full shadow-2xl shadow-green-900/40 hover:scale-105 active:scale-95 transition-transform duration-200 border-none"
+                  >
+                    Explore Innovation Hub
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="bg-white/10 backdrop-blur-md border-white/25 text-white font-bold px-10 py-6 text-base rounded-full hover:bg-white/20 hover:scale-105 active:scale-95 transition-all duration-200"
+                  >
+                    Sign In To Participate
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
+
         </div>
       </div>
 

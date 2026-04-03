@@ -1,47 +1,117 @@
 import HeroSection from "@/components/HeroSection";
 import CategorySelection from "@/components/CategorySelection";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import Navigation from "@/components/Navigation";
 import { Link } from "wouter";
 import { OAuthRedirect } from "@/components/OAuthRedirect";
 import ValueProposition from "@/components/ValueProposition";
+import { useAuth } from "@/_core/hooks/useAuth";
+import {
+  LayoutDashboard,
+  LogIn,
+  Globe,
+  Users,
+  Layers,
+  CalendarDays,
+  MapPin,
+  Flag,
+  Sparkles,
+} from "lucide-react";
 
 export default function Home() {
-  const { data: stats } = trpc.projects.getStats.useQuery();
-  const { data: categories } = trpc.categories.getAll.useQuery();
+  const { user, isAuthenticated } = useAuth();
+  const { data: stats } = trpc.projects.getStats.useQuery(undefined, {
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
+  });
+  const { data: categories } = trpc.categories.getAll.useQuery(undefined, {
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
+  });
+
+  const dashboardPath =
+    user?.role === "admin"
+      ? "/admin/dashboard"
+      : user?.role === "teacher"
+        ? "/teacher/dashboard"
+        : "/student/dashboard";
+
+  const firstName = (user?.name ?? "").split(" ")[0];
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-leaf-green/10 via-background to-background">
+    <div className="min-h-screen bg-white dark:bg-slate-950 overflow-x-hidden">
       <OAuthRedirect />
       <Navigation />
 
-      {/* Hero Section */}
+      {/* ══ 1. HERO ══ */}
       <HeroSection />
 
-      {/* Value Proposition Section */}
-      <ValueProposition />
+      {/* ══ 2. AUTH WELCOME BANNER — رسالة ترحيب بدون زر ══ */}
+      {isAuthenticated && user && (
+        <div className="bg-gradient-to-r from-green-600 to-emerald-500 py-3.5 px-4">
+          <div className="container flex items-center justify-center gap-3">
+            <Sparkles size={15} className="text-green-200 flex-shrink-0" />
+            <div className="flex items-center gap-2 flex-wrap justify-center">
+              <div className="w-7 h-7 rounded-full bg-white/25 border border-white/30 flex items-center justify-center text-white font-black text-xs flex-shrink-0">
+                {(user.name ?? "U").charAt(0).toUpperCase()}
+              </div>
+              <p className="text-white font-black text-sm">
+                Welcome back, {firstName}!
+              </p>
+              <span className="text-green-200 text-xs font-medium hidden sm:inline">·</span>
+              <p className="text-green-100 text-xs font-medium capitalize hidden sm:inline">
+                Signed in as {user.role}
+              </p>
+            </div>
+            <Sparkles size={15} className="text-green-200 flex-shrink-0" />
+          </div>
+        </div>
+      )}
 
-      {/* Category Selection Section */}
-      <CategorySelection />
-
-      {/* Stats Section */}
-      <section className="py-24 relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      {/* ══ 3. STATS BAR ══ */}
+      <section className="border-y border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 py-10">
         <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { label: stats?.totalProjects ? "Projects Submitted" : "Be the first to submit!", value: stats?.totalProjects || 0, color: "text-primary" },
-              { label: stats?.totalStudents ? "Students Participating" : "Join the movement!", value: stats?.totalStudents || 0, color: "text-leaf-green" },
-              { label: "Innovation Categories", value: categories?.length || 4, color: "text-digital-cyan" }
+              {
+                icon: Globe,
+                label: stats?.totalProjects ? "Projects Submitted" : "Be the first to submit!",
+                value: stats?.totalProjects ?? 0,
+                color: "text-green-600",
+                bg: "bg-green-50 dark:bg-green-900/20",
+              },
+              {
+                icon: Users,
+                label: stats?.totalStudents ? "Students Participating" : "Join the movement!",
+                value: stats?.totalStudents ?? 0,
+                color: "text-blue-600",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+              },
+              {
+                icon: Layers,
+                label: "Innovation Categories",
+                value: categories?.length ?? 4,
+                color: "text-violet-600",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+              },
             ].map((stat, idx) => (
-              <div key={idx} className="glass-card p-10 rounded-3xl text-center group hover:scale-[1.02] transition-transform duration-500">
-                <div className={`text-6xl font-black mb-4 tracking-tighter ${stat.color} hero-text-glow`}>
-                  {stat.value}
+              <div
+                key={idx}
+                className="flex items-center gap-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm"
+              >
+                <div className={`w-14 h-14 rounded-2xl ${stat.bg} flex items-center justify-center flex-shrink-0`}>
+                  <stat.icon size={26} className={stat.color} />
                 </div>
-                <div className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
-                  {stat.label}
+                <div>
+                  <p className={`text-4xl font-black ${stat.color} leading-none mb-1`}>
+                    {stat.value}
+                  </p>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                    {stat.label}
+                  </p>
                 </div>
               </div>
             ))}
@@ -49,75 +119,116 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Mission Section */}
+      {/* ══ 4. VALUE PROPOSITION ══ */}
+      <ValueProposition />
+
+      {/* ══ 5. CATEGORY SELECTION ══ */}
+      <CategorySelection />
+
+      {/* ══ 6. MISSION ══ */}
       <section className="py-20 bg-white dark:bg-slate-950">
-        <div className="container max-w-3xl">
-          <h2 className="text-4xl md:text-5xl font-bold text-center mb-8">Our Mission</h2>
-          <div className="prose dark:prose-invert max-w-none text-center">
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Tomorrow's Earth Expo empowers high school students to become environmental innovators and leaders. Through collaborative projects in environmental protection, sustainable communities, green innovation, and educational awareness, we inspire the next generation to design realistic solutions that raise awareness and demonstrate positive impact for a thriving planet.
-            </p>
+        <div className="container max-w-3xl text-center">
+          <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-full px-4 py-1.5 mb-6">
+            <Flag size={13} className="text-green-600" />
+            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Our Mission</span>
           </div>
+          <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white mb-6 tracking-tight">
+            Empowering the Next Generation of Innovators
+          </h2>
+          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+            Tomorrow's Earth Expo empowers high school students to become environmental innovators and leaders. Through collaborative projects in environmental protection, sustainable communities, green innovation, and educational awareness, we inspire the next generation to design realistic solutions that raise awareness and demonstrate positive impact for a thriving planet.
+          </p>
         </div>
       </section>
 
-      {/* Event Info Section */}
-      <section className="py-24 relative">
+      {/* ══ 7. EVENT INFO ══ */}
+      <section className="py-20 bg-slate-50 dark:bg-slate-900">
         <div className="container">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-6xl font-black tracking-tight hero-text-glow mb-4">Mark Your Calendar</h2>
-            <p className="text-muted-foreground font-medium">Be part of the most awaited sustainability showcase of 2026</p>
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-4 py-1.5 mb-5">
+              <CalendarDays size={13} className="text-green-600" />
+              <span className="text-xs font-black uppercase tracking-widest text-green-700 dark:text-green-400">Mark Your Calendar</span>
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-slate-900 dark:text-white">
+              The Expo is Almost Here
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 font-medium mt-3 text-sm">
+              Be part of the most awaited sustainability showcase of 2026
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="glass-card p-8 rounded-3xl text-center border-l-4 border-l-primary group">
-              <div className="text-sm font-bold uppercase tracking-widest text-primary mb-4 opacity-70">Event Date</div>
-              <p className="text-4xl font-black mb-2 tracking-tighter">May 14, 2026</p>
-              <p className="text-xs text-muted-foreground font-medium">Join us for the grand expo celebration</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="rounded-2xl border-2 border-green-200 dark:border-green-800/50 bg-white dark:bg-slate-900 p-8 text-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+              <div className="w-12 h-12 rounded-2xl bg-green-50 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-5">
+                <CalendarDays size={22} className="text-green-600" />
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-green-600 mb-3">Event Date</p>
+              <p className="text-3xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">May 14, 2026</p>
+              <p className="text-xs text-slate-400 font-medium">Join us for the grand expo celebration</p>
             </div>
-            <div className="glass-card p-8 rounded-3xl text-center border-l-4 border-l-leaf-green">
-              <div className="text-sm font-bold uppercase tracking-widest text-leaf-green mb-4 opacity-70">Location</div>
-              <p className="text-3xl font-black mb-2 tracking-tight">Um Al-Emarat School</p>
-              <p className="text-xs text-muted-foreground font-medium">Abu-Dhabi, United Arab Emirates</p>
+
+            <div className="rounded-2xl border-2 border-blue-200 dark:border-blue-800/50 bg-white dark:bg-slate-900 p-8 text-center shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-5">
+                <MapPin size={22} className="text-blue-600" />
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-blue-600 mb-3">Location</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Um Al-Emarat School</p>
+              <p className="text-xs text-slate-400 font-medium">Abu Dhabi, United Arab Emirates</p>
             </div>
-            <div className="glass-card p-8 rounded-3xl text-center border-l-4 border-l-digital-cyan">
-              <div className="text-sm font-bold uppercase tracking-widest text-digital-cyan mb-4 opacity-70">Key Milestones</div>
-              <div className="space-y-3 pt-2">
-                <div className="flex justify-between items-center text-xs px-2">
-                  <span className="font-bold">Apr 30</span>
-                  <span className="text-muted-foreground">Deadline</span>
-                </div>
-                <div className="flex justify-between items-center text-xs px-2">
-                  <span className="font-bold">May 1-10</span>
-                  <span className="text-muted-foreground">Review</span>
-                </div>
-                <div className="flex justify-between items-center text-xs px-2">
-                  <span className="font-bold">May 14</span>
-                  <span className="text-primary font-black">Expo Day</span>
-                </div>
+
+            <div className="rounded-2xl border-2 border-violet-200 dark:border-violet-800/50 bg-white dark:bg-slate-900 p-8 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+              <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center mx-auto mb-5">
+                <Flag size={22} className="text-violet-600" />
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-violet-600 mb-5 text-center">Key Milestones</p>
+              <div className="space-y-3">
+                {[
+                  { date: "Apr 30", label: "Submission Deadline", accent: "text-slate-700 dark:text-slate-200" },
+                  { date: "May 1–10", label: "Review Period", accent: "text-slate-700 dark:text-slate-200" },
+                  { date: "May 14", label: "Expo Day 🎉", accent: "text-green-600 dark:text-green-400" },
+                ].map(({ date, label, accent }) => (
+                  <div key={date} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5">
+                    <span className={`text-sm font-black ${accent}`}>{date}</span>
+                    <span className="text-xs font-semibold text-slate-400">{label}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-
-
-      {/* CTA Section */}
-      <section className="py-32 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/5 to-transparent pointer-events-none" />
-        <div className="container text-center relative">
-          <h2 className="text-5xl md:text-7xl font-black mb-8 tracking-tighter">Ready to <span className="text-transparent bg-clip-text bg-gradient-to-r from-leaf-green to-digital-cyan">Innovate?</span></h2>
-          <p className="text-lg md:text-xl text-muted-foreground mb-12 max-w-2xl mx-auto font-medium">
+      {/* ══ 8. CTA ══ */}
+      <section className="py-28 relative overflow-hidden bg-white dark:bg-slate-950">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-green-50 via-white to-white dark:from-green-950/20 dark:via-slate-950 dark:to-slate-950 pointer-events-none" />
+        <div className="container text-center relative z-10">
+          <h2 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter text-slate-900 dark:text-white">
+            Ready to{" "}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-cyan-500">
+              Innovate?
+            </span>
+          </h2>
+          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 mb-12 max-w-xl mx-auto font-medium leading-relaxed">
             Join the journey of sustainability. Showcase your brilliance, vote for the best, and help us save the planet.
           </p>
-          <div className="flex justify-center gap-6 flex-wrap">
-            <Link href="/innovation-hub">
-              <Button size="lg" className="rounded-full px-10 py-8 premium-gradient text-white text-lg font-bold shadow-2xl hover:scale-105 transition-transform border-none">
-                Get Started
-              </Button>
-            </Link>
+          <div className="flex justify-center gap-4 flex-wrap">
+            {isAuthenticated ? (
+              <Link href={dashboardPath}>
+                <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
+                  <LayoutDashboard size={18} />
+                  Go to My Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/login">
+                <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
+                  <LogIn size={18} />
+                  Get Started
+                </Button>
+              </Link>
+            )}
             <Link href="/vote">
-              <Button size="lg" variant="outline" className="rounded-full px-10 py-8 glass-card border-white/20 text-lg font-bold hover:scale-105 transition-transform">
+              <Button size="lg" variant="outline" className="rounded-full px-10 py-6 border-slate-200 dark:border-slate-700 text-base font-bold hover:scale-105 transition-transform hover:bg-slate-50 dark:hover:bg-slate-800">
                 Vote Now
               </Button>
             </Link>
@@ -125,29 +236,67 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-16 glass-card border-none rounded-t-[3rem] mt-12">
+      {/* ══ 9. FOOTER ══ */}
+      <footer className="bg-slate-900 dark:bg-black pt-16 pb-8">
         <div className="container px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="text-center md:text-left space-y-4">
-              <div className="flex items-center justify-center md:justify-start gap-4">
-                <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp" alt="TEE" className="h-12 w-12 object-contain" />
-                <span className="text-2xl font-black tracking-tighter">TEE-2026</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start mb-16">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp" alt="TEE" className="h-10 w-10 object-contain" />
+                <span className="text-xl font-black tracking-tighter text-white">TEE-2026</span>
               </div>
-              <p className="text-muted-foreground max-w-md font-medium text-sm">
+              <p className="text-slate-400 max-w-sm font-medium text-sm leading-relaxed">
                 Empowering Um Al-Emarat School students to lead the sustainability movement through innovation and creativity.
               </p>
-            </div>
-            <div className="flex flex-wrap justify-center md:justify-end gap-x-8 gap-y-4">
-              {["Innovation Hub", "Journey Cinema", "Voting System", "Resources"].map(link => (
-                <Link key={link} href={`/${link.toLowerCase().replace(' ', '-')}`} className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">
-                  {link}
+              {isAuthenticated ? (
+                <Link href={dashboardPath}>
+                  <Button size="sm" variant="outline" className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800 gap-2 mt-2">
+                    <LayoutDashboard size={14} />
+                    My Dashboard
+                  </Button>
                 </Link>
-              ))}
+              ) : (
+                <Link href="/login">
+                  <Button size="sm" variant="outline" className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800 gap-2 mt-2">
+                    <LogIn size={14} />
+                    Sign In
+                  </Button>
+                </Link>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-4">Platform</p>
+                <ul className="space-y-3">
+                  {["Innovation Hub", "Journey Cinema", "Voting System", "Resources"].map((link) => (
+                    <li key={link}>
+                      <Link href={`/${link.toLowerCase().replace(" ", "-")}`} className="text-sm font-semibold text-slate-400 hover:text-white transition-colors">
+                        {link}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-4">Account</p>
+                <ul className="space-y-3">
+                  {[
+                    { label: "Sign In", href: "/login" },
+                    { label: "Register", href: "/signup" },
+                    { label: "Student Dashboard", href: "/student/dashboard" },
+                  ].map(({ label, href }) => (
+                    <li key={label}>
+                      <Link href={href} className="text-sm font-semibold text-slate-400 hover:text-white transition-colors">
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
-          <div className="mt-16 pt-8 border-t border-border/40 text-center text-[10px] uppercase tracking-[0.3em] font-bold text-muted-foreground/40">
-            © 2026 Tomorrow's Earth Expo • All Rights Reserved
+          <div className="pt-8 border-t border-slate-800 text-center text-[10px] uppercase tracking-[0.3em] font-bold text-slate-600">
+            © 2026 Tomorrow's Earth Expo · Um Al-Emarat School · All Rights Reserved
           </div>
         </div>
       </footer>

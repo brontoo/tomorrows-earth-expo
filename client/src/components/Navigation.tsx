@@ -10,14 +10,41 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { trpc } from "@/lib/trpc";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 export default function Navigation() {
   const [location] = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // ── Hide / Show on scroll ──────────────────────────────────────────────────
+  const [visible, setVisible] = useState(true);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const current = window.scrollY;
+
+      if (current <= 10) {
+        // Always show at top of page
+        setVisible(true);
+      } else if (current < lastScrollY.current) {
+        // Scrolling UP → show
+        setVisible(true);
+      } else if (current > lastScrollY.current + 8) {
+        // Scrolling DOWN (with 8px threshold to avoid jitter) → hide
+        setVisible(false);
+        setMobileMenuOpen(false); // close mobile menu when hiding
+      }
+
+      lastScrollY.current = current;
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+  // ──────────────────────────────────────────────────────────────────────────
 
   const handleLogout = async () => {
     await logout();
@@ -34,33 +61,40 @@ export default function Navigation() {
   const getDashboardLink = () => {
     if (!user) return null;
     switch (user.role) {
-      case "admin":
-        return { href: "/admin/dashboard", label: "Admin Dashboard" };
-      case "teacher":
-        return { href: "/teacher/dashboard", label: "Teacher Dashboard" };
-      case "student":
-        return { href: "/student/dashboard", label: "My Projects" };
-      default:
-        return null;
+      case "admin": return { href: "/admin/dashboard", label: "Admin Dashboard" };
+      case "teacher": return { href: "/teacher/dashboard", label: "Teacher Dashboard" };
+      case "student": return { href: "/student/dashboard", label: "My Projects" };
+      default: return null;
     }
   };
 
   const dashboardLink = getDashboardLink();
 
   return (
-    <nav className="fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50 glass-card rounded-2xl py-2 px-4 transition-all duration-300">
+    <nav
+      className={`fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50 glass-card rounded-2xl py-2 px-4 transition-all duration-300 ${visible
+          ? "translate-y-0 opacity-100"
+          : "-translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none"
+        }`}
+    >
       <div className="container px-0">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-leaf-green to-digital-cyan rounded-full blur opacity-25 group-hover:opacity-50 transition duration-300"></div>
-              <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp" alt="Tomorrow's Earth Expo" className="relative h-10 w-10 object-contain" />
+              <div className="absolute -inset-1 bg-gradient-to-r from-leaf-green to-digital-cyan rounded-full blur opacity-25 group-hover:opacity-50 transition duration-300" />
+              <img
+                src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp"
+                alt="Tomorrow's Earth Expo"
+                className="relative h-10 w-10 object-contain"
+              />
             </div>
-            <span className="hidden sm:inline text-foreground font-bold text-lg tracking-tight">TEE-2026</span>
+            <span className="hidden sm:inline text-foreground font-bold text-lg tracking-tight">
+              TEE-2026
+            </span>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Nav */}
           <div className="hidden md:flex items-center space-x-1">
             {navLinks.map((link) => (
               <Button
@@ -69,9 +103,7 @@ export default function Navigation() {
                 size="sm"
                 asChild
               >
-                <Link href={link.href}>
-                  {link.label}
-                </Link>
+                <Link href={link.href}>{link.label}</Link>
               </Button>
             ))}
             {dashboardLink && (
@@ -80,9 +112,7 @@ export default function Navigation() {
                 size="sm"
                 asChild
               >
-                <Link href={dashboardLink.href}>
-                  {dashboardLink.label}
-                </Link>
+                <Link href={dashboardLink.href}>{dashboardLink.label}</Link>
               </Button>
             )}
           </div>
@@ -113,16 +143,24 @@ export default function Navigation() {
                   <DropdownMenuSeparator />
                   {dashboardLink && (
                     <Link href={dashboardLink.href}>
-                      <DropdownMenuItem className="cursor-pointer">{dashboardLink.label}</DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer">
+                        {dashboardLink.label}
+                      </DropdownMenuItem>
                     </Link>
                   )}
-                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button asChild className="rounded-full px-6 premium-gradient border-none text-white hover:shadow-lg hover:shadow-primary/20 transition-all">
+              <Button
+                asChild
+                className="rounded-full px-6 premium-gradient border-none text-white hover:shadow-lg hover:shadow-primary/20 transition-all"
+              >
                 <Link href="/login">Get Started</Link>
               </Button>
             )}
@@ -151,9 +189,7 @@ export default function Navigation() {
                   asChild
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Link href={link.href}>
-                    {link.label}
-                  </Link>
+                  <Link href={link.href}>{link.label}</Link>
                 </Button>
               ))}
               {dashboardLink && (
@@ -163,9 +199,7 @@ export default function Navigation() {
                   asChild
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Link href={dashboardLink.href}>
-                    {dashboardLink.label}
-                  </Link>
+                  <Link href={dashboardLink.href}>{dashboardLink.label}</Link>
                 </Button>
               )}
               <div className="pt-4 border-t border-border mt-4">
@@ -185,12 +219,16 @@ export default function Navigation() {
                     </Button>
                   </>
                 ) : (
-                  <Button variant="outline" className="w-full justify-start text-white" onClick={() => {
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-white"
+                    onClick={() => {
                       setMobileMenuOpen(false);
-                      window.location.href = '/login';
-                    }}>
-                      Login
-                    </Button>
+                      window.location.href = "/login";
+                    }}
+                  >
+                    Login
+                  </Button>
                 )}
               </div>
             </div>

@@ -11,15 +11,7 @@ export default function AuthCallback() {
 
   const syncUserMutation = trpc.auth.syncUser.useMutation({
     onSuccess: (data) => {
-      console.log("[Auth] Sync successful:", data.user);
-      // Redirect to dashboard based on role
-      const role = data.user.role;
-      const dashboardMap: Record<string, string> = {
-        admin: "/admin/dashboard",
-        teacher: "/teacher/dashboard",
-        student: "/student/dashboard",
-      };
-      setLocation(dashboardMap[role] || "/student/dashboard");
+      setLocation("/");
     },
     onError: (err) => {
       setError(err.message || "Failed to synchronize your account.");
@@ -57,12 +49,8 @@ export default function AuthCallback() {
               role: role
             }));
 
-            const dashboardMap: Record<string, string> = {
-              admin: "/admin/dashboard",
-              teacher: "/teacher/dashboard",
-              student: "/student/dashboard",
-            };
-            setLocation(dashboardMap[role] || "/student/dashboard");
+
+            setLocation("/");
           }
         } else {
           // No session found, redirect to login

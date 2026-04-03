@@ -78,7 +78,7 @@ export function useAuth(options?: any) {
     setUser(mockUser);
 
     setTimeout(() => {
-      window.location.href = `/${role}/dashboard`;
+      window.location.href = "/";  // ← الصفحة الرئيسية
     }, 100);
   }, []);
 
