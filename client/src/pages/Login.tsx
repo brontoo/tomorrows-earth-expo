@@ -68,12 +68,12 @@ export default function Login() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     if (!email || !password) {
       setError("Please enter both email and password");
       return;
     }
-    
+
     try {
       if (typeof loginMock === "function") {
         await loginMock(selectedRole);
@@ -126,8 +126,8 @@ export default function Login() {
                       key={role}
                       onClick={() => setSelectedRole(role)}
                       className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${selectedRole === role
-                          ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
-                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                        ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                         }`}
                     >
                       {role}
