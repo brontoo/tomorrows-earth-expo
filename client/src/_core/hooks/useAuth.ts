@@ -1,31 +1,70 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import { getLoginUrl } from "@/const";
+import { supabase } from "@/lib/supabase";
 
-// Mock Auth لـ Vercel Static (بدون backend)
 export function useAuth(options?: any) {
   const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } = options ?? {};
+
   type MockUserType = { id: number; email: string; role: string; name: string; grade?: string; schoolClass?: string; loginMethod?: string; openId?: string };
-  const [user, setUser] = useState<MockUserType | null>(() => {
-    // Check local storage synchronously to avoid flashing
-    if (typeof window !== "undefined") {
-      const savedUser = localStorage.getItem("mock-user");
-      if (savedUser) return JSON.parse(savedUser);
-    }
-    return null;
-  });
+
+  const [user, setUser] = useState<MockUserType | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ قراءة Supabase session + hash token
   useEffect(() => {
-    setLoading(false);
-  }, []);
+    const initAuth = async () => {
+      try {
+        // 1️⃣ قراءة hash token من Supabase OAuth
+        const hash = window.location.hash;
+        if (hash) {
+          console.log("[Auth] OAuth hash detected:", hash.substring(0, 50) + "...");
 
-  useEffect(() => {
-    if (!loading && !user && redirectOnUnauthenticated) {
-      if (typeof window !== "undefined" && window.location.pathname !== redirectPath) {
-        window.location.href = redirectPath;
+          // Supabase يتعامل مع hash تلقائياً، لكن نأكد
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log("[Auth] Supabase session active:", session.user.email);
+            localStorage.setItem("mock-user", JSON.stringify({
+              id: parseInt(session.user.id),
+              email: session.user.email!,
+              name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+              role: (localStorage.getItem("selectedRole") as any) || "student",
+              openId: session.user.id
+            }));
+            setUser(JSON.parse(localStorage.getItem("mock-user")!));
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return;
+          }
+        }
+
+        // 2️⃣ Mock user من localStorage
+        const savedUser = localStorage.getItem("mock-user");
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+          return;
+        }
+
+        // 3️⃣ Supabase session عادي (غير OAuth)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          localStorage.setItem("mock-user", JSON.stringify({
+            id: parseInt(session.user.id),
+            email: session.user.email!,
+            name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+            role: (localStorage.getItem("selectedRole") as any) || "student",
+            openId: session.user.id
+          }));
+          setUser(JSON.parse(localStorage.getItem("mock-user")!));
+          return;
+        }
+      } catch (error) {
+        console.warn("[Auth] Auth init error:", error);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [loading, user, redirectOnUnauthenticated, redirectPath]);
+    };
+
+    initAuth();
+  }, []);
 
   const loginMock = useCallback(async (role: "student" | "teacher" | "admin") => {
     const mockUser = {
@@ -35,8 +74,9 @@ export function useAuth(options?: any) {
       name: "Demo " + role.charAt(0).toUpperCase() + role.slice(1)
     };
     localStorage.setItem("mock-user", JSON.stringify(mockUser));
+    localStorage.setItem("selectedRole", role);
     setUser(mockUser);
-    
+
     setTimeout(() => {
       window.location.href = `/${role}/dashboard`;
     }, 100);
@@ -44,6 +84,8 @@ export function useAuth(options?: any) {
 
   const logout = useCallback(async () => {
     localStorage.removeItem("mock-user");
+    localStorage.removeItem("selectedRole");
+    await supabase.auth.signOut();
     setUser(null);
     window.location.href = "/";
   }, []);
@@ -53,11 +95,23 @@ export function useAuth(options?: any) {
     loading,
     isAuthenticated: !!user,
     error: null,
-  }), [user, loading])
+  }), [user, loading]);
 
   return {
     ...state,
-    refresh: () => { },
+    refresh: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        localStorage.setItem("mock-user", JSON.stringify({
+          id: parseInt(session.user.id),
+          email: session.user.email!,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
+          role: (localStorage.getItem("selectedRole") as any) || "student",
+          openId: session.user.id
+        }));
+        setUser(JSON.parse(localStorage.getItem("mock-user")!));
+      }
+    },
     logout,
     loginMock,
   }
