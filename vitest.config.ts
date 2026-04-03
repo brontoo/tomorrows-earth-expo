@@ -4,7 +4,7 @@ import path from "path";
 const templateRoot = path.resolve(import.meta.dirname);
 
 export default defineConfig({
-  root: templateRoot,
+  root: "./client",
   resolve: {
     alias: {
       "@": path.resolve(templateRoot, "client", "src"),
