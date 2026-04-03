@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default function AuthCallback() {
   const [, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
-  
+
   const syncUserMutation = trpc.auth.syncUser.useMutation({
     onSuccess: (data) => {
       console.log("[Auth] Sync successful:", data.user);
@@ -30,16 +30,16 @@ export default function AuthCallback() {
     const handleCallback = async () => {
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) throw sessionError;
-        
+
         if (session) {
           const user = session.user;
           console.log("[Auth] Supabase session found for:", user.email);
-          
+
           // Call backend to sync user and set local JWT cookie
           const role = (localStorage.getItem("selectedRole") as any) || "student";
-          
+
           try {
             await syncUserMutation.mutateAsync({
               email: user.email!,
@@ -56,7 +56,7 @@ export default function AuthCallback() {
               name: user.user_metadata?.full_name || user.email?.split('@')[0],
               role: role
             }));
-            
+
             const dashboardMap: Record<string, string> = {
               admin: "/admin/dashboard",
               teacher: "/teacher/dashboard",
@@ -89,7 +89,7 @@ export default function AuthCallback() {
           </CardHeader>
           <CardContent>
             <p className="text-red-700 mb-6">{error}</p>
-            <button 
+            <button
               onClick={() => setLocation("/login")}
               className="w-full py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
             >

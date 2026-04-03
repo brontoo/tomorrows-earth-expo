@@ -1,33 +1,84 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
-import { Plus, Eye, Edit, CheckCircle2, X } from "lucide-react";
-import ProjectForm from "@/components/ProjectForm";
+import { CheckCircle2, FileText, ThumbsUp, Clock, MessageSquare, Sparkles, CalendarDays } from "lucide-react";
 import MyProjectsDashboard from "@/components/MyProjectsDashboard";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
 import { StudentDashboardLayout } from "@/components/StudentDashboardLayout";
-import { StudentDashboardOverview } from "@/components/StudentDashboardOverview";
 import PageNavigation from "@/components/PageNavigation";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { useState } from "react";
 
+// ─── Greeting helper ──────────────────────────────────────────────────────────
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: any;
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent: string;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-sm p-6 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
+      {/* Accent blob */}
+      <div
+        className="absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-20"
+        style={{ background: accent }}
+      />
+      <div className="relative z-10 flex flex-col gap-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ background: accent + "22" }}
+        >
+          <Icon size={20} style={{ color: accent }} />
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-widest font-bold text-slate-400 mb-1">{label}</p>
+          <p className="text-3xl font-black text-slate-800 leading-none">{value}</p>
+          {sub && <p className="text-xs text-slate-400 mt-1 font-medium">{sub}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 export default function StudentDashboard() {
   const { user, isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const { data: myProjects, refetch } = trpc.projects.getMyProjects.useQuery(undefined, {
+  const { data: myProjects } = trpc.projects.getMyProjects.useQuery(undefined, {
     enabled: isAuthenticated && user?.role === "student",
-  });
-  const { data: assignment, refetch: refetchAssignment } = trpc.assignments.getMyAssignment.useQuery(undefined, {
-    enabled: isAuthenticated && user?.role === "student",
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
   });
 
+  const { data: assignment } = trpc.assignments.getMyAssignment.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "student",
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
+  });
+
+  // ── Loading ──
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -43,11 +94,12 @@ export default function StudentDashboard() {
     );
   }
 
+  // ── Not authenticated ──
   if (!isAuthenticated) {
-  return (
-    <div className="min-h-screen bg-background">
-      <PageNavigation />
-      <Navigation />
+    return (
+      <div className="min-h-screen bg-background">
+        <PageNavigation />
+        <Navigation />
         <div className="container py-12 text-center">
           <h2 className="text-2xl font-bold mb-4">Please Login</h2>
           <p className="text-muted-foreground mb-6">
@@ -61,6 +113,7 @@ export default function StudentDashboard() {
     );
   }
 
+  // ── Wrong role ──
   if (user?.role !== "student") {
     return (
       <div className="min-h-screen bg-background">
@@ -78,94 +131,159 @@ export default function StudentDashboard() {
     );
   }
 
-  const getProjectProgress = (project: any) => {
-    let completed = 0;
-    const total = 7;
-    
-    if (project.title) completed++;
-    if (project.abstract) completed++;
-    if (project.scientificQuestion) completed++;
-    if (project.researchMethod) completed++;
-    if (project.thumbnailUrl) completed++;
-    if (project.videoUrl) completed++;
-    if (project.imageUrls) completed++;
-    
-    return (completed / total) * 100;
-  };
+  // ── Computed stats ──
+  const submittedCount = myProjects?.filter((p: any) => p.status !== "draft").length ?? 0;
+  const votesCount = myProjects?.reduce((acc: number, p: any) => acc + (p.votesCount ?? 0), 0) ?? 0;
+  const feedbackCount = myProjects?.filter((p: any) => p.status === "rejected").length ?? 0;
+  const deadline = new Date("2026-05-14");
+  const daysLeft = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 86400000));
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { variant: any; label: string }> = {
-      draft: { variant: "secondary", label: "Draft" },
-      submitted: { variant: "default", label: "Submitted" },
-      approved: { variant: "default", label: "Approved" },
-      rejected: { variant: "destructive", label: "Rejected" },
-      finalist: { variant: "default", label: "Finalist" },
-    };
-    
-    const config = statusMap[status] || statusMap.draft;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
+  const firstName = (user?.name ?? "Student").split(" ")[0];
+  const greeting = getGreeting();
 
   return (
     <StudentDashboardLayout activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8">
-        {/* Dashboard Tab */}
+
+        {/* ══════════ DASHBOARD TAB ══════════ */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Teacher Selection Dropdown (Primary Action) */}
-            <div className="mb-8">
-              <AssignmentWizard />
-            </div>
 
-            {/* Dashboard Overview with Welcome and Stats */}
-            <StudentDashboardOverview />
+            {/* ── Hero Welcome Banner ── */}
+            <div
+              className="relative overflow-hidden rounded-3xl p-8 md:p-10"
+              style={{
+                background: "linear-gradient(135deg, #0f5c2e 0%, #1a8a47 55%, #22c55e 100%)",
+              }}
+            >
+              {/* Decorative circles */}
+              <div className="absolute -top-10 -right-10 w-56 h-56 rounded-full bg-white opacity-10" />
+              <div className="absolute bottom-0 right-24 w-32 h-32 rounded-full bg-white opacity-10" />
+              <div className="absolute top-4 right-40 w-16 h-16 rounded-full bg-white opacity-10" />
 
-        {/* Show assignment summary if assigned */}
-        {activeTab === "dashboard" && assignment && (
-          <div className="mb-8 p-6 glass-card border-leaf-green/20 rounded-2xl overflow-hidden relative animate-in fade-in duration-700 delay-150">
-            <div className="absolute top-0 right-0 p-8 opacity-5 blur-2xl bg-leaf-green w-64 h-64 rounded-full"></div>
-            <div className="flex items-start justify-between relative z-10">
-              <div className="flex-1">
-                <h3 className="text-xl font-black text-leaf-green/90 mb-4 flex items-center gap-2">
-                  <CheckCircle2 size={24} className="text-leaf-green" />
-                  Your Configured Environment
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm bg-black/5 p-4 rounded-xl">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Teacher</p>
-                    <p className="font-bold text-foreground">{assignment.teacherName}</p>
+              <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles size={15} className="text-green-200" />
+                    <span className="text-green-200 text-xs font-semibold tracking-widest uppercase">
+                      {greeting}
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Category</p>
-                    <p className="font-bold text-foreground">{assignment.mainCategoryId}</p>
+
+                  <h1 className="text-3xl md:text-4xl font-black text-white leading-tight mb-2">
+                    Welcome back, {firstName}! 👋
+                  </h1>
+
+                  <p className="text-green-100/80 text-sm font-medium max-w-md">
+                    Here's an overview of your project progress and upcoming deadlines for Tomorrow's Earth Expo 2026.
+                  </p>
+
+                  <div className="mt-5 inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2">
+                    <CalendarDays size={13} className="text-green-200" />
+                    <span className="text-white text-xs font-bold">
+                      Expo deadline — {daysLeft} days remaining
+                    </span>
                   </div>
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Subcategory</p>
-                    <p className="font-bold text-foreground">{assignment.subcategoryId}</p>
-                  </div>
+                </div>
+
+                {/* Avatar initial */}
+                <div className="hidden md:flex items-center justify-center w-24 h-24 rounded-2xl bg-white/15 backdrop-blur-sm border border-white/20 text-white text-4xl font-black flex-shrink-0">
+                  {firstName.charAt(0).toUpperCase()}
                 </div>
               </div>
             </div>
-          </div>
-        )}
+
+            {/* ── Stat Cards ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                icon={FileText}
+                label="Projects Submitted"
+                value={submittedCount}
+                sub={submittedCount === 0 ? "No projects yet" : "Great work!"}
+                accent="#22c55e"
+              />
+              <StatCard
+                icon={ThumbsUp}
+                label="Votes Received"
+                value={votesCount}
+                sub="Community support"
+                accent="#3b82f6"
+              />
+              <StatCard
+                icon={Clock}
+                label="Days Until Deadline"
+                value={daysLeft}
+                sub="May 14, 2026"
+                accent="#f59e0b"
+              />
+              <StatCard
+                icon={MessageSquare}
+                label="Feedback Pending"
+                value={feedbackCount}
+                sub={feedbackCount === 0 ? "All reviewed" : "Needs attention"}
+                accent="#8b5cf6"
+              />
+            </div>
+
+            {/* ── Select Your Teacher ── */}
+            <div className="rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-sm shadow-sm overflow-hidden">
+              <div className="border-b border-slate-100 px-6 py-4 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  Step 1 — Select Your Teacher
+                </h2>
+              </div>
+              <div className="p-6">
+                <p className="text-slate-500 text-sm font-medium mb-5">
+                  Please select your teacher from the dropdown below to begin your project.
+                </p>
+                <AssignmentWizard />
+              </div>
+            </div>
+
+            {/* ── Assignment Summary (visible only when assigned) ── */}
+            {assignment && (
+              <div className="relative overflow-hidden rounded-2xl border border-green-200/60 bg-green-50/60 backdrop-blur-sm p-6 animate-in fade-in duration-700">
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full blur-3xl opacity-20 bg-green-400" />
+                <div className="relative z-10">
+                  <h3 className="text-sm font-black text-green-800 mb-4 flex items-center gap-2 uppercase tracking-wide">
+                    <CheckCircle2 size={16} className="text-green-600" />
+                    Your Configured Environment
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {[
+                      { label: "Teacher", value: assignment.teacherName },
+                      { label: "Category", value: assignment.mainCategoryId },
+                      { label: "Subcategory", value: assignment.subcategoryId },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="bg-white/80 rounded-xl p-4 border border-green-100">
+                        <p className="text-[10px] uppercase tracking-widest font-bold text-green-600/70 mb-1">{label}</p>
+                        <p className="font-bold text-slate-800 text-sm">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
-        {/* Projects Tab */}
+        {/* ══════════ PROJECTS TAB ══════════ */}
         {activeTab === "projects" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <MyProjectsDashboard />
           </div>
         )}
 
-        {/* Profile Settings Tab */}
+        {/* ══════════ PROFILE TAB ══════════ */}
         {activeTab === "profile" && (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
             <ProfileSettings />
           </div>
         )}
+
       </div>
     </StudentDashboardLayout>
   );
 }
-

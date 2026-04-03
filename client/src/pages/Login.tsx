@@ -10,6 +10,7 @@ import { useLocation, Link } from "wouter";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+
 export default function Login() {
   const [, setLocation] = useLocation();
   const [loginMethod, setLoginMethod] = useState<"oauth" | "email">("oauth");
@@ -40,29 +41,23 @@ export default function Login() {
 
   const { loginMock } = useAuth();
 
+  // استبدل handleGoogleLogin بالكامل بهذا:
   const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoading(true);
     try {
-      setError(null);
-      setIsLoading(true);
+      localStorage.setItem("selectedRole", selectedRole);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          queryParams: {
-            prompt: 'select_account',
-          },
-        },
+        }
       });
       if (error) throw error;
     } catch (err: any) {
-      setError(err.message || "Unable to start Google login.");
+      setError(err.message || "Failed to start Google login.");
       setIsLoading(false);
     }
-  };
-
-  const handleOAuthLogin = (role: "student" | "teacher" | "admin") => {
-    localStorage.setItem("selectedRole", role);
-    handleGoogleLogin();
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -87,6 +82,11 @@ export default function Login() {
     } catch (err) {
       setError("Login failed");
     }
+  };
+
+  const handleOAuthLogin = (role: "student" | "teacher" | "admin") => {
+    localStorage.setItem("selectedRole", role);
+    handleGoogleLogin();
   };
 
   return (
