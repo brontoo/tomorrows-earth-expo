@@ -112,25 +112,13 @@ export default function StudentDashboard() {
         {/* Dashboard Tab */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Teacher Selection Dropdown (Primary Action) */}
+            <div className="mb-8">
+              <AssignmentWizard />
+            </div>
+
             {/* Dashboard Overview with Welcome and Stats */}
             <StudentDashboardOverview />
-
-        {/* Show assignment wizard if student has no assignment */}
-        {!assignment && (
-          <div className="mb-12">
-            <Card className="border-blue-200 bg-blue-50">
-              <CardHeader>
-                <CardTitle>Complete Your Assignment</CardTitle>
-                <CardDescription>
-                  Before you can submit projects, please select your teacher and project category.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <AssignmentWizard onComplete={refetchAssignment} />
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Show assignment summary if assigned */}
         {activeTab === "dashboard" && assignment && (

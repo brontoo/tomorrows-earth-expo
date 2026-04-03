@@ -38,13 +38,32 @@ export default function AuthCallback() {
           console.log("[Auth] Supabase session found for:", user.email);
           
           // Call backend to sync user and set local JWT cookie
-          await syncUserMutation.mutateAsync({
-            email: user.email!,
-            name: user.user_metadata?.full_name || user.email?.split('@')[0],
-            openId: user.id,
-            // We can optionally pass a role from localStorage if we had a role picker before Google login
-            role: (localStorage.getItem("selectedRole") as any) || undefined,
-          });
+          const role = (localStorage.getItem("selectedRole") as any) || "student";
+          
+          try {
+            await syncUserMutation.mutateAsync({
+              email: user.email!,
+              name: user.user_metadata?.full_name || user.email?.split('@')[0],
+              openId: user.id,
+              role: role,
+            });
+          } catch (err) {
+            console.warn("[Auth] TRPC sync failed, using local fallback since backend may be off.");
+            // Vercel static fallback
+            localStorage.setItem("mock-user", JSON.stringify({
+              id: user.id || 1,
+              email: user.email,
+              name: user.user_metadata?.full_name || user.email?.split('@')[0],
+              role: role
+            }));
+            
+            const dashboardMap: Record<string, string> = {
+              admin: "/admin/dashboard",
+              teacher: "/teacher/dashboard",
+              student: "/student/dashboard",
+            };
+            setLocation(dashboardMap[role] || "/student/dashboard");
+          }
         } else {
           // No session found, redirect to login
           setLocation("/login");

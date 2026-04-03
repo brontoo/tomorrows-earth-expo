@@ -10,7 +10,7 @@ import { User, Lock, LogOut, Camera, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 export function ProfileSettings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   
   // Profile State
@@ -47,12 +47,6 @@ export function ProfileSettings() {
     }
   });
 
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      window.location.href = "/";
-    }
-  });
-
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
@@ -75,8 +69,8 @@ export function ProfileSettings() {
     updatePasswordMutation.mutate({ currentPassword, newPassword });
   };
 
-  const handleLogout = () => {
-    logoutMutation.mutate();
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (!user) return null;

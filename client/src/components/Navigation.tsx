@@ -16,13 +16,11 @@ import { useState } from "react";
 
 export default function Navigation() {
   const [location] = useLocation();
-  const { user, isAuthenticated } = useAuth();
-  const logoutMutation = trpc.auth.logout.useMutation();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync();
-    window.location.href = "/";
+    await logout();
   };
 
   const navLinks = [

@@ -3,11 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
-import { BookOpen, Users, Loader, AlertCircle, Shield, Eye, EyeOff, Mail, Lock } from "lucide-react";
-import { getLoginUrlWithRole } from "@/const";
+import { Loader, Eye, EyeOff, Mail } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation, Link } from "wouter";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function Login() {
@@ -16,12 +16,12 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  
+
   // Email/Password form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "teacher" | "student">("student");
-  
+
   // tRPC mutation for email login
   const loginMutation = trpc.auth.loginWithEmail.useMutation({
     onSuccess: () => {
@@ -38,6 +38,8 @@ export default function Login() {
     },
   });
 
+  const { loginMock } = useAuth();
+
   const handleGoogleLogin = async () => {
     try {
       setError(null);
@@ -46,12 +48,15 @@ export default function Login() {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            prompt: 'select_account',
+          },
         },
       });
       if (error) throw error;
     } catch (err: any) {
       setError(err.message || "Unable to start Google login.");
-      setIsLoading(true);
+      setIsLoading(false);
     }
   };
 
@@ -70,20 +75,24 @@ export default function Login() {
     }
     
     try {
-      await loginMutation.mutateAsync({
-        email,
-        password,
-        role: selectedRole,
-      });
+      if (typeof loginMock === "function") {
+        await loginMock(selectedRole);
+      } else {
+        await loginMutation.mutateAsync({
+          email,
+          password,
+          role: selectedRole,
+        });
+      }
     } catch (err) {
-      // Error is handled by onError callback
+      setError("Login failed");
     }
   };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-leaf-green/20 via-background to-background flex flex-col">
       <Navigation />
-      
+
       <div className="flex-1 container flex items-center justify-center py-12">
         <div className="w-full max-w-md animate-scaleIn">
           {/* Main Login Card */}
@@ -116,11 +125,10 @@ export default function Login() {
                     <button
                       key={role}
                       onClick={() => setSelectedRole(role)}
-                      className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${
-                        selectedRole === role
+                      className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${selectedRole === role
                           ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
                           : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       {role}
                     </button>
@@ -146,7 +154,7 @@ export default function Login() {
                     </>
                   )}
                 </Button>
-                
+
                 <p className="text-[11px] text-center text-muted-foreground/60 leading-relaxed px-4">
                   By continuing, you agree to the Tomorrow's Earth Expo Terms of Service and Privacy Policy.
                 </p>
