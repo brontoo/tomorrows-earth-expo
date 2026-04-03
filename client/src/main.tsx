@@ -1,3 +1,7 @@
+import { supabase } from './lib/supabase'  // ← أضف هذا
+console.log('✅ Supabase imported:', supabase)
+
+
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
