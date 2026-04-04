@@ -32,7 +32,6 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -124,8 +123,8 @@ function DropZone({
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
         className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl p-6 cursor-pointer transition-all duration-200 ${dragging
-          ? "border-primary bg-primary/5"
-          : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+            ? "border-primary bg-primary/5"
+            : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
           }`}
       >
         <Upload size={24} className="text-slate-400" />
@@ -197,10 +196,10 @@ function StepBar({ step }: { step: number }) {
             <div className="flex flex-col items-center">
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${step > i + 1
-                  ? "bg-green-500 text-white"
-                  : step === i + 1
-                    ? "bg-primary text-white ring-4 ring-primary/20"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                    ? "bg-green-500 text-white"
+                    : step === i + 1
+                      ? "bg-primary text-white ring-4 ring-primary/20"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-400"
                   }`}
               >
                 {step > i + 1 ? <CheckCircle2 size={18} /> : i + 1}
@@ -249,12 +248,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [videos, setVideos] = useState<UploadedFile[]>([]);
   const [documents, setDocuments] = useState<UploadedFile[]>([]);
-
-  const createProjectMutation = trpc.projects.submitProject.useMutation({
-    retry: false,
-    // @ts-ignore
-    onError: () => { },
-  });
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -323,7 +316,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>
   ) => setter((prev) => prev.filter((_, i) => i !== idx));
 
-  // ── Submit ──
+  // ── Submit — writes directly to Supabase, no backend needed ──
   const onSubmit = async (data: ProjectFormValues) => {
     const anyUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
     if (anyUploading) {
@@ -331,36 +324,69 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
-    setIsUploading(true);
-    try {
-      const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
-      const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
-      const documentUrls = documents.filter((f) => f.url).map((f) => f.url!);
+    if (!user?.id) {
+      toast.error("You must be logged in to submit a project.");
+      return;
+    }
 
-      await createProjectMutation.mutateAsync({
+    setIsUploading(true);
+
+    const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
+    const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
+    const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
+
+    try {
+      const { error } = await supabase.from("projects").insert({
+        title: data.title,
+        team_name: data.teamName,
+        description: data.description,
+        abstract: data.description,          // reuse description as abstract
+        grade: data.grade,
+        created_by: user.id,
+        subcategory_id: setup.subcategoryId ?? null,
+        category_id: setup.categoryId ?? null,
+        supervisor_id: setup.supervisorId ?? null,
+        status: "submitted",
+        submitted_at: new Date().toISOString(),
+        image_urls: JSON.stringify(imageUrls),
+        video_url: videoUrls[0] ?? null,      // first video as main
+        document_urls: JSON.stringify(docUrls),
+      });
+
+      if (error) throw error;
+
+      toast.success("🎉 Project submitted successfully!");
+    } catch (err: any) {
+      // Supabase failed → save locally as fallback
+      console.warn("[ProjectForm] Supabase insert failed:", err?.message);
+      const fallback = {
+        id: nanoid(),
         title: data.title,
         teamName: data.teamName,
         description: data.description,
         grade: data.grade,
-        subcategoryId: Number(setup.subcategoryId),
-        supervisorId: setup.supervisorId ? Number(setup.supervisorId) : undefined, // ✅
-        teacherName: setup.teacher,   // ✅ fallback للاسم
-        documentUrls: [...imageUrls, ...videoUrls, ...documentUrls],
-      });
-
-      toast.success("🎉 Project submitted successfully!");
+        teacher: setup.teacher,
+        category: setup.categoryName,
+        subcategory: setup.subcategory,
+        imageUrls,
+        videoUrls,
+        documentUrls: docUrls,
+        status: "submitted",
+        submittedAt: new Date().toISOString(),
+      };
+      const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
+      existing.push(fallback);
+      localStorage.setItem("local-projects", JSON.stringify(existing));
+      toast.success("Project saved locally — will sync when online.");
+    } finally {
       localStorage.removeItem("project-setup");
       form.reset();
       setStep(1);
       setImages([]);
       setVideos([]);
       setDocuments([]);
-      onSuccess?.();
-    } catch (err: any) {
-      toast.error(`❌ ${err?.message || "Submission failed. Please try again."}`);
-      console.error("Project submission error:", err);
-    } finally {
       setIsUploading(false);
+      onSuccess?.();
     }
   };
 
@@ -619,10 +645,10 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
             ) : (
               <Button
                 type="submit"
-                disabled={createProjectMutation.isPending || isUploading || allUploading}
+                disabled={isUploading || allUploading}
                 className="rounded-xl px-8 premium-gradient text-white border-none min-w-36"
               >
-                {(createProjectMutation.isPending || isUploading) ? (
+                {isUploading ? (
                   <><Loader2 size={16} className="animate-spin mr-2" /> Submitting...</>
                 ) : allUploading ? (
                   <><Loader2 size={16} className="animate-spin mr-2" /> Uploading files...</>

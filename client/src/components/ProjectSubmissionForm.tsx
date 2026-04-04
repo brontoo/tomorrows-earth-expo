@@ -139,16 +139,18 @@ export default function ProjectSubmissionForm({
         // Fallback for demo mode
         console.warn("Subcategory ID is required, falling back to mock submission");
       }
-      
+
       const teacherName = new URLSearchParams(window.location.search).get("teacher") || "Assigned Teacher";
-      
+
       const result = await submitProjectMutation.mutateAsync({
         title: data.title,
         description: data.description,
         subcategoryId: subcategoryId || 1,
         // using a generic supervisor id or taking from search params if we updated the DB 
-        supervisorId: 1, 
-        documentUrls: [], // TODO: Upload files to S3 and get URLs
+        supervisorId: 1,
+        documentUrls: [],
+        teamName: "",
+        grade: ""
       });
       // The onSuccess handler in useMutation will handle routing
     } catch (error) {
