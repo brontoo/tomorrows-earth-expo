@@ -331,12 +331,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
-    // تأكد أن setup فيه subcategoryId
-    if (!setup.subcategoryId) {
-      toast.error("Please complete the setup wizard first (select teacher and category).");
-      return;
-    }
-
     setIsUploading(true);
     try {
       const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
@@ -345,11 +339,11 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
 
       await createProjectMutation.mutateAsync({
         title: data.title,
-        teamName: data.teamName,           // ✅ كان ناقصًا
+        teamName: data.teamName,
         description: data.description,
-        grade: data.grade,                 // ✅ كان ناقصًا
-        subcategoryId: setup.subcategoryId,
-        supervisorId: setup.supervisorId || 1,
+        grade: data.grade,
+        subcategoryId: Number(setup.subcategoryId) || 1,
+        supervisorId: Number(setup.supervisorId) || 1,
         documentUrls: [...imageUrls, ...videoUrls, ...documentUrls],
       });
 
@@ -361,11 +355,8 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       setVideos([]);
       setDocuments([]);
       onSuccess?.();
-
     } catch (err: any) {
-      // ✅ بدل الحفظ محلياً، نعرض الخطأ الحقيقي
-      const message = err?.message || "Submission failed. Please try again.";
-      toast.error(`❌ ${message}`);
+      toast.error(`❌ ${err?.message || "Submission failed. Please try again."}`);
       console.error("Project submission error:", err);
     } finally {
       setIsUploading(false);

@@ -115,10 +115,10 @@ function StepIndicator({
     <div className="flex flex-col items-center gap-1.5 flex-1">
       <div
         className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${done
-            ? "bg-green-500 text-white shadow-md shadow-green-200"
-            : active
-              ? "bg-primary text-white shadow-md shadow-primary/30 ring-4 ring-primary/20"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+          ? "bg-green-500 text-white shadow-md shadow-green-200"
+          : active
+            ? "bg-primary text-white shadow-md shadow-primary/30 ring-4 ring-primary/20"
+            : "bg-slate-100 dark:bg-slate-800 text-slate-400"
           }`}
       >
         {done ? <CheckCircle2 size={18} /> : <Icon size={16} />}
@@ -144,7 +144,19 @@ export function AssignmentWizard() {
   const selectedCategory = CATEGORIES.find((c) => c.id === selectedCategoryId);
 
   const handleSubmit = () => {
-    // Save to localStorage so ProjectForm can read them
+    const categoryOffsets: Record<string, number> = {
+      environmental: 0,
+      community: 4,
+      innovation: 8,
+      education: 12,
+    };
+
+    const subcategoryIndex =
+      selectedCategory?.subcategories.indexOf(selectedSubcategory) ?? 0;
+
+    const subcategoryId = 1 + categoryOffsets[selectedCategoryId] + subcategoryIndex;
+    // environmental→1  community→5  innovation→9  education→13
+
     localStorage.setItem(
       "project-setup",
       JSON.stringify({
@@ -152,6 +164,8 @@ export function AssignmentWizard() {
         categoryId: selectedCategoryId,
         categoryName: selectedCategory?.name,
         subcategory: selectedSubcategory,
+        subcategoryId: subcategoryId,  // ✅ رقم صحيح من 1 إلى 16
+        supervisorId: null,
       })
     );
     setLocation("/project-submission");
@@ -228,8 +242,8 @@ export function AssignmentWizard() {
                     setSelectedSubcategory(""); // reset subcategory
                   }}
                   className={`group text-left rounded-xl border-2 p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${selectedCategoryId === cat.id
-                      ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-md"
-                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300"
+                    ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-md"
+                    : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300"
                     }`}
                 >
                   <div className="flex items-start gap-3">
@@ -285,23 +299,23 @@ export function AssignmentWizard() {
                   key={sub}
                   onClick={() => setSelectedSubcategory(sub)}
                   className={`group w-full text-left rounded-xl border-2 px-4 py-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${selectedSubcategory === sub
-                      ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm"
-                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300"
+                    ? "border-primary bg-primary/5 dark:bg-primary/10 shadow-sm"
+                    : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 hover:border-slate-300"
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     <span
                       className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-black transition-colors ${selectedSubcategory === sub
-                          ? "bg-primary text-white"
-                          : "bg-slate-100 dark:bg-slate-700 text-slate-500"
+                        ? "bg-primary text-white"
+                        : "bg-slate-100 dark:bg-slate-700 text-slate-500"
                         }`}
                     >
                       {idx + 1}
                     </span>
                     <span
                       className={`text-sm font-semibold leading-snug ${selectedSubcategory === sub
-                          ? "text-primary dark:text-primary"
-                          : "text-slate-700 dark:text-slate-200"
+                        ? "text-primary dark:text-primary"
+                        : "text-slate-700 dark:text-slate-200"
                         }`}
                     >
                       {sub}
