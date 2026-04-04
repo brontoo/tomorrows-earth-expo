@@ -11,7 +11,14 @@ export default function AuthCallback() {
 
   const syncUserMutation = trpc.auth.syncUser.useMutation({
     onSuccess: (data) => {
-      setLocation("/");
+      console.log("[Auth] Sync successful:", data.user);
+      const role = data.user.role;
+      const dashboardMap: Record<string, string> = {
+        admin: "/admin/dashboard",
+        teacher: "/teacher/dashboard",
+        student: "/student/dashboard",
+      };
+      setLocation(dashboardMap[role] || "/student/dashboard");
     },
     onError: (err) => {
       setError(err.message || "Failed to synchronize your account.");
@@ -29,31 +36,38 @@ export default function AuthCallback() {
           const user = session.user;
           console.log("[Auth] Supabase session found for:", user.email);
 
-          // Call backend to sync user and set local JWT cookie
           const role = (localStorage.getItem("selectedRole") as any) || "student";
 
+          // ── Always save mock-user with the Supabase UUID as id ──
+          // This is used throughout the app when the backend is offline
+          const mockUser = {
+            id: user.id,           // Supabase UUID string — used for Supabase inserts
+            openId: user.id,       // same value, kept for compatibility
+            email: user.email,
+            name: user.user_metadata?.full_name || user.email?.split("@")[0],
+            role,
+          };
+          localStorage.setItem("mock-user", JSON.stringify(mockUser));
+
+          // ── Try to sync with backend ──
           try {
             await syncUserMutation.mutateAsync({
               email: user.email!,
-              name: user.user_metadata?.full_name || user.email?.split('@')[0],
+              name: mockUser.name,
               openId: user.id,
-              role: role,
+              role,
             });
-          } catch (err) {
-            console.warn("[Auth] TRPC sync failed, using local fallback since backend may be off.");
-            // Vercel static fallback
-            localStorage.setItem("mock-user", JSON.stringify({
-              id: user.id || 1,
-              email: user.email,
-              name: user.user_metadata?.full_name || user.email?.split('@')[0],
-              role: role
-            }));
-
-
-            setLocation("/");
+          } catch {
+            console.warn("[Auth] tRPC sync failed — using local mock-user (backend offline).");
+            // mock-user is already saved above, just redirect
+            const dashboardMap: Record<string, string> = {
+              admin: "/admin/dashboard",
+              teacher: "/teacher/dashboard",
+              student: "/student/dashboard",
+            };
+            setLocation(dashboardMap[role] || "/student/dashboard");
           }
         } else {
-          // No session found, redirect to login
           setLocation("/login");
         }
       } catch (err: any) {

@@ -324,8 +324,11 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
-    if (!user?.id) {
+    // user.id is the Supabase UUID (string) stored in mock-user
+    const userId = user?.id ?? user?.openId ?? null;
+    if (!userId) {
       toast.error("You must be logged in to submit a project.");
+      setIsUploading(false);
       return;
     }
 
@@ -336,20 +339,19 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
 
     try {
+      // created_by stores the Supabase UUID (text) — make sure your DB column allows it
       const { error } = await supabase.from("projects").insert({
         title: data.title,
         team_name: data.teamName,
         description: data.description,
-        abstract: data.description,          // reuse description as abstract
+        abstract: data.description,
         grade: data.grade,
-        created_by: user.id,
         subcategory_id: setup.subcategoryId ?? null,
         category_id: setup.categoryId ?? null,
-        supervisor_id: setup.supervisorId ?? null,
         status: "submitted",
         submitted_at: new Date().toISOString(),
         image_urls: JSON.stringify(imageUrls),
-        video_url: videoUrls[0] ?? null,      // first video as main
+        video_url: videoUrls[0] ?? null,
         document_urls: JSON.stringify(docUrls),
       });
 
