@@ -1,355 +1,287 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Plus, Eye, Edit2, Trash2, CheckCircle, Clock, AlertCircle, XCircle } from "lucide-react";
+import {
+  Loader2, Plus, Eye, Edit2, Trash2,
+  CheckCircle, Clock, AlertCircle, XCircle,
+  ArrowRight, Rocket,
+} from "lucide-react";
 import { toast } from "sonner";
+import { AssignmentWizard } from "@/components/AssignmentWizard";
 
+// ─── Wizard Modal ─────────────────────────────────────────────────────────────
+function WizardModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}
+    >
+      <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-6 py-5">
+          <h2 className="text-white font-black text-lg">Start Your Project</h2>
+          <p className="text-green-100 text-sm font-medium mt-0.5">
+            Complete the steps below to begin your project submission
+          </p>
+        </div>
+
+        {/* Wizard */}
+        <div className="p-6">
+          <AssignmentWizard />
+        </div>
+
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors font-bold text-sm"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
+function StatusIcon({ status }: { status: string }) {
+  const map: Record<string, React.ReactNode> = {
+    approved: <CheckCircle className="w-5 h-5 text-green-600" />,
+    rejected: <XCircle className="w-5 h-5 text-red-600" />,
+    submitted: <Clock className="w-5 h-5 text-blue-600" />,
+    draft: <AlertCircle className="w-5 h-5 text-yellow-600" />,
+  };
+  return <>{map[status] || <AlertCircle className="w-5 h-5 text-slate-400" />}</>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; className: string }> = {
+    approved: { label: "Approved", className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+    rejected: { label: "Rejected", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
+    submitted: { label: "Under Review", className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+    draft: { label: "Draft", className: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300" },
+  };
+  const cfg = map[status] || { label: status, className: "bg-slate-100 text-slate-700" };
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${cfg.className}`}>{cfg.label}</span>;
+}
+
+// ─── Project Card ─────────────────────────────────────────────────────────────
+function ProjectCard({
+  project, onView, onEdit, onDelete,
+}: {
+  project: any;
+  onView: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/80 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 p-6">
+      <div className="flex justify-between items-start mb-5">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-9 h-9 rounded-xl bg-slate-50 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+            <StatusIcon status={project.status} />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-base font-black text-slate-800 dark:text-slate-100 truncate">{project.title}</h3>
+            {project.description && (
+              <p className="text-xs text-slate-400 font-medium mt-0.5 line-clamp-1">{project.description}</p>
+            )}
+          </div>
+        </div>
+        <StatusBadge status={project.status} />
+      </div>
+
+      {/* Meta grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 mb-4">
+        {[
+          { label: "Category", value: project.categoryId },
+          { label: "Grade", value: project.grade ? `Grade ${project.grade}` : "—" },
+          { label: "Team", value: project.teamName },
+          { label: "Submitted", value: project.submittedAt ? new Date(project.submittedAt).toLocaleDateString() : "Not yet" },
+        ].map(({ label, value }) => (
+          <div key={label}>
+            <p className="text-[9px] uppercase tracking-widest font-black text-slate-400 mb-0.5">{label}</p>
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Rejection feedback */}
+      {project.status === "rejected" && project.rejectionReason && (
+        <div className="mb-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
+          <p className="text-[10px] font-black text-red-500 uppercase tracking-wider mb-1">Teacher Feedback</p>
+          <p className="text-xs text-red-600 dark:text-red-300 font-medium">{project.rejectionReason}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-700">
+        <Button variant="outline" size="sm" onClick={onView} className="gap-1.5 rounded-xl text-xs font-bold">
+          <Eye size={13} /> View
+        </Button>
+        {project.status === "draft" && (
+          <>
+            <Button variant="outline" size="sm" onClick={onEdit} className="gap-1.5 rounded-xl text-xs font-bold text-primary border-primary/30">
+              <Edit2 size={13} /> Edit
+            </Button>
+            <Button variant="outline" size="sm" onClick={onDelete} className="gap-1.5 rounded-xl text-xs font-bold text-red-500 border-red-200 hover:bg-red-50">
+              <Trash2 size={13} /> Delete
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MyProjectsDashboard() {
   const [, navigate] = useLocation();
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const { isAuthenticated } = useAuth();
+  const [showWizard, setShowWizard] = useState(false);
 
-  // Fetch user's projects
-  const { data: projects, isLoading, refetch } = trpc.projects.getMyProjects.useQuery();
-
-  // Delete project mutation
-  const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onSuccess: () => {
-      toast.success("Project deleted successfully");
-      refetch();
-    },
-    onError: (error) => {
-      toast.error(error.message || "Failed to delete project");
-    },
+  const { data: projects, isLoading, refetch } = trpc.projects.getMyProjects.useQuery(undefined, {
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
   });
 
-  const handleDeleteProject = (projectId: number) => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      deleteProjectMutation.mutate({ id: projectId });
-    }
+  const deleteProjectMutation = trpc.projects.delete.useMutation({
+    onSuccess: () => { toast.success("Project deleted"); refetch(); },
+    onError: (e) => toast.error(e.message || "Failed to delete"),
+  });
+
+  const handleDelete = (id: number) => {
+    if (confirm("Delete this project?")) deleteProjectMutation.mutate({ id });
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case "rejected":
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case "submitted":
-        return <Clock className="w-5 h-5 text-blue-600" />;
-      case "draft":
-        return <AlertCircle className="w-5 h-5 text-yellow-600" />;
-      default:
-        return <AlertCircle className="w-5 h-5 text-gray-600" />;
-    }
+  // ── The single entry point for "new project" ──
+  const handleNewProject = () => {
+    if (!isAuthenticated) { navigate("/login"); return; }
+    setShowWizard(true);
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "approved":
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
-      case "rejected":
-        return <Badge className="bg-red-100 text-red-800">Rejected</Badge>;
-      case "submitted":
-        return <Badge className="bg-blue-100 text-blue-800">Under Review</Badge>;
-      case "draft":
-        return <Badge className="bg-yellow-100 text-yellow-800">Draft</Badge>;
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
-  const draftProjects = projects?.filter((p: any) => p.status === "draft") || [];
-  const submittedProjects = projects?.filter((p: any) => p.status === "submitted") || [];
-  const approvedProjects = projects?.filter((p: any) => p.status === "approved") || [];
-  const rejectedProjects = projects?.filter((p: any) => p.status === "rejected") || [];
+  const draft = projects?.filter((p: any) => p.status === "draft") || [];
+  const submitted = projects?.filter((p: any) => p.status === "submitted") || [];
+  const approved = projects?.filter((p: any) => p.status === "approved") || [];
+  const rejected = projects?.filter((p: any) => p.status === "rejected") || [];
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-12">
+      <div className="flex justify-center items-center py-20">
         <Loader2 className="animate-spin w-8 h-8 text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">My Projects</h1>
-          <p className="text-muted-foreground">
-            Manage and track your project submissions
-          </p>
-        </div>
-        <Button
-          onClick={() => navigate("/project-submission")}
-          className="gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Project
-        </Button>
-      </div>
+    <>
+      {/* ── Wizard Modal ── */}
+      {showWizard && <WizardModal onClose={() => setShowWizard(false)} />}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-transform duration-300">
-          <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            Total Projects
-          </div>
-          <div className="text-3xl font-black text-foreground">{projects?.length || 0}</div>
-        </div>
-        <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-transform duration-300">
-          <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            Drafts
-          </div>
-          <div className="text-3xl font-black text-yellow-500">{draftProjects.length}</div>
-        </div>
-        <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-transform duration-300">
-          <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            Under Review
-          </div>
-          <div className="text-3xl font-black text-primary">{submittedProjects.length}</div>
-        </div>
-        <div className="glass-card p-6 rounded-2xl hover:scale-[1.02] transition-transform duration-300">
-          <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-2">
-            Approved
-          </div>
-          <div className="text-3xl font-black text-leaf-green">{approvedProjects.length}</div>
-        </div>
-      </div>
-
-      {/* Projects Tabs */}
-      {projects && projects.length > 0 ? (
-        <Tabs defaultValue="all" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="all">All Projects</TabsTrigger>
-            <TabsTrigger value="draft">Drafts ({draftProjects.length})</TabsTrigger>
-            <TabsTrigger value="submitted">Under Review ({submittedProjects.length})</TabsTrigger>
-            <TabsTrigger value="approved">Approved ({approvedProjects.length})</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected ({rejectedProjects.length})</TabsTrigger>
-          </TabsList>
-
-          {/* All Projects Tab */}
-          <TabsContent value="all" className="space-y-4">
-            {projects.map((project: any) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onView={() => navigate(`/project/${project.id}`)}
-                onEdit={() => navigate(`/project/${project.id}/edit`)}
-                onDelete={() => handleDeleteProject(project.id)}
-                getStatusIcon={getStatusIcon}
-                getStatusBadge={getStatusBadge}
-              />
-            ))}
-          </TabsContent>
-
-          {/* Draft Projects Tab */}
-          <TabsContent value="draft" className="space-y-4">
-            {draftProjects.length > 0 ? (
-              draftProjects.map((project: any) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onView={() => navigate(`/project/${project.id}`)}
-                  onEdit={() => navigate(`/project/${project.id}/edit`)}
-                  onDelete={() => handleDeleteProject(project.id)}
-                  getStatusIcon={getStatusIcon}
-                  getStatusBadge={getStatusBadge}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No draft projects. <a href="/project-submission" className="text-primary hover:underline">Create one</a>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Submitted Projects Tab */}
-          <TabsContent value="submitted" className="space-y-4">
-            {submittedProjects.length > 0 ? (
-              submittedProjects.map((project: any) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onView={() => navigate(`/project/${project.id}`)}
-                  onEdit={() => navigate(`/project/${project.id}/edit`)}
-                  onDelete={() => handleDeleteProject(project.id)}
-                  getStatusIcon={getStatusIcon}
-                  getStatusBadge={getStatusBadge}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No projects under review
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Approved Projects Tab */}
-          <TabsContent value="approved" className="space-y-4">
-            {approvedProjects.length > 0 ? (
-              approvedProjects.map((project: any) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onView={() => navigate(`/project/${project.id}`)}
-                  onEdit={() => navigate(`/project/${project.id}/edit`)}
-                  onDelete={() => handleDeleteProject(project.id)}
-                  getStatusIcon={getStatusIcon}
-                  getStatusBadge={getStatusBadge}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No approved projects yet
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Rejected Projects Tab */}
-          <TabsContent value="rejected" className="space-y-4">
-            {rejectedProjects.length > 0 ? (
-              rejectedProjects.map((project: any) => (
-                <ProjectCard
-                  key={project.id}
-                  project={project}
-                  onView={() => navigate(`/project/${project.id}`)}
-                  onEdit={() => navigate(`/project/${project.id}/edit`)}
-                  onDelete={() => handleDeleteProject(project.id)}
-                  getStatusIcon={getStatusIcon}
-                  getStatusBadge={getStatusBadge}
-                />
-              ))
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No rejected projects
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <div className="glass-card p-12 rounded-3xl text-center border-white/10 mt-8">
-          <div className="text-center space-y-4 max-w-md mx-auto">
-            <div className="inline-flex p-4 rounded-2xl bg-white/5 mb-4">
-              <Plus className="w-12 h-12 text-primary opacity-50" />
-            </div>
-            <h3 className="text-xl font-bold text-foreground">No projects</h3>
-            <p className="text-muted-foreground font-medium">You haven't submitted any projects yet. Start by creating a draft to participate in the Expo.</p>
-            <Button onClick={() => navigate("/project-submission")} className="mt-4 premium-gradient font-bold px-8" size="lg">
-              Submit Your First Project
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface ProjectCardProps {
-  project: any;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  getStatusIcon: (status: string) => React.ReactNode;
-  getStatusBadge: (status: string) => React.ReactNode;
-}
-
-function ProjectCard({
-  project,
-  onView,
-  onEdit,
-  onDelete,
-  getStatusIcon,
-  getStatusBadge,
-}: ProjectCardProps) {
-  return (
-    <div className="glass-card p-6 rounded-2xl border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-lg">
-      <div className="flex justify-between items-start mb-6">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-white/5">{getStatusIcon(project.status)}</div>
-            <h3 className="text-xl font-black tracking-tight">{project.title}</h3>
-          </div>
-          <p className="text-sm text-muted-foreground font-medium line-clamp-2">{project.description}</p>
-        </div>
-        <div>
-          {getStatusBadge(project.status)}
-        </div>
-      </div>
-      
-      <div className="space-y-4">
-        {/* Project Info */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm bg-black/5 p-4 rounded-xl">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
           <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Category</p>
-            <p className="font-bold text-foreground">{project.categoryId}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Grade</p>
-            <p className="font-bold text-foreground">{project.grade}</p>
-          </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Submitted</p>
-            <p className="font-bold text-foreground">
-              {project.submittedAt
-                ? new Date(project.submittedAt).toLocaleDateString()
-                : "Not submitted"}
+            <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100">My Projects</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+              Manage and track your project submissions
             </p>
           </div>
-          <div>
-            <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Team</p>
-            <p className="font-bold text-foreground">{project.teamName}</p>
-          </div>
+          <Button
+            onClick={handleNewProject}
+            className="gap-2 premium-gradient text-white border-none rounded-xl font-bold shadow-md hover:scale-[1.02] transition-transform"
+          >
+            <Plus size={16} />
+            New Project
+          </Button>
         </div>
 
-        {/* Rejection Reason (if rejected) */}
-        {project.status === "rejected" && project.rejectionReason && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-            <p className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1">Feedback from teacher</p>
-            <p className="text-sm text-red-400 font-medium">{project.rejectionReason}</p>
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Total", value: projects?.length ?? 0, color: "text-slate-700 dark:text-slate-200" },
+            { label: "Drafts", value: draft.length, color: "text-amber-500" },
+            { label: "Under Review", value: submitted.length, color: "text-blue-600" },
+            { label: "Approved", value: approved.length, color: "text-green-600" },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="rounded-2xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-slate-800/60 p-5 shadow-sm">
+              <p className="text-[10px] uppercase tracking-widest font-black text-slate-400 mb-1">{label}</p>
+              <p className={`text-3xl font-black ${color}`}>{value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Projects list or empty state */}
+        {projects && projects.length > 0 ? (
+          <Tabs defaultValue="all" className="space-y-4">
+            <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              {[
+                { value: "all", label: `All (${projects.length})` },
+                { value: "draft", label: `Drafts (${draft.length})` },
+                { value: "submitted", label: `Review (${submitted.length})` },
+                { value: "approved", label: `Approved (${approved.length})` },
+                { value: "rejected", label: `Rejected (${rejected.length})` },
+              ].map(({ value, label }) => (
+                <TabsTrigger key={value} value={value} className="rounded-lg text-xs font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700">
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            {[
+              { value: "all", list: projects },
+              { value: "draft", list: draft },
+              { value: "submitted", list: submitted },
+              { value: "approved", list: approved },
+              { value: "rejected", list: rejected },
+            ].map(({ value, list }) => (
+              <TabsContent key={value} value={value} className="space-y-4">
+                {list.length > 0 ? list.map((p: any) => (
+                  <ProjectCard
+                    key={p.id}
+                    project={p}
+                    onView={() => navigate(`/project/${p.id}`)}
+                    onEdit={() => navigate(`/project/${p.id}/edit`)}
+                    onDelete={() => handleDelete(p.id)}
+                  />
+                )) : (
+                  <div className="text-center py-12 text-slate-400 font-medium">
+                    No projects in this category.{" "}
+                    <button onClick={handleNewProject} className="text-primary font-bold hover:underline">
+                      Create one
+                    </button>
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          /* ── Empty state ── */
+          <div className="rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-16 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-5">
+              <Rocket size={28} className="text-green-600" />
+            </div>
+            <h3 className="text-xl font-black text-slate-800 dark:text-slate-100 mb-2">
+              No Projects Yet
+            </h3>
+            <p className="text-sm text-slate-400 font-medium max-w-xs mx-auto mb-8">
+              You haven't submitted any projects yet. Start by selecting your teacher and category, then submit your project.
+            </p>
+            <Button
+              onClick={handleNewProject}
+              size="lg"
+              className="premium-gradient text-white border-none rounded-full px-10 font-bold shadow-xl hover:scale-105 transition-transform gap-2"
+            >
+              Submit Your First Project
+              <ArrowRight size={16} />
+            </Button>
           </div>
         )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-2 justify-end pt-2 border-t border-border/10">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onView}
-            className="gap-2 glass-card border-white/20 hover:bg-white/10 font-bold"
-          >
-            <Eye className="w-4 h-4" />
-            View
-          </Button>
-          {project.status === "draft" && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onEdit}
-                className="gap-2 glass-card border-white/20 hover:bg-white/10 font-bold text-primary"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onDelete}
-                className="gap-2 glass-card border-white/20 hover:bg-white/10 font-bold text-destructive hover:text-destructive"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </>
-          )}
-        </div>
       </div>
-    </div>
+    </>
   );
 }

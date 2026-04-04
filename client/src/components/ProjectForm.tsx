@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -21,383 +22,632 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Upload, X } from "lucide-react";
+import {
+  Upload,
+  X,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { nanoid } from "nanoid";
 
+// ─── Schema ───────────────────────────────────────────────────────────────────
+// categoryId is NOT in the schema — it comes from AssignmentWizard setup
 const projectFormSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(200),
   teamName: z.string().min(2, "Team name must be at least 2 characters").max(100),
-  categoryId: z.string().min(1, "Please select a category"),
+  description: z.string().min(20, "Please describe your project in at least 20 characters"),
   grade: z.string().min(1, "Please select a grade"),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
+// ─── Upload helpers ───────────────────────────────────────────────────────────
+const BUCKET = "project-files"; // Create this bucket in Supabase Dashboard → Storage
+
+interface UploadedFile {
+  file: File;
+  url: string | null;       // null = not uploaded yet
+  uploading: boolean;
+  error: string | null;
+  preview?: string;         // for images
+}
+
+async function uploadToSupabase(
+  file: File,
+  folder: "images" | "videos" | "documents",
+  userId: string
+): Promise<string> {
+  const ext = file.name.split(".").pop();
+  const path = `${folder}/${userId}/${nanoid()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: false, contentType: file.type });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+// ─── DropZone sub-component ───────────────────────────────────────────────────
+function DropZone({
+  accept,
+  label,
+  hint,
+  icon: Icon,
+  files,
+  onAdd,
+  onRemove,
+  maxFiles = 10,
+}: {
+  accept: string;
+  label: string;
+  hint: string;
+  icon: any;
+  files: UploadedFile[];
+  onAdd: (f: File[]) => void;
+  onRemove: (i: number) => void;
+  maxFiles?: number;
+}) {
+  const [dragging, setDragging] = useState(false);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragging(false);
+    const dropped = Array.from(e.dataTransfer.files).filter((f) =>
+      accept.split(",").some((a) => f.type.match(a.trim().replace("*", ".*")))
+    );
+    onAdd(dropped);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon size={16} className="text-slate-500" />
+        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{label}</span>
+        <span className="text-xs text-slate-400 ml-auto">{files.length}/{maxFiles}</span>
+      </div>
+
+      {/* Drop area */}
+      <label
+        htmlFor={`upload-${label}`}
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={handleDrop}
+        className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl p-6 cursor-pointer transition-all duration-200 ${dragging
+          ? "border-primary bg-primary/5"
+          : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+          }`}
+      >
+        <Upload size={24} className="text-slate-400" />
+        <p className="text-sm font-medium text-slate-500 dark:text-slate-400 text-center">{hint}</p>
+        <span className="text-xs text-primary font-bold">Click to browse</span>
+        <input
+          id={`upload-${label}`}
+          type="file"
+          multiple
+          accept={accept}
+          className="hidden"
+          onChange={(e) => onAdd(Array.from(e.target.files || []))}
+        />
+      </label>
+
+      {/* File list */}
+      {files.length > 0 && (
+        <div className="space-y-2">
+          {files.map((f, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3"
+            >
+              {/* Image preview */}
+              {f.preview && (
+                <img src={f.preview} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+              )}
+
+              {/* File name */}
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate flex-1">
+                {f.file.name}
+              </span>
+
+              {/* Status */}
+              <div className="flex-shrink-0">
+                {f.uploading && <Loader2 size={16} className="animate-spin text-primary" />}
+                {!f.uploading && f.url && <CheckCircle2 size={16} className="text-green-500" />}
+                {!f.uploading && f.error && (
+                  <span title={f.error}>
+                    <AlertCircle size={16} className="text-red-500" />
+                  </span>
+                )}
+              </div>
+
+              {/* Remove */}
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                className="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Step indicator ───────────────────────────────────────────────────────────
+function StepBar({ step }: { step: number }) {
+  const steps = ["Basic Info", "Media Upload", "Review & Submit"];
+  return (
+    <div className="mb-8">
+      <div className="flex items-center mb-3">
+        {steps.map((label, i) => (
+          <div key={i} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center">
+              <div
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${step > i + 1
+                  ? "bg-green-500 text-white"
+                  : step === i + 1
+                    ? "bg-primary text-white ring-4 ring-primary/20"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                  }`}
+              >
+                {step > i + 1 ? <CheckCircle2 size={18} /> : i + 1}
+              </div>
+              <span
+                className={`text-[10px] font-bold uppercase tracking-wide mt-1 hidden sm:block ${step === i + 1 ? "text-primary" : "text-slate-400"
+                  }`}
+              >
+                {label}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className={`flex-1 h-px mx-2 mb-4 transition-colors duration-500 ${step > i + 1 ? "bg-green-400" : "bg-slate-200 dark:bg-slate-700"
+                  }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 interface ProjectFormProps {
   onSuccess?: () => void;
   initialData?: Partial<ProjectFormValues>;
 }
 
 export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
-  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
-  const [uploadedVideos, setUploadedVideos] = useState<File[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const { data: categories } = trpc.categories.getAll.useQuery();
-  const createProjectMutation = trpc.projects.create.useMutation();
+  // Read pre-selected category/subcategory/teacher from AssignmentWizard
+  const setup = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("project-setup") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+
+  // ── File states ──
+  const [images, setImages] = useState<UploadedFile[]>([]);
+  const [videos, setVideos] = useState<UploadedFile[]>([]);
+  const [documents, setDocuments] = useState<UploadedFile[]>([]);
+
+  const createProjectMutation = trpc.projects.submitProject.useMutation({
+    retry: false,
+    // @ts-ignore
+    onError: () => { },
+  });
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
     defaultValues: initialData || {
       title: "",
       teamName: "",
-      categoryId: "",
+      description: "",
       grade: "",
     },
   });
 
-  const onSubmit = async (data: ProjectFormValues) => {
-    try {
-      await createProjectMutation.mutateAsync({
-        title: data.title,
-        teamName: data.teamName,
-        categoryId: parseInt(data.categoryId),
-        grade: data.grade,
+  // ── Add files helper ──
+  const addFiles = useCallback(
+    (
+      newFiles: File[],
+      setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>,
+      folder: "images" | "videos" | "documents"
+    ) => {
+      const wrapped: UploadedFile[] = newFiles.map((file) => ({
+        file,
+        url: null,
+        uploading: false,
+        error: null,
+        preview: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
+      }));
+      setter((prev) => [...prev, ...wrapped]);
+
+      // Upload each immediately
+      wrapped.forEach((_, i) => {
+        const idx = (setter === setImages ? images : setter === setVideos ? videos : documents).length + i;
+        uploadFile(newFiles[i], folder, setter, idx);
       });
-      form.reset();
-      setStep(1);
-      setUploadedImages([]);
-      setUploadedVideos([]);
-      toast.success("Project created successfully!");
-      onSuccess?.();
-    } catch (error) {
-      console.error("Failed to create project:", error);
-      toast.error("Failed to create project. Please try again.");
+    },
+    [images, videos, documents]
+  );
+
+  const uploadFile = async (
+    file: File,
+    folder: "images" | "videos" | "documents",
+    setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>,
+    idx: number
+  ) => {
+    if (!user?.id) return;
+
+    setter((prev) =>
+      prev.map((f, i) => (i === idx ? { ...f, uploading: true, error: null } : f))
+    );
+
+    try {
+      const url = await uploadToSupabase(file, folder, String(user.id));
+      setter((prev) =>
+        prev.map((f, i) => (i === idx ? { ...f, uploading: false, url } : f))
+      );
+    } catch (err: any) {
+      setter((prev) =>
+        prev.map((f, i) =>
+          i === idx ? { ...f, uploading: false, error: err.message || "Upload failed" } : f
+        )
+      );
+      toast.error(`Failed to upload ${file.name}`);
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setUploadedImages((prev) => [...prev, ...files]);
+  const removeFile = (
+    idx: number,
+    setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>
+  ) => setter((prev) => prev.filter((_, i) => i !== idx));
+
+  // ── Submit ──
+  const onSubmit = async (data: ProjectFormValues) => {
+    const anyUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
+    if (anyUploading) {
+      toast.error("Please wait for all files to finish uploading.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
+      const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
+      const documentUrls = documents.filter((f) => f.url).map((f) => f.url!);
+
+      // Use setup data from AssignmentWizard if available
+      await createProjectMutation.mutateAsync({
+        title: data.title,
+        description: data.description,
+        subcategoryId: setup.subcategoryId,
+        supervisorId: setup.supervisorId || 1,
+        documentUrls: [...imageUrls, ...videoUrls, ...documentUrls],
+      });
+
+      toast.success("🎉 Project submitted successfully!");
+      localStorage.removeItem("project-setup");
+      form.reset();
+      setStep(1);
+      setImages([]);
+      setVideos([]);
+      setDocuments([]);
+      onSuccess?.();
+    } catch (err: any) {
+      // Fallback: save locally if backend is offline
+      const fallbackProject = {
+        id: nanoid(),
+        title: data.title,
+        teamName: data.teamName,
+        description: data.description,
+        grade: data.grade,
+        teacher: setup.teacher,
+        category: setup.categoryName,
+        subcategory: setup.subcategory,
+        imageUrls: images.filter((f) => f.url).map((f) => f.url!),
+        videoUrls: videos.filter((f) => f.url).map((f) => f.url!),
+        documentUrls: documents.filter((f) => f.url).map((f) => f.url!),
+        status: "submitted",
+        submittedAt: new Date().toISOString(),
+      };
+
+      const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
+      existing.push(fallbackProject);
+      localStorage.setItem("local-projects", JSON.stringify(existing));
+
+      toast.success("Project saved locally. Will sync when backend is available.");
+      onSuccess?.();
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    setUploadedVideos((prev) => [...prev, ...files]);
-  };
-
-  const removeImage = (index: number) => {
-    setUploadedImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const removeVideo = (index: number) => {
-    setUploadedVideos((prev) => prev.filter((_, i) => i !== index));
-  };
+  const allUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      {/* Progress Indicator */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          {[1, 2, 3].map((stepNum) => (
-            <div key={stepNum} className="flex items-center">
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
-                  step >= stepNum
-                    ? "bg-primary text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {stepNum}
-              </div>
-              {stepNum < 3 && (
-                <div
-                  className={`w-20 h-1 mx-2 transition-colors ${
-                    step > stepNum ? "bg-primary" : "bg-muted"
-                  }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>Basic Info</span>
-          <span>Media Upload</span>
-          <span>Review</span>
-        </div>
-      </div>
+    <div className="w-full max-w-3xl mx-auto">
+      <StepBar step={step} />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Step 1: Basic Information */}
+
+          {/* ══ STEP 1: Basic Info ══ */}
           {step === 1 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Project Basic Information</CardTitle>
+            <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
+              <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">
+                  Project Basic Information
+                </CardTitle>
+                {setup.teacher && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {[
+                      { label: "Teacher", value: setup.teacher },
+                      { label: "Category", value: setup.categoryName },
+                      { label: "Subcategory", value: setup.subcategory },
+                    ].map(({ label, value }) => value && (
+                      <div key={label} className="flex items-center gap-1.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-full px-3 py-1">
+                        <span className="text-[10px] font-black text-green-600 uppercase">{label}:</span>
+                        <span className="text-xs font-semibold text-green-800 dark:text-green-200">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="title"
+              <CardContent className="pt-6 space-y-5">
+
+                <FormField control={form.control} name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Project Title</FormLabel>
+                      <FormLabel className="font-bold">Project Title *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your project title" {...field} />
+                        <Input placeholder="e.g. Solar-Powered Water Purifier" className="h-11" {...field} />
                       </FormControl>
-                      <FormDescription>
-                        A clear, descriptive title for your project (5-200 characters)
-                      </FormDescription>
+                      <FormDescription>A clear, descriptive title (5–200 characters)</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="teamName"
+                <FormField control={form.control} name="teamName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Team Name</FormLabel>
+                      <FormLabel className="font-bold">Team Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your team name" {...field} />
+                        <Input placeholder="e.g. Green Innovators" className="h-11" {...field} />
                       </FormControl>
-                      <FormDescription>
-                        The name of your student team (2-100 characters)
-                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="grade"
+                <FormField control={form.control} name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Grade Level</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select your grade" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="9">Grade 9</SelectItem>
-                          <SelectItem value="10">Grade 10</SelectItem>
-                          <SelectItem value="11">Grade 11</SelectItem>
-                          <SelectItem value="12">Grade 12</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Select your current grade level
-                      </FormDescription>
+                      <FormLabel className="font-bold">Project Description *</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Describe your project, the problem it solves, and your approach..."
+                          className="min-h-[120px] resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>Minimum 20 characters</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="categoryId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sustainability Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categories?.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id.toString()}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Choose the sustainability category that best fits your project
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4">
+                  <FormField control={form.control} name="grade"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-bold">Grade Level *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-11">
+                              <SelectValue placeholder="Select grade" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {["9", "10", "11", "12"].map((g) => (
+                              <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Step 2: Media Upload */}
+          {/* ══ STEP 2: Media Upload ══ */}
           {step === 2 && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Project Media</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Images */}
-                  <div>
-                    <FormLabel>Project Images</FormLabel>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center">
-                      <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Click to upload or drag and drop
-                      </p>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="image-upload"
-                      />
-                      <label htmlFor="image-upload">
-                        <Button type="button" variant="outline" asChild>
-                          <span>Choose Images</span>
-                        </Button>
-                      </label>
-                    </div>
-                    {uploadedImages.length > 0 && (
-                      <div className="mt-4 grid grid-cols-2 gap-4">
-                        {uploadedImages.map((file, index) => (
-                          <div
-                            key={index}
-                            className="relative bg-muted rounded-lg p-3 flex items-center justify-between"
-                          >
-                            <span className="text-sm truncate">{file.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeImage(index)}
-                              className="ml-2"
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
+              <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">
+                  Upload Project Media
+                </CardTitle>
+                <p className="text-sm text-slate-500 mt-1">
+                  Files upload to Supabase Storage automatically after selection. ✓ = uploaded.
+                </p>
+              </CardHeader>
+              <CardContent className="pt-6 space-y-8">
 
-                  {/* Videos */}
-                  <div>
-                    <FormLabel>Project Videos</FormLabel>
-                    <div className="mt-2 border-2 border-dashed rounded-lg p-6 text-center">
-                      <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Upload MP4 videos (max 500MB each)
-                      </p>
-                      <input
-                        type="file"
-                        multiple
-                        accept="video/mp4"
-                        onChange={handleVideoUpload}
-                        className="hidden"
-                        id="video-upload"
-                      />
-                      <label htmlFor="video-upload">
-                        <Button type="button" variant="outline" asChild>
-                          <span>Choose Videos</span>
-                        </Button>
-                      </label>
-                    </div>
-                    {uploadedVideos.length > 0 && (
-                      <div className="mt-4 grid grid-cols-2 gap-4">
-                        {uploadedVideos.map((file, index) => (
-                          <div
-                            key={index}
-                            className="relative bg-muted rounded-lg p-3 flex items-center justify-between"
-                          >
-                            <span className="text-sm truncate">{file.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeVideo(index)}
-                              className="ml-2"
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                <DropZone
+                  accept="image/*"
+                  label="Project Photos"
+                  hint="JPG, PNG, WEBP — photos of your project stages and results"
+                  icon={ImageIcon}
+                  files={images}
+                  onAdd={(f) => addFiles(f, setImages, "images")}
+                  onRemove={(i) => removeFile(i, setImages)}
+                  maxFiles={10}
+                />
+
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                  <DropZone
+                    accept="video/mp4,video/mov,video/webm"
+                    label="Project Video"
+                    hint="MP4 or MOV — a short video presenting your project (max 500MB)"
+                    icon={Video}
+                    files={videos}
+                    onAdd={(f) => addFiles(f, setVideos, "videos")}
+                    onRemove={(i) => removeFile(i, setVideos)}
+                    maxFiles={2}
+                  />
+                </div>
+
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                  <DropZone
+                    accept=".pdf,.doc,.docx,.ppt,.pptx"
+                    label="Documents (Optional)"
+                    hint="PDF, Word, PowerPoint — research papers or presentations"
+                    icon={FileText}
+                    files={documents}
+                    onAdd={(f) => addFiles(f, setDocuments, "documents")}
+                    onRemove={(i) => removeFile(i, setDocuments)}
+                    maxFiles={5}
+                  />
+                </div>
+
+                {allUploading && (
+                  <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                    <Loader2 size={16} className="animate-spin" />
+                    Uploading files to Supabase Storage...
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                )}
+              </CardContent>
+            </Card>
           )}
 
-          {/* Step 3: Review */}
+          {/* ══ STEP 3: Review ══ */}
           {step === 3 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Review & Submit</CardTitle>
+            <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
+              <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">
+                  Review & Submit
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Review Summary */}
-                <Card className="bg-muted">
-                  <CardHeader>
-                    <CardTitle className="text-base">Submission Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-semibold">Title:</span> {form.getValues("title")}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Team Name:</span> {form.getValues("teamName")}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Grade:</span> {form.getValues("grade")}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Category:</span>{" "}
-                      {categories?.find((c) => c.id.toString() === form.getValues("categoryId"))
-                        ?.name || "Not selected"}
-                    </div>
-                    <div>
-                      <span className="font-semibold">Images:</span> {uploadedImages.length} files
-                    </div>
-                    <div>
-                      <span className="font-semibold">Videos:</span> {uploadedVideos.length} files
-                    </div>
-                  </CardContent>
-                </Card>
+              <CardContent className="pt-6 space-y-5">
 
-                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                  <p className="text-sm text-blue-900 dark:text-blue-100">
-                    By submitting this project, you confirm that all information is accurate and complete. You can edit your project until the submission deadline (April 30, 2026).
+                {/* Summary */}
+                <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-5 space-y-3">
+                  {[
+                    { label: "Title", value: form.getValues("title") },
+                    { label: "Team", value: form.getValues("teamName") },
+                    { label: "Description", value: form.getValues("description") },
+                    { label: "Grade", value: `Grade ${form.getValues("grade")}` },
+                    { label: "Teacher", value: setup.teacher },
+                    { label: "Category", value: setup.categoryName },
+                    { label: "Subcategory", value: setup.subcategory },
+                  ].map(({ label, value }) => value && (
+                    <div key={label} className="flex gap-3 text-sm">
+                      <span className="font-black text-slate-400 w-24 flex-shrink-0">{label}</span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200">{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Media summary */}
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { icon: ImageIcon, label: "Photos", count: images.filter((f) => f.url).length, total: images.length },
+                    { icon: Video, label: "Videos", count: videos.filter((f) => f.url).length, total: videos.length },
+                    { icon: FileText, label: "Documents", count: documents.filter((f) => f.url).length, total: documents.length },
+                  ].map(({ icon: Icon, label, count, total }) => (
+                    <div key={label} className="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 text-center">
+                      <Icon size={20} className="mx-auto text-slate-400 mb-1" />
+                      <p className="text-xl font-black text-slate-800 dark:text-slate-100">{count}</p>
+                      <p className="text-[10px] uppercase tracking-wide font-bold text-slate-400">{label}</p>
+                      {total > count && (
+                        <p className="text-[10px] text-amber-500 font-bold">{total - count} still uploading</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Image previews */}
+                {images.filter((f) => f.preview && f.url).length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {images.filter((f) => f.preview && f.url).slice(0, 6).map((f, i) => (
+                      <img key={i} src={f.preview} alt="" className="w-full h-20 object-cover rounded-xl" />
+                    ))}
+                  </div>
+                )}
+
+                {/* Disclaimer */}
+                <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4">
+                  <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
+                    By submitting, you confirm all information is accurate. You may edit your project until the submission deadline — <strong>April 30, 2026</strong>.
                   </p>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Navigation Buttons */}
+          {/* ══ Navigation buttons ══ */}
           <div className="flex justify-between gap-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setStep(Math.max(1, step - 1))}
               disabled={step === 1}
+              className="rounded-xl px-6"
             >
-              Previous
+              Back
             </Button>
 
             {step < 3 ? (
               <Button
                 type="button"
-                onClick={() => setStep(step + 1)}
-                disabled={step === 3}
+                onClick={async () => {
+                  if (step === 1) {
+                    const ok = await form.trigger(["title", "teamName", "description", "grade"]);
+                    if (!ok) return;
+                  }
+                  setStep(step + 1);
+                }}
+                className="rounded-xl px-8 premium-gradient text-white border-none"
               >
-                Next
+                Continue →
               </Button>
             ) : (
               <Button
                 type="submit"
-                disabled={createProjectMutation.isPending}
-                className="min-w-32"
+                disabled={createProjectMutation.isPending || isUploading || allUploading}
+                className="rounded-xl px-8 premium-gradient text-white border-none min-w-36"
               >
-                {createProjectMutation.isPending ? "Submitting..." : "Submit Project"}
+                {(createProjectMutation.isPending || isUploading) ? (
+                  <><Loader2 size={16} className="animate-spin mr-2" /> Submitting...</>
+                ) : allUploading ? (
+                  <><Loader2 size={16} className="animate-spin mr-2" /> Uploading files...</>
+                ) : (
+                  "Submit Project 🚀"
+                )}
               </Button>
             )}
           </div>
