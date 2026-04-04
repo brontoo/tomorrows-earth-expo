@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
+import { supabase } from "@/lib/supabase";
 
 // ─── Wizard Modal ─────────────────────────────────────────────────────────────
 function WizardModal({ onClose }: { onClose: () => void }) {
@@ -143,19 +143,50 @@ export default function MyProjectsDashboard() {
   const { isAuthenticated } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
 
-  const { data: projects, isLoading, refetch } = trpc.projects.getMyProjects.useQuery(undefined, {
-    retry: false,
-    // @ts-ignore
-    onError: () => { },
-  });
+  // Fetch projects directly from Supabase using the student's UUID
+  const [projects, setProjects] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const deleteProjectMutation = trpc.projects.delete.useMutation({
-    onSuccess: () => { toast.success("Project deleted"); refetch(); },
-    onError: (e) => toast.error(e.message || "Failed to delete"),
-  });
+  const refetch = async () => {
+    setIsLoading(true);
+    try {
+      const mockUser = JSON.parse(localStorage.getItem("mock-user") || "{}");
+      const uid = mockUser?.id ?? mockUser?.openId ?? null;
+      if (!uid) { setProjects([]); return; }
 
-  const handleDelete = (id: number) => {
-    if (confirm("Delete this project?")) deleteProjectMutation.mutate({ id });
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("supabase_uid", uid)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) setProjects(data);
+    } catch (e) {
+      console.warn("[MyProjects] Supabase fetch failed:", e);
+      // Fallback: show local projects
+      const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
+      setProjects(local);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { refetch(); }, []);
+
+  const handleDelete = async (id: string | number) => {
+    if (!confirm("Delete this project?")) return;
+    try {
+      const { error } = await supabase.from("projects").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Project deleted");
+      refetch();
+    } catch {
+      // Fallback: remove from local-projects
+      const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
+      localStorage.setItem("local-projects", JSON.stringify(local.filter((p: any) => p.id !== id)));
+      toast.success("Project deleted");
+      refetch();
+    }
   };
 
   // ── The single entry point for "new project" ──

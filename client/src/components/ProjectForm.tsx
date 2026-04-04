@@ -339,13 +339,13 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
 
     try {
-      // created_by stores the Supabase UUID (text) — make sure your DB column allows it
       const { error } = await supabase.from("projects").insert({
         title: data.title,
         team_name: data.teamName,
         description: data.description,
         abstract: data.description,
         grade: data.grade,
+        supabase_uid: userId,               // Supabase UUID — new text column
         subcategory_id: setup.subcategoryId ?? null,
         category_id: setup.categoryId ?? null,
         status: "submitted",
