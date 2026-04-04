@@ -19,10 +19,20 @@ function createAuthContext(): { ctx: TrpcContext; clearedCookies: CookieCall[] }
     email: "sample@example.com",
     name: "Sample User",
     loginMethod: "manus",
-    role: "user",
+    role: "student",           // ✅ بدل "user"
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
+    // ✅ أضف الحقول الناقصة
+    passwordHash: null,
+    grade: null,
+    schoolClass: null,
+    approved: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    emailVerified: false,
+    verificationToken: null,
+    verificationExpires: null,
   };
 
   const ctx: TrpcContext = {

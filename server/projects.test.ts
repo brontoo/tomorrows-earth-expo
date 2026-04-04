@@ -15,6 +15,15 @@ function createTestContext(role: "admin" | "teacher" | "student" | "public" = "p
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
+    passwordHash: null,
+    grade: null,
+    schoolClass: null,
+    approved: false,
+    passwordResetToken: null,
+    passwordResetExpires: null,
+    emailVerified: false,
+    verificationToken: null,
+    verificationExpires: null
   };
 
   return {
@@ -24,8 +33,8 @@ function createTestContext(role: "admin" | "teacher" | "student" | "public" = "p
       headers: {},
     } as TrpcContext["req"],
     res: {
-      clearCookie: () => {},
-    } as TrpcContext["res"],
+      clearCookie: () => { },
+    } as unknown as TrpcContext["res"],
   };
 }
 

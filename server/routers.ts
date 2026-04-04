@@ -216,7 +216,9 @@ export const appRouter = router({
     submitProject: studentProcedure
       .input(z.object({
         title: z.string().min(1, "Project title is required"),
+        teamName: z.string().min(1, "Team name is required"),   // ✅ أضف هذا
         description: z.string().min(1, "Project description is required"),
+        grade: z.string().min(1, "Grade is required"),           // ✅ أضف هذا
         subcategoryId: z.number(),
         supervisorId: z.number(),
         documentUrls: z.array(z.string()).optional(),
@@ -229,18 +231,19 @@ export const appRouter = router({
 
         const result = await db.createProject({
           title: input.title,
+          teamName: input.teamName,           // ✅ من input بدل ctx.user.name
           description: input.description,
-          teamName: ctx.user.name || "Team",
           categoryId: subcategory.categoryId,
           subcategoryId: input.subcategoryId,
           supervisorId: input.supervisorId,
           createdBy: ctx.user.id,
-          grade: ctx.user.grade || "Unknown",
+          grade: input.grade,                 // ✅ من input بدل ctx.user.grade
           status: "submitted",
           submittedAt: new Date(),
           documentUrls: input.documentUrls ? JSON.stringify(input.documentUrls) : null,
         });
 
+        // إشعار المشرف
         await db.createNotification({
           userId: input.supervisorId,
           type: "project_submitted",
@@ -289,11 +292,11 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const { id, sdgAlignment, imageUrls, ...rest } = input;
         const project = await db.getProjectById(id);
-        
+
         if (!project) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
         }
-        
+
         if (
           project.createdBy !== ctx.user.id &&
           ctx.user.role !== "teacher" &&
@@ -301,29 +304,29 @@ export const appRouter = router({
         ) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to update this project" });
         }
-        
+
         await db.updateProject(id, {
           ...rest,
           sdgAlignment: sdgAlignment ? JSON.stringify(sdgAlignment) : undefined,
           imageUrls: imageUrls ? JSON.stringify(imageUrls) : undefined,
         });
-        
+
         return { success: true };
       }),
     submit: studentProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const project = await db.getProjectById(input.id);
-        
+
         if (!project || project.createdBy !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
         }
-        
+
         await db.updateProject(input.id, {
           status: "submitted",
           submittedAt: new Date(),
         });
-        
+
         return { success: true };
       }),
     approve: teacherProcedure
@@ -334,7 +337,7 @@ export const appRouter = router({
           approvedBy: ctx.user.id,
           approvedAt: new Date(),
         });
-        
+
         return { success: true };
       }),
     reject: teacherProcedure
@@ -347,22 +350,22 @@ export const appRouter = router({
           status: "rejected",
           rejectionReason: input.reason,
         });
-        
+
         return { success: true };
       }),
     delete: protectedProcedure
       .input(z.object({ id: z.number() }))
       .mutation(async ({ ctx, input }) => {
         const project = await db.getProjectById(input.id);
-        
+
         if (!project) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
         }
-        
+
         if (project.createdBy !== ctx.user.id && ctx.user.role !== "admin") {
           throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
         }
-        
+
         await db.deleteProject(input.id);
         return { success: true };
       }),
@@ -454,11 +457,11 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const hasVoted = await db.hasUserVoted(input.voterIdentifier, input.projectId);
-        
+
         if (hasVoted) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Already voted for this project" });
         }
-        
+
         await db.createVote(input);
         return { success: true };
       }),
@@ -578,22 +581,22 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
-  
+
   teacher: router({
     // Dashboard overview
     getStats: teacherProcedure.query(async ({ ctx }) => {
       return db.getTeacherStats(ctx.user.id);
     }),
-    
+
     // Student submissions
     getStudentSubmissions: teacherProcedure.query(async ({ ctx }) => {
       return db.getTeacherStudentSubmissions(ctx.user.id);
     }),
-    
+
     getPendingReviews: teacherProcedure.query(async ({ ctx }) => {
       return db.getProjectsAwaitingReview(ctx.user.id);
     }),
-    
+
     // Feedback and grading
     createFeedback: teacherProcedure
       .input(z.object({
@@ -613,20 +616,20 @@ export const appRouter = router({
         });
         return { success: true };
       }),
-    
+
     getFeedback: teacherProcedure
       .input(z.object({ projectId: z.number() }))
       .query(async ({ input }) => {
         return db.getProjectFeedback(input.projectId);
       }),
-    
+
     sendFeedback: teacherProcedure
       .input(z.object({ feedbackId: z.number() }))
       .mutation(async ({ input }) => {
         await db.updateProjectFeedback(input.feedbackId, { status: "sent" });
         return { success: true };
       }),
-    
+
     // Rubrics
     createRubric: teacherProcedure
       .input(z.object({
@@ -643,11 +646,11 @@ export const appRouter = router({
         });
         return { success: true };
       }),
-    
+
     getRubrics: teacherProcedure.query(async ({ ctx }) => {
       return db.getTeacherRubrics(ctx.user.id);
     }),
-    
+
     // Messaging
     sendMessage: teacherProcedure
       .input(z.object({
@@ -666,18 +669,18 @@ export const appRouter = router({
         });
         return { success: true };
       }),
-    
+
     getMessages: teacherProcedure.query(async ({ ctx }) => {
       return db.getTeacherMessages(ctx.user.id);
     }),
-    
+
     // Analytics
     getAnalytics: teacherProcedure
       .input(z.object({ date: z.string() }))
       .query(async ({ input, ctx }) => {
         return db.getTeacherAnalytics(ctx.user.id, input.date);
       }),
-    
+
     // Project history
     getProjectHistory: teacherProcedure
       .input(z.object({ projectId: z.number() }))

@@ -331,16 +331,23 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
+    // تأكد أن setup فيه subcategoryId
+    if (!setup.subcategoryId) {
+      toast.error("Please complete the setup wizard first (select teacher and category).");
+      return;
+    }
+
     setIsUploading(true);
     try {
       const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
       const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
       const documentUrls = documents.filter((f) => f.url).map((f) => f.url!);
 
-      // Use setup data from AssignmentWizard if available
       await createProjectMutation.mutateAsync({
         title: data.title,
+        teamName: data.teamName,           // ✅ كان ناقصًا
         description: data.description,
+        grade: data.grade,                 // ✅ كان ناقصًا
         subcategoryId: setup.subcategoryId,
         supervisorId: setup.supervisorId || 1,
         documentUrls: [...imageUrls, ...videoUrls, ...documentUrls],
@@ -354,30 +361,12 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       setVideos([]);
       setDocuments([]);
       onSuccess?.();
+
     } catch (err: any) {
-      // Fallback: save locally if backend is offline
-      const fallbackProject = {
-        id: nanoid(),
-        title: data.title,
-        teamName: data.teamName,
-        description: data.description,
-        grade: data.grade,
-        teacher: setup.teacher,
-        category: setup.categoryName,
-        subcategory: setup.subcategory,
-        imageUrls: images.filter((f) => f.url).map((f) => f.url!),
-        videoUrls: videos.filter((f) => f.url).map((f) => f.url!),
-        documentUrls: documents.filter((f) => f.url).map((f) => f.url!),
-        status: "submitted",
-        submittedAt: new Date().toISOString(),
-      };
-
-      const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
-      existing.push(fallbackProject);
-      localStorage.setItem("local-projects", JSON.stringify(existing));
-
-      toast.success("Project saved locally. Will sync when backend is available.");
-      onSuccess?.();
+      // ✅ بدل الحفظ محلياً، نعرض الخطأ الحقيقي
+      const message = err?.message || "Submission failed. Please try again.";
+      toast.error(`❌ ${message}`);
+      console.error("Project submission error:", err);
     } finally {
       setIsUploading(false);
     }
