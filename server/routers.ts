@@ -215,12 +215,13 @@ export const appRouter = router({
     }),
     submitProject: studentProcedure
       .input(z.object({
-        title: z.string().min(1, "Project title is required"),
-        teamName: z.string().min(1, "Team name is required"),   // ✅ أضف هذا
-        description: z.string().min(1, "Project description is required"),
-        grade: z.string().min(1, "Grade is required"),           // ✅ أضف هذا
+        title: z.string().min(1),
+        teamName: z.string().min(1),
+        description: z.string().min(1),
+        grade: z.string().min(1),
         subcategoryId: z.number(),
-        supervisorId: z.number(),
+        supervisorId: z.number().optional(),   // ✅ اجعله optional
+        teacherName: z.string().optional(),    // ✅ أضف اسم المعلمة كـ fallback
         documentUrls: z.array(z.string()).optional(),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -231,26 +232,28 @@ export const appRouter = router({
 
         const result = await db.createProject({
           title: input.title,
-          teamName: input.teamName,           // ✅ من input بدل ctx.user.name
+          teamName: input.teamName,
           description: input.description,
           categoryId: subcategory.categoryId,
           subcategoryId: input.subcategoryId,
-          supervisorId: input.supervisorId,
+          supervisorId: input.supervisorId ?? null,  // ✅ null مقبول
           createdBy: ctx.user.id,
-          grade: input.grade,                 // ✅ من input بدل ctx.user.grade
+          grade: input.grade,
           status: "submitted",
           submittedAt: new Date(),
           documentUrls: input.documentUrls ? JSON.stringify(input.documentUrls) : null,
         });
 
-        // إشعار المشرف
-        await db.createNotification({
-          userId: input.supervisorId,
-          type: "project_submitted",
-          title: "New Project Submission",
-          message: `${ctx.user.name} submitted a project: ${input.title}`,
-          relatedProjectId: (result as any).insertId as number,
-        });
+        // ✅ أرسل الإشعار فقط إذا كان supervisorId موجوداً
+        if (input.supervisorId) {
+          await db.createNotification({
+            userId: input.supervisorId,
+            type: "project_submitted",
+            title: "New Project Submission",
+            message: `${ctx.user.name} submitted a project: ${input.title}`,
+            relatedProjectId: (result as any).insertId as number,
+          });
+        }
 
         return { success: true, projectId: (result as any).insertId };
       }),

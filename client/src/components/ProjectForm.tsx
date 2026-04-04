@@ -342,8 +342,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         teamName: data.teamName,
         description: data.description,
         grade: data.grade,
-        subcategoryId: Number(setup.subcategoryId) || 1,
-        supervisorId: Number(setup.supervisorId) || 1,
+        subcategoryId: Number(setup.subcategoryId),
+        supervisorId: setup.supervisorId ? Number(setup.supervisorId) : undefined, // ✅
+        teacherName: setup.teacher,   // ✅ fallback للاسم
         documentUrls: [...imageUrls, ...videoUrls, ...documentUrls],
       });
 
