@@ -151,11 +151,11 @@ export function AssignmentWizard() {
       education: 12,
     };
 
-    const subcategoryIndex =
-      selectedCategory?.subcategories.indexOf(selectedSubcategory) ?? 0;
-
+    const subcategoryIndex = selectedCategory?.subcategories.indexOf(selectedSubcategory) ?? 0;
     const subcategoryId = 1 + categoryOffsets[selectedCategoryId] + subcategoryIndex;
-    // environmental→1  community→5  innovation→9  education→13
+
+    // ✅ احسب supervisorId من اسم المعلمة
+    const supervisorId = TEACHERS.indexOf(selectedTeacher) + 1;
 
     localStorage.setItem(
       "project-setup",
@@ -164,8 +164,8 @@ export function AssignmentWizard() {
         categoryId: selectedCategoryId,
         categoryName: selectedCategory?.name,
         subcategory: selectedSubcategory,
-        subcategoryId: subcategoryId,  // ✅ رقم صحيح من 1 إلى 16
-        supervisorId: null,
+        subcategoryId: subcategoryId,
+        supervisorId: supervisorId,  // ✅ رقم صحيح
       })
     );
     setLocation("/project-submission");
