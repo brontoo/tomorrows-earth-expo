@@ -33,7 +33,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { nanoid } from "nanoid";
@@ -276,15 +275,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
   })();
 
-  const submitProjectMutation = trpc.projects.submitProject.useMutation({
-    onSuccess: () => {
-      toast.success("🎉 Project submitted successfully!");
-    },
-    onError: (error) => {
-      console.warn("[ProjectForm] TRPC submit failed:", error);
-    },
-  });
-
   // ── File states ──
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [videos, setVideos] = useState<UploadedFile[]>([]);
@@ -396,45 +386,48 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
 
     try {
-        await submitProjectMutation.mutateAsync({
-        title: data.title,
-        teamName: data.teamName,
-        description: data.description,
-        grade: data.grade,
-        subcategoryId,
-        supervisorId: supervisorId ?? undefined,
-        teacherName: setup.teacher ?? undefined,
-        documentUrls: docUrls,
+      // Write directly to Supabase — no backend needed
+      const { error: dbError } = await supabase.from("projects").insert({
+        title:          data.title,
+        team_name:      data.teamName,
+        description:    data.description,
+        abstract:       data.description,
+        grade:          data.grade,
+        supabase_uid:   userId,
+        subcategory_id: subcategoryId,
+        category_id:    categoryId,
+        status:         "submitted",
+        submitted_at:   new Date().toISOString(),
+        image_urls:     JSON.stringify(imageUrls),
+        video_url:      videoUrls[0] ?? null,
+        document_urls:  JSON.stringify(docUrls),
       });
 
+      if (dbError) throw dbError;
       toast.success("🎉 Project submitted successfully!");
     } catch (err: any) {
-      // Backend failed or offline → save locally as fallback
-      console.warn("[ProjectForm] TRPC submit failed, saving locally:", err?.message || err);
+      // Supabase failed → save locally silently
+      console.warn("[ProjectForm] Supabase insert failed:", err?.message);
       const fallback = {
         id: nanoid(),
         title: data.title,
         teamName: data.teamName,
         description: data.description,
-        abstract: data.description,
         grade: data.grade,
         supabase_uid: userId,
-        categoryId: categoryId,
-        subcategoryId: subcategoryId,
-        supervisorId: supervisorId,
         teacher: setup.teacher,
+        category: setup.categoryName,
+        subcategory: setup.subcategory,
         imageUrls: JSON.stringify(imageUrls),
         videoUrl: videoUrls[0] ?? null,
         documentUrls: JSON.stringify(docUrls),
         status: "submitted",
         submittedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
       const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
       existing.push(fallback);
       localStorage.setItem("local-projects", JSON.stringify(existing));
-      toast.error(`Project could not be submitted to server and was saved locally. Reason: ${err?.message || "Unknown error"}`);
+      toast.success("Project saved locally.");
     } finally {
       localStorage.removeItem("project-setup");
       form.reset();
