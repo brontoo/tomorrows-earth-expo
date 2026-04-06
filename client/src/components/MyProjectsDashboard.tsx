@@ -10,6 +10,7 @@ import {
   ArrowRight, Rocket,
 } from "lucide-react";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
 import { supabase } from "@/lib/supabase";
 
@@ -146,6 +147,9 @@ export default function MyProjectsDashboard() {
   // Fetch projects directly from Supabase using the student's UUID
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const submitLocalProjectMutation = trpc.projects.submitProject.useMutation({
+    onError: (error) => console.warn("[MyProjects] Local sync failed:", error),
+  });
 
   const refetch = async () => {
     setIsLoading(true);
@@ -183,30 +187,21 @@ export default function MyProjectsDashboard() {
     let syncedAny = false;
     for (const local of localProjects) {
       try {
-        const { error } = await supabase.from("projects").insert({
+        await submitLocalProjectMutation.mutateAsync({
           title: local.title,
-          team_name: local.teamName,
+          teamName: local.teamName,
           description: local.description,
-          abstract: local.abstract,
           grade: local.grade,
-          supabase_uid: uid,
-          category_id: Number(local.categoryId) || null,
-          subcategory_id: Number(local.subcategoryId) || null,
-          supervisor_id: Number(local.supervisorId) || null,
-          image_urls: local.imageUrls,
-          video_url: local.videoUrl,
-          document_urls: local.documentUrls,
-          status: local.status,
-          submitted_at: local.submittedAt,
-          created_at: local.createdAt,
-          updated_at: local.updatedAt,
+          subcategoryId: Number(local.subcategoryId) || 0,
+          supervisorId: Number(local.supervisorId) || undefined,
+          teacherName: local.teacher || undefined,
+          documentUrls: local.documentUrls ? JSON.parse(local.documentUrls) : [],
         });
-        if (!error) {
-          syncedAny = true;
-          const updated = localProjects.filter((p: any) => p.id !== local.id);
-          localStorage.setItem("local-projects", JSON.stringify(updated));
-          toast.success("Local project synced to server!");
-        }
+
+        syncedAny = true;
+        const updated = localProjects.filter((p: any) => p.id !== local.id);
+        localStorage.setItem("local-projects", JSON.stringify(updated));
+        toast.success("Local project synced to server!");
       } catch (err) {
         console.warn("[MyProjects] Failed to sync local project:", err);
       }

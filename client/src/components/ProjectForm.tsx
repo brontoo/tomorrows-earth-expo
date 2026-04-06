@@ -33,6 +33,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { nanoid } from "nanoid";
@@ -275,6 +276,15 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
   })();
 
+  const submitProjectMutation = trpc.projects.submitProject.useMutation({
+    onSuccess: () => {
+      toast.success("🎉 Project submitted successfully!");
+    },
+    onError: (error) => {
+      console.warn("[ProjectForm] TRPC submit failed:", error);
+    },
+  });
+
   // ── File states ──
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [videos, setVideos] = useState<UploadedFile[]>([]);
@@ -386,29 +396,21 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
 
     try {
-      const { error } = await supabase.from("projects").insert({
+        await submitProjectMutation.mutateAsync({
         title: data.title,
-        team_name: data.teamName,
+        teamName: data.teamName,
         description: data.description,
-        abstract: data.description,
         grade: data.grade,
-        supabase_uid: userId,               // Supabase UUID — new text column
-        category_id: categoryId,
-        subcategory_id: subcategoryId,
-        supervisor_id: supervisorId,
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
-        image_urls: JSON.stringify(imageUrls),
-        video_url: videoUrls[0] ?? null,
-        document_urls: JSON.stringify(docUrls),
+        subcategoryId,
+        supervisorId: supervisorId ?? undefined,
+        teacherName: setup.teacher ?? undefined,
+        documentUrls: docUrls,
       });
-
-      if (error) throw error;
 
       toast.success("🎉 Project submitted successfully!");
     } catch (err: any) {
-      // Supabase failed → save locally as fallback
-      console.warn("[ProjectForm] Supabase insert failed:", err?.message);
+      // Backend failed or offline → save locally as fallback
+      console.warn("[ProjectForm] TRPC submit failed, saving locally:", err?.message || err);
       const fallback = {
         id: nanoid(),
         title: data.title,
@@ -420,6 +422,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         categoryId: categoryId,
         subcategoryId: subcategoryId,
         supervisorId: supervisorId,
+        teacher: setup.teacher,
         imageUrls: JSON.stringify(imageUrls),
         videoUrl: videoUrls[0] ?? null,
         documentUrls: JSON.stringify(docUrls),
