@@ -72,13 +72,6 @@ export function useAuth(options?: any) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // معالجة OAuth hash تلقائياً
-        const hash = window.location.hash;
-        if (hash) {
-          console.log("[Auth] OAuth hash detected");
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-
         // جلب الـ Session من Supabase
         const { data: { session } } = await supabase.auth.getSession();
 

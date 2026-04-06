@@ -6,8 +6,8 @@ import { supabase } from "@/lib/supabase";
 export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
-      // Supabase يعالج الـ hash تلقائياً ويحفظ الـ session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const result = await supabase.auth.getSessionFromUrl();
+      const { data: { session }, error } = result;
 
       if (error) {
         console.error("[AuthCallback] Error:", error.message);
@@ -16,9 +16,8 @@ export default function AuthCallback() {
       }
 
       if (session) {
-        // ✅ تنظيف selectedRole من localStorage — لا نحتاجه بعد الآن
         localStorage.removeItem("selectedRole");
-        // الـ useAuth سيجلب الـ role من DB تلقائياً عند أول load
+        window.history.replaceState({}, document.title, "/");
         window.location.href = "/";
       } else {
         window.location.href = "/login?error=no_session";
