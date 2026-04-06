@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
 import { CheckCircle2, FileText, ThumbsUp, Clock, MessageSquare, Sparkles, CalendarDays } from "lucide-react";
 import MyProjectsDashboard from "@/components/MyProjectsDashboard";
@@ -11,7 +10,8 @@ import { AssignmentWizard } from "@/components/AssignmentWizard";
 import { StudentDashboardLayout } from "@/components/StudentDashboardLayout";
 import PageNavigation from "@/components/PageNavigation";
 import { ProfileSettings } from "@/components/ProfileSettings";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 // ─── Greeting helper ──────────────────────────────────────────────────────────
 function getGreeting() {
@@ -64,19 +64,32 @@ export default function StudentDashboard() {
   const { user, isAuthenticated, loading } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
 
-  const { data: myProjects } = trpc.projects.getMyProjects.useQuery(undefined, {
-    enabled: isAuthenticated && user?.role === "student",
-    retry: false,
-    // @ts-ignore
-    onError: () => { },
-  });
+  const [myProjects, setMyProjects] = useState<any[]>([]);
+  const [assignment, setAssignment] = useState<any>(null);
 
-  const { data: assignment } = trpc.assignments.getMyAssignment.useQuery(undefined, {
-    enabled: isAuthenticated && user?.role === "student",
-    retry: false,
-    // @ts-ignore
-    onError: () => { },
-  });
+  useEffect(() => {
+    if (!isAuthenticated || user?.role !== "student") return;
+    const uid = user?.id ?? user?.openId ?? null;
+    if (!uid) return;
+
+    // Fetch projects from Supabase
+    supabase
+      .from("projects")
+      .select("*")
+      .eq("supabase_uid", uid)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => { if (data) setMyProjects(data); });
+
+    // Fetch assignment from localStorage (set by AssignmentWizard)
+    try {
+      const setup = JSON.parse(localStorage.getItem("project-setup") || "{}");
+      if (setup.teacher) setAssignment({
+        teacherName: setup.teacher,
+        mainCategoryId: setup.categoryName,
+        subcategoryId: setup.subcategory,
+      });
+    } catch {}
+  }, [isAuthenticated, user]);
 
   // ── Loading ──
   if (loading) {
