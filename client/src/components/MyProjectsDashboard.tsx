@@ -161,7 +161,8 @@ export default function MyProjectsDashboard() {
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        setProjects(data);
+        const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
+        setProjects([...localProjects, ...data]);
         // Try to sync local projects
         await syncLocalProjects(uid);
       }
@@ -179,6 +180,7 @@ export default function MyProjectsDashboard() {
     const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
     if (localProjects.length === 0) return;
 
+    let syncedAny = false;
     for (const local of localProjects) {
       try {
         const { error } = await supabase.from("projects").insert({
@@ -200,16 +202,17 @@ export default function MyProjectsDashboard() {
           updated_at: local.updatedAt,
         });
         if (!error) {
-          // Remove from local storage
+          syncedAny = true;
           const updated = localProjects.filter((p: any) => p.id !== local.id);
           localStorage.setItem("local-projects", JSON.stringify(updated));
           toast.success("Local project synced to server!");
-          // Refetch to show the synced project
-          await refetch();
         }
       } catch (err) {
         console.warn("[MyProjects] Failed to sync local project:", err);
       }
+    }
+    if (syncedAny) {
+      await refetch();
     }
   };
 

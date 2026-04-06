@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 export function useAuth(options?: any) {
   const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } = options ?? {};
 
-  type MockUserType = { id: number; email: string; role: string; name: string; grade?: string; schoolClass?: string; loginMethod?: string; openId?: string };
+  type MockUserType = { id: string | number; email: string; role: string; name: string; grade?: string; schoolClass?: string; loginMethod?: string; openId?: string };
 
   const [user, setUser] = useState<MockUserType | null>(null);
   const [loading, setLoading] = useState(true);
@@ -23,8 +23,9 @@ export function useAuth(options?: any) {
           const { data: { session } } = await supabase.auth.getSession();
           if (session) {
             console.log("[Auth] Supabase session active:", session.user.email);
+            const authId = Number(session.user.id);
             localStorage.setItem("mock-user", JSON.stringify({
-              id: parseInt(session.user.id),
+              id: Number.isInteger(authId) ? authId : session.user.id,
               email: session.user.email!,
               name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
               role: (localStorage.getItem("selectedRole") as any) || "student",
@@ -46,8 +47,9 @@ export function useAuth(options?: any) {
         // 3️⃣ Supabase session عادي (غير OAuth)
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
+          const authId = Number(session.user.id);
           localStorage.setItem("mock-user", JSON.stringify({
-            id: parseInt(session.user.id),
+            id: Number.isInteger(authId) ? authId : session.user.id,
             email: session.user.email!,
             name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
             role: (localStorage.getItem("selectedRole") as any) || "student",
@@ -102,8 +104,9 @@ export function useAuth(options?: any) {
     refresh: async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        const authId = Number(session.user.id);
         localStorage.setItem("mock-user", JSON.stringify({
-          id: parseInt(session.user.id),
+          id: Number.isInteger(authId) ? authId : session.user.id,
           email: session.user.email!,
           name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || "User",
           role: (localStorage.getItem("selectedRole") as any) || "student",

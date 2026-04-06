@@ -48,6 +48,8 @@ const projectFormSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
+type UserIdentifier = { id?: string | number; openId?: string };
+
 const CATEGORY_SLUG_TO_ID: Record<string, number> = {
   environmental: 1,
   community: 2,
@@ -66,6 +68,14 @@ const resolveCategoryId = (value: unknown) => {
     const numeric = parseInteger(value);
     return numeric || CATEGORY_SLUG_TO_ID[value] || null;
   }
+  return null;
+};
+
+const resolveSupabaseUid = (user: UserIdentifier | null) => {
+  if (!user) return null;
+  if (typeof user.openId === "string" && user.openId) return user.openId;
+  if (typeof user.id === "string" && user.id) return user.id;
+  if (typeof user.id === "number" && !Number.isNaN(user.id)) return String(user.id);
   return null;
 };
 
@@ -345,8 +355,8 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
-    // user.id is the Supabase UUID (string) stored in mock-user
-    const userId = user?.id ?? user?.openId ?? null;
+    // Use saved Supabase UID, falling back from openId if needed
+    const userId = resolveSupabaseUid(user);
     if (!userId) {
       toast.error("You must be logged in to submit a project.");
       setIsUploading(false);
@@ -421,7 +431,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
       existing.push(fallback);
       localStorage.setItem("local-projects", JSON.stringify(existing));
-      toast.success("Project saved locally — will sync when online.");
+      toast.error(`Project could not be submitted to server and was saved locally. Reason: ${err?.message || "Unknown error"}`);
     } finally {
       localStorage.removeItem("project-setup");
       form.reset();
