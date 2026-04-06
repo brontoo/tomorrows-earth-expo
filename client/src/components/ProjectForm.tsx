@@ -359,6 +359,22 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
     const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
 
+    const categoryId = resolveCategoryId(setup.categoryId);
+    const subcategoryId = parseInteger(setup.subcategoryId);
+    const supervisorId = parseInteger(setup.supervisorId);
+
+    if (!categoryId || !subcategoryId || !supervisorId) {
+      console.error("[ProjectForm] Invalid setup values", {
+        setup,
+        categoryId,
+        subcategoryId,
+        supervisorId,
+      });
+      toast.error("Invalid project configuration. Please reselect teacher/category/subcategory.");
+      setIsUploading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.from("projects").insert({
         title: data.title,
@@ -367,9 +383,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         abstract: data.description,
         grade: data.grade,
         supabase_uid: userId,               // Supabase UUID — new text column
-        category_id: resolveCategoryId(setup.categoryId),
-        subcategory_id: parseInteger(setup.subcategoryId),
-        supervisor_id: parseInteger(setup.supervisorId),
+        category_id: categoryId,
+        subcategory_id: subcategoryId,
+        supervisor_id: supervisorId,
         status: "submitted",
         submitted_at: new Date().toISOString(),
         image_urls: JSON.stringify(imageUrls),
@@ -391,9 +407,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         abstract: data.description,
         grade: data.grade,
         supabase_uid: userId,
-        categoryId: resolveCategoryId(setup.categoryId),
-        subcategoryId: parseInteger(setup.subcategoryId),
-        supervisorId: parseInteger(setup.supervisorId),
+        categoryId: categoryId,
+        subcategoryId: subcategoryId,
+        supervisorId: supervisorId,
         imageUrls: JSON.stringify(imageUrls),
         videoUrl: videoUrls[0] ?? null,
         documentUrls: JSON.stringify(docUrls),
