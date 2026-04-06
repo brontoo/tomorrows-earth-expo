@@ -4,12 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
 import { Loader, Eye, EyeOff, Mail } from "lucide-react";
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
-
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -18,36 +15,19 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Email/Password form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedRole, setSelectedRole] = useState<"admin" | "teacher" | "student">("student");
 
-  // tRPC mutation for email login
-  const loginMutation = trpc.auth.loginWithEmail.useMutation({
-    onSuccess: () => {
-      // Redirect to dashboard based on role
-
-      setLocation("/");
-    },
-    onError: (error) => {
-      setError(error.message || "Login failed. Please check your credentials.");
-    },
-  });
-
-  const { loginMock } = useAuth();
-
-  // استبدل handleGoogleLogin بالكامل بهذا:
+  // ─── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     setError(null);
     setIsLoading(true);
     try {
       localStorage.setItem("selectedRole", selectedRole);
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        }
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
       if (error) throw error;
     } catch (err: any) {
@@ -56,6 +36,7 @@ export default function Login() {
     }
   };
 
+  // ─── Email / Password — Supabase direct ───────────────────────────────────
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -65,24 +46,43 @@ export default function Login() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      if (typeof loginMock === "function") {
-        await loginMock(selectedRole);
-      } else {
-        await loginMutation.mutateAsync({
-          email,
-          password,
-          role: selectedRole,
-        });
-      }
-    } catch (err) {
-      setError("Login failed");
-    }
-  };
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-  const handleOAuthLogin = (role: "student" | "teacher" | "admin") => {
-    localStorage.setItem("selectedRole", role);
-    handleGoogleLogin();
+      if (signInError) throw signInError;
+
+      const user = data.user;
+      if (!user) throw new Error("No user returned from Supabase");
+
+      // Determine role: from user_metadata (set during signup) or fallback to selectedRole
+      const role = (user.user_metadata?.role as string) || selectedRole;
+
+      // Save mock-user so the rest of the app can read it
+      localStorage.setItem("mock-user", JSON.stringify({
+        id:     user.id,
+        openId: user.id,
+        email:  user.email,
+        name:   user.user_metadata?.full_name || user.email?.split("@")[0],
+        role,
+      }));
+      localStorage.setItem("selectedRole", role);
+
+      // Redirect to correct dashboard
+      const dashboardMap: Record<string, string> = {
+        admin:   "/admin/dashboard",
+        teacher: "/teacher/dashboard",
+        student: "/student/dashboard",
+      };
+      setLocation(dashboardMap[role] || "/student/dashboard");
+    } catch (err: any) {
+      setError(err.message || "Login failed. Please check your credentials.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -91,27 +91,33 @@ export default function Login() {
 
       <div className="flex-1 container flex items-center justify-center py-12">
         <div className="w-full max-w-md animate-scaleIn">
-          {/* Main Login Card */}
           <Card className="glass-card border-white/20 shadow-2xl overflow-hidden">
             <CardHeader className="text-center pt-10 pb-6">
               <div className="flex justify-center mb-6">
                 <div className="relative group">
-                  <div className="absolute -inset-2 bg-gradient-to-r from-leaf-green to-digital-cyan rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500"></div>
+                  <div className="absolute -inset-2 bg-gradient-to-r from-leaf-green to-digital-cyan rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500" />
                   <div className="relative glass-card p-4 rounded-full border-white/40">
-                    <img src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp" alt="TEE Logo" className="h-12 w-12 object-contain" />
+                    <img
+                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp"
+                      alt="TEE Logo"
+                      className="h-12 w-12 object-contain"
+                    />
                   </div>
                 </div>
               </div>
-              <CardTitle className="text-3xl font-extrabold tracking-tight hero-text-glow text-foreground">
-                Welcome Back
-              </CardTitle>
-              <CardDescription className="text-muted-foreground mt-2 font-medium">
-                Sign in to Tomorrow's Earth Expo 2026
-              </CardDescription>
+              <CardHeader className="p-0">
+                <h2 className="text-3xl font-extrabold tracking-tight hero-text-glow text-foreground">
+                  Welcome Back
+                </h2>
+                <p className="text-muted-foreground mt-2 font-medium text-sm">
+                  Sign in to Tomorrow's Earth Expo 2026
+                </p>
+              </CardHeader>
             </CardHeader>
 
             <CardContent className="px-8 pb-10 space-y-8">
-              {/* Role Selection Segmented Control */}
+
+              {/* Role Selection */}
               <div className="space-y-4">
                 <Label className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
                   Identify Yourself
@@ -121,10 +127,11 @@ export default function Login() {
                     <button
                       key={role}
                       onClick={() => setSelectedRole(role)}
-                      className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${selectedRole === role
-                        ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
-                        : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                        }`}
+                      className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${
+                        selectedRole === role
+                          ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
+                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                      }`}
                     >
                       {role}
                     </button>
@@ -132,31 +139,37 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* Primary Google Login Button */}
+              {/* Google Login */}
               <div className="space-y-4 pt-2">
                 <Button
                   size="lg"
                   variant="outline"
                   className="w-full py-7 glass-card border-border hover:bg-black/5 flex items-center justify-center gap-3 group transition-all duration-300 active:scale-[0.98]"
                   disabled={isLoading}
-                  onClick={() => handleOAuthLogin(selectedRole)}
+                  onClick={() => {
+                    localStorage.setItem("selectedRole", selectedRole);
+                    handleGoogleLogin();
+                  }}
                 >
-                  {isLoading ? (
+                  {isLoading && loginMethod === "oauth" ? (
                     <Loader className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                      <img
+                        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                        alt="Google"
+                        className="h-5 w-5 group-hover:scale-110 transition-transform"
+                      />
                       <span className="font-bold text-foreground">Continue with Google</span>
                     </>
                   )}
                 </Button>
-
                 <p className="text-[11px] text-center text-muted-foreground/60 leading-relaxed px-4">
                   By continuing, you agree to the Tomorrow's Earth Expo Terms of Service and Privacy Policy.
                 </p>
               </div>
 
-              {/* Email Switcher / Secondary Path */}
+              {/* Email toggle + form */}
               <div className="pt-4 border-t border-border/50">
                 <div className="flex flex-col gap-4">
                   <button
@@ -168,13 +181,13 @@ export default function Login() {
                   </button>
 
                   {loginMethod === "email" && (
-                    <div className="space-y-4 animate-slideInUp">
+                    <form onSubmit={handleEmailLogin} className="space-y-4 animate-slideInUp">
                       <div className="space-y-2">
                         <Input
                           type="email"
                           placeholder="Email Address"
                           value={email}
-                          onChange={(e) => setEmail(e.target.value)}
+                          onChange={e => setEmail(e.target.value)}
                           className="bg-white/50 border-border"
                         />
                         <div className="relative">
@@ -182,7 +195,7 @@ export default function Login() {
                             type={showPassword ? "text" : "password"}
                             placeholder="Password"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={e => setPassword(e.target.value)}
                             className="bg-white/50 border-border"
                           />
                           <button
@@ -194,21 +207,30 @@ export default function Login() {
                           </button>
                         </div>
                       </div>
+
+                      {error && (
+                        <p className="text-destructive text-xs font-bold">{error}</p>
+                      )}
+
                       <Button
+                        type="submit"
                         className="w-full premium-gradient text-white font-bold"
-                        onClick={handleEmailLogin}
-                        disabled={loginMutation.isPending}
+                        disabled={isLoading}
                       >
-                        {loginMutation.isPending ? "Signing in..." : "Login"}
+                        {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : "Login"}
                       </Button>
-                    </div>
+                    </form>
+                  )}
+
+                  {/* Error outside form (for OAuth errors) */}
+                  {error && loginMethod === "oauth" && (
+                    <p className="text-destructive text-xs font-bold text-center">{error}</p>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Footer Link */}
           <div className="mt-8 text-center space-y-4">
             <p className="text-sm text-muted-foreground font-medium">
               Don't have an account?{" "}
