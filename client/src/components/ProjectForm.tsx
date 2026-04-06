@@ -48,6 +48,27 @@ const projectFormSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
+const CATEGORY_SLUG_TO_ID: Record<string, number> = {
+  environmental: 1,
+  community: 2,
+  innovation: 3,
+  education: 4,
+};
+
+const parseInteger = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const resolveCategoryId = (value: unknown) => {
+  if (typeof value === "number") return parseInteger(value);
+  if (typeof value === "string") {
+    const numeric = parseInteger(value);
+    return numeric || CATEGORY_SLUG_TO_ID[value] || null;
+  }
+  return null;
+};
+
 // ─── Upload helpers ───────────────────────────────────────────────────────────
 const BUCKET = "project-files"; // Create this bucket in Supabase Dashboard → Storage
 
@@ -346,8 +367,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         abstract: data.description,
         grade: data.grade,
         supabase_uid: userId,               // Supabase UUID — new text column
-        subcategory_id: setup.subcategoryId ?? null,
-        category_id: setup.categoryId ?? null,
+        category_id: resolveCategoryId(setup.categoryId),
+        subcategory_id: parseInteger(setup.subcategoryId),
+        supervisor_id: parseInteger(setup.supervisorId),
         status: "submitted",
         submitted_at: new Date().toISOString(),
         image_urls: JSON.stringify(imageUrls),
@@ -369,9 +391,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
         abstract: data.description,
         grade: data.grade,
         supabase_uid: userId,
-        categoryId: setup.categoryId,
-        subcategoryId: setup.subcategoryId,
-        supervisorId: setup.supervisorId,
+        categoryId: resolveCategoryId(setup.categoryId),
+        subcategoryId: parseInteger(setup.subcategoryId),
+        supervisorId: parseInteger(setup.supervisorId),
         imageUrls: JSON.stringify(imageUrls),
         videoUrl: videoUrls[0] ?? null,
         documentUrls: JSON.stringify(docUrls),

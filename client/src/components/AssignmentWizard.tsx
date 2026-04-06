@@ -151,6 +151,7 @@ export function AssignmentWizard() {
       education: 12,
     };
 
+    const categoryId = CATEGORIES.findIndex((c) => c.id === selectedCategoryId) + 1;
     const subcategoryIndex = selectedCategory?.subcategories.indexOf(selectedSubcategory) ?? 0;
     const subcategoryId = 1 + categoryOffsets[selectedCategoryId] + subcategoryIndex;
 
@@ -161,7 +162,7 @@ export function AssignmentWizard() {
       "project-setup",
       JSON.stringify({
         teacher: selectedTeacher,
-        categoryId: selectedCategoryId,
+        categoryId,
         categoryName: selectedCategory?.name,
         subcategory: selectedSubcategory,
         subcategoryId: subcategoryId,
