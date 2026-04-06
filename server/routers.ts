@@ -6,7 +6,8 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { adminRouter } from "./routers/admin";
 import { authRouter } from "./routers/auth";
-import { notificationsRouter } from "./routers/notifications";
+import { projectsRouter } from "./routers/projects";
+import { projectsRouter } from "./routers/projects";
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
@@ -40,6 +41,7 @@ export const appRouter = router({
   admin: adminRouter,
   auth: authRouter,
   notifications: notificationsRouter,
+  projects: projectsRouter,
 
   users: router({
     getAll: adminProcedure.query(async () => {
@@ -183,15 +185,7 @@ export const appRouter = router({
       }),
   }),
 
-  projects: router({
-    getAll: publicProcedure.query(async () => {
-      return db.getAllProjects();
-    }),
-    getById: publicProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        return db.getProjectById(input.id);
-      }),
+  journeyPosts: router({
     getByCategory: publicProcedure
       .input(z.object({ categoryId: z.number() }))
       .query(async ({ input }) => {

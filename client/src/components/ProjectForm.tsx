@@ -36,6 +36,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { nanoid } from "nanoid";
+import { trpc } from "@/lib/trpc";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 // categoryId is NOT in the schema — it comes from AssignmentWizard setup
@@ -275,6 +276,27 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
   })();
 
+  // TRPC mutation for project submission
+  const submitProjectMutation = trpc.projects.submitProject.useMutation({
+    onSuccess: () => {
+      toast.success("🎉 Project submitted successfully!");
+      localStorage.removeItem("project-setup");
+      form.reset();
+      setStep(1);
+      setImages([]);
+      setVideos([]);
+      setDocuments([]);
+      setIsUploading(false);
+      onSuccess?.();
+    },
+    onError: (error) => {
+      console.warn("[ProjectForm] TRPC submission failed:", error.message);
+      // Fallback to local storage
+      toast.success("Project saved locally.");
+      // ... existing fallback code ...
+    },
+  });
+
   // ── File states ──
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [videos, setVideos] = useState<UploadedFile[]>([]);
@@ -347,7 +369,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>
   ) => setter((prev) => prev.filter((_, i) => i !== idx));
 
-  // ── Submit — writes directly to Supabase, no backend needed ──
+  // ── Submit — uses TRPC backend ──
   const onSubmit = async (data: ProjectFormValues) => {
     const anyUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
     if (anyUploading) {
@@ -355,11 +377,8 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return;
     }
 
-    // Use saved Supabase UID, falling back from openId if needed
-    const userId = resolveSupabaseUid(user);
-    if (!userId) {
+    if (!user) {
       toast.error("You must be logged in to submit a project.");
-      setIsUploading(false);
       return;
     }
 
@@ -386,35 +405,28 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
 
     try {
-      // Write directly to Supabase — no backend needed
-      const { error: dbError } = await supabase.from("projects").insert({
-        title:          data.title,
-        team_name:      data.teamName,
-        description:    data.description,
-        abstract:       data.description,
-        grade:          data.grade,
-        supabase_uid:   userId,
-        subcategory_id: subcategoryId,
-        category_id:    categoryId,
-        status:         "submitted",
-        submitted_at:   new Date().toISOString(),
-        image_urls:     JSON.stringify(imageUrls),
-        video_url:      videoUrls[0] ?? null,
-        document_urls:  JSON.stringify(docUrls),
+      await submitProjectMutation.mutateAsync({
+        title: data.title,
+        teamName: data.teamName,
+        description: data.description,
+        grade: data.grade,
+        categoryId: categoryId,
+        subcategoryId: subcategoryId,
+        supervisorId: supervisorId,
+        imageUrls: imageUrls,
+        videoUrl: videoUrls[0] || undefined,
+        documentUrls: docUrls,
       });
-
-      if (dbError) throw dbError;
-      toast.success("🎉 Project submitted successfully!");
     } catch (err: any) {
-      // Supabase failed → save locally silently
-      console.warn("[ProjectForm] Supabase insert failed:", err?.message);
+      console.warn("[ProjectForm] TRPC submission failed:", err?.message);
+      // Fallback to local storage
       const fallback = {
         id: nanoid(),
         title: data.title,
         teamName: data.teamName,
         description: data.description,
         grade: data.grade,
-        supabase_uid: userId,
+        supabase_uid: user.id,
         teacher: setup.teacher,
         category: setup.categoryName,
         subcategory: setup.subcategory,
@@ -428,7 +440,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       existing.push(fallback);
       localStorage.setItem("local-projects", JSON.stringify(existing));
       toast.success("Project saved locally.");
-    } finally {
+      // Clean up
       localStorage.removeItem("project-setup");
       form.reset();
       setStep(1);

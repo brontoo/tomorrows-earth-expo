@@ -144,43 +144,34 @@ export default function MyProjectsDashboard() {
   const { isAuthenticated } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
 
-  // Fetch projects directly from Supabase using the student's UUID
+  // Fetch projects using TRPC
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { data: projectsData, isLoading: trpcLoading, refetch: trpcRefetch } = trpc.projects.getMyProjects.useQuery();
+
   const submitLocalProjectMutation = trpc.projects.submitProject.useMutation({
     onError: (error) => console.warn("[MyProjects] Local sync failed:", error),
   });
 
-  const refetch = async () => {
-    setIsLoading(true);
-    try {
-      const mockUser = JSON.parse(localStorage.getItem("mock-user") || "{}");
-      const uid = mockUser?.id ?? mockUser?.openId ?? null;
-      if (!uid) { setProjects([]); return; }
-
-      const { data, error } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("supabase_uid", uid)
-        .order("created_at", { ascending: false });
-
-      if (!error && data) {
-        const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
-        setProjects([...localProjects, ...data]);
-        // Try to sync local projects
-        await syncLocalProjects(uid);
-      }
-    } catch (e) {
-      console.warn("[MyProjects] Supabase fetch failed:", e);
+  useEffect(() => {
+    if (projectsData) {
+      const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
+      setProjects([...localProjects, ...projectsData]);
+    } else {
       // Fallback: show local projects
       const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
       setProjects(local);
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
+  }, [projectsData]);
+
+  const refetch = async () => {
+    await trpcRefetch();
+    // Try to sync local projects
+    await syncLocalProjects();
   };
 
-  const syncLocalProjects = async (uid: string) => {
+  const syncLocalProjects = async () => {
     const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
     if (localProjects.length === 0) return;
 
@@ -193,9 +184,9 @@ export default function MyProjectsDashboard() {
           description: local.description,
           grade: local.grade,
           subcategoryId: Number(local.subcategoryId) || 0,
-          supervisorId: Number(local.supervisorId) || undefined,
-          teacherName: local.teacher || undefined,
+          supervisorId: Number(local.supervisorId) || 0,
           documentUrls: local.documentUrls ? JSON.parse(local.documentUrls) : [],
+          categoryId: 0
         });
 
         syncedAny = true;
@@ -213,19 +204,30 @@ export default function MyProjectsDashboard() {
 
   useEffect(() => { refetch(); }, []);
 
-  const handleDelete = async (id: string | number) => {
-    if (!confirm("Delete this project?")) return;
-    try {
-      const { error } = await supabase.from("projects").delete().eq("id", id);
-      if (error) throw error;
+  const deleteProjectMutation = trpc.projects.deleteProject.useMutation({
+    onSuccess: () => {
       toast.success("Project deleted");
       refetch();
-    } catch {
-      // Fallback: remove from local-projects
+    },
+    onError: (error: any) => {
+      console.warn("[MyProjects] Delete failed:", error);
+      toast.error("Failed to delete project");
+    },
+  });
+
+  const handleDelete = async (id: string | number) => {
+    if (!confirm("Delete this project?")) return;
+
+    // Check if it's a local project (string id) or database project (number id)
+    if (typeof id === "string") {
+      // Local project
       const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
       localStorage.setItem("local-projects", JSON.stringify(local.filter((p: any) => p.id !== id)));
       toast.success("Project deleted");
       refetch();
+    } else {
+      // Database project
+      await deleteProjectMutation.mutateAsync({ id });
     }
   };
 

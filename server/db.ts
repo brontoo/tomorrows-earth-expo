@@ -269,8 +269,8 @@ export async function insertProject(project: InsertProject) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.insert(projects).values(project);
-  return result;
+  const result = await db.insert(projects).values(project).returning({ id: projects.id });
+  return result[0];
 }
 
 // ============ TEACHERS ============

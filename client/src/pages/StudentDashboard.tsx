@@ -12,6 +12,7 @@ import PageNavigation from "@/components/PageNavigation";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 // ─── Greeting helper ──────────────────────────────────────────────────────────
 function getGreeting() {
@@ -67,18 +68,19 @@ export default function StudentDashboard() {
   const [myProjects, setMyProjects] = useState<any[]>([]);
   const [assignment, setAssignment] = useState<any>(null);
 
+  // Fetch projects using TRPC
+  const { data: projectsData } = trpc.projects.getMyProjects.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "student",
+  });
+
+  useEffect(() => {
+    if (projectsData) {
+      setMyProjects(projectsData);
+    }
+  }, [projectsData]);
+
   useEffect(() => {
     if (!isAuthenticated || user?.role !== "student") return;
-    const uid = user?.id ?? user?.openId ?? null;
-    if (!uid) return;
-
-    // Fetch projects from Supabase
-    supabase
-      .from("projects")
-      .select("*")
-      .eq("supabase_uid", uid)
-      .order("created_at", { ascending: false })
-      .then(({ data }) => { if (data) setMyProjects(data); });
 
     // Fetch assignment from localStorage (set by AssignmentWizard)
     try {
