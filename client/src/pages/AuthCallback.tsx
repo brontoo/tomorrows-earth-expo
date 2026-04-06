@@ -1,113 +1,39 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+// src/pages/AuthCallback.tsx
+// يُعالج redirect بعد Google OAuth — يجلب الـ role من DB تلقائياً
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { trpc } from "@/lib/trpc";
-import { Loader, AlertCircle } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function AuthCallback() {
-  const [, setLocation] = useLocation();
-  const [error, setError] = useState<string | null>(null);
-
-  const syncUserMutation = trpc.auth.syncUser.useMutation({
-    onSuccess: (data) => {
-      console.log("[Auth] Sync successful:", data.user);
-      const role = data.user.role;
-      const dashboardMap: Record<string, string> = {
-        admin: "/admin/dashboard",
-        teacher: "/teacher/dashboard",
-        student: "/student/dashboard",
-      };
-      setLocation(dashboardMap[role] || "/student/dashboard");
-    },
-    onError: (err) => {
-      setError(err.message || "Failed to synchronize your account.");
-    },
-  });
-
   useEffect(() => {
     const handleCallback = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // Supabase يعالج الـ hash تلقائياً ويحفظ الـ session
+      const { data: { session }, error } = await supabase.auth.getSession();
 
-        if (sessionError) throw sessionError;
+      if (error) {
+        console.error("[AuthCallback] Error:", error.message);
+        window.location.href = "/login?error=auth_failed";
+        return;
+      }
 
-        if (session) {
-          const user = session.user;
-          console.log("[Auth] Supabase session found for:", user.email);
-
-          const role = (localStorage.getItem("selectedRole") as any) || "student";
-
-          // ── Always save mock-user with the Supabase UUID as id ──
-          // This is used throughout the app when the backend is offline
-          const mockUser = {
-            id: user.id,           // Supabase UUID string — used for Supabase inserts
-            openId: user.id,       // same value, kept for compatibility
-            email: user.email,
-            name: user.user_metadata?.full_name || user.email?.split("@")[0],
-            role,
-          };
-          localStorage.setItem("mock-user", JSON.stringify(mockUser));
-
-          // ── Try to sync with backend ──
-          try {
-            await syncUserMutation.mutateAsync({
-              email: user.email!,
-              name: mockUser.name,
-              openId: user.id,
-              role,
-            });
-          } catch {
-            console.warn("[Auth] tRPC sync failed — using local mock-user (backend offline).");
-            // mock-user is already saved above, just redirect
-            const dashboardMap: Record<string, string> = {
-              admin: "/admin/dashboard",
-              teacher: "/teacher/dashboard",
-              student: "/student/dashboard",
-            };
-            setLocation(dashboardMap[role] || "/student/dashboard");
-          }
-        } else {
-          setLocation("/login");
-        }
-      } catch (err: any) {
-        console.error("[Auth] Callback error:", err);
-        setError(err.message || "An error occurred during authentication.");
+      if (session) {
+        // ✅ تنظيف selectedRole من localStorage — لا نحتاجه بعد الآن
+        localStorage.removeItem("selectedRole");
+        // الـ useAuth سيجلب الـ role من DB تلقائياً عند أول load
+        window.location.href = "/";
+      } else {
+        window.location.href = "/login?error=no_session";
       }
     };
 
     handleCallback();
   }, []);
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-red-200 bg-red-50">
-          <CardHeader>
-            <CardTitle className="text-red-900 flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              Authentication Error
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-700 mb-6">{error}</p>
-            <button
-              onClick={() => setLocation("/login")}
-              className="w-full py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-            >
-              Back to Login
-            </button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-      <Loader className="h-12 w-12 animate-spin text-blue-500 mb-4" />
-      <h2 className="text-2xl font-bold mb-2">Authenticating...</h2>
-      <p className="text-slate-400">Completing your secure sign-in</p>
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+        <p className="text-muted-foreground font-medium text-sm">Signing you in...</p>
+      </div>
     </div>
   );
 }
