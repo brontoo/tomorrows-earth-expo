@@ -2,12 +2,14 @@
 // يُعالج redirect بعد Google OAuth — يجلب الـ role من DB تلقائياً
 import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 export default function AuthCallback() {
+  const syncUser = trpc.auth.syncUser.useMutation();
+
   useEffect(() => {
     const handleCallback = async () => {
-      const result = await supabase.auth.getSessionFromUrl();
-      const { data: { session }, error } = result;
+      const { data: { session }, error } = await supabase.auth.getSessionFromUrl();
 
       if (error) {
         console.error("[AuthCallback] Error:", error.message);
@@ -15,17 +17,33 @@ export default function AuthCallback() {
         return;
       }
 
-      if (session) {
-        localStorage.removeItem("selectedRole");
-        window.history.replaceState({}, document.title, "/");
-        window.location.href = "/";
-      } else {
+      if (!session?.user) {
         window.location.href = "/login?error=no_session";
+        return;
+      }
+
+      try {
+        const selectedRole = localStorage.getItem("selectedRole") as
+'teacher' | 'student' | 'admin' | null;
+        await syncUser.mutateAsync({
+          email: session.user.email ?? "",
+          name:
+            session.user.user_metadata?.full_name ??
+            session.user.email?.split("@")[0] ??
+            "Google User",
+          openId: session.user.id,
+          role: selectedRole as "admin" | "teacher" | "student" | undefined,
+        });
+      } catch (syncError) {
+        console.warn("[AuthCallback] syncUser failed:", syncError);
+      } finally {
+        localStorage.removeItem("selectedRole");
+        window.location.href = "/";
       }
     };
 
     handleCallback();
-  }, []);
+  }, [syncUser]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
