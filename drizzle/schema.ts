@@ -299,7 +299,7 @@ export type InsertRubric = typeof rubrics.$inferInsert;
  * Rubric Scores
  * Track scores for each rubric criterion per project
  */
-export const rubricScores = pgTable("rubic_scores", {
+export const rubricScores = pgTable("rubric_scores", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
   feedbackId: integer("feedback_id").notNull(),
   rubricId: integer("rubric_id").notNull(),

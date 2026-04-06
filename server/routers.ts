@@ -499,6 +499,58 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return db.getProjectHistory(input.projectId);
       }),
+
+    // ─── قبول المشروع ────────────────────────────────────────────────────
+    approve: teacherProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.id);
+          if (!project) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+          }
+
+          await db.updateProject(input.id, {
+            status: "approved",
+            approvedBy: ctx.user.id,
+            approvedAt: new Date(),
+          });
+
+          return { success: true };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[TRPC] Failed to approve project:", error);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to approve project" });
+        }
+      }),
+
+    // ─── إرجاع المشروع للمراجعة ──────────────────────────────────────────
+    reject: teacherProcedure
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          reason: z.string().min(1, "Rejection reason is required"),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        try {
+          const project = await db.getProjectById(input.id);
+          if (!project) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+          }
+
+          await db.updateProject(input.id, {
+            status: "rejected",
+            rejectionReason: input.reason,
+          });
+
+          return { success: true };
+        } catch (error) {
+          if (error instanceof TRPCError) throw error;
+          console.error("[TRPC] Failed to reject project:", error);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to reject project" });
+        }
+      }),
   }),
 });
 

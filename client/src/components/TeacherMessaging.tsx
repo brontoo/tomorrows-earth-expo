@@ -90,11 +90,32 @@ export default function TeacherMessaging() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Send Message</CardTitle>
+            <CardTitle className="text-lg">Messages</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {selectedConversation ? (
               <>
+                {/* Display messages for selected conversation */}
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {messages
+                    ?.filter((msg: any) => msg.recipientId === selectedConversation || msg.senderId === selectedConversation)
+                    .map((msg: any) => (
+                      <div
+                        key={msg.id}
+                        className={`p-3 rounded-lg ${
+                          msg.senderId === selectedConversation
+                            ? "bg-muted ml-8"
+                            : "bg-primary/10 mr-8"
+                        }`}
+                      >
+                        <p className="text-sm">{msg.content}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(msg.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2">Subject (Optional)</label>
                   <input
@@ -126,7 +147,7 @@ export default function TeacherMessaging() {
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>Select a conversation to send a message</p>
+                <p>Select a conversation to view messages and send replies</p>
               </div>
             )}
           </CardContent>

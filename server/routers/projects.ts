@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { InsertProject } from "../../drizzle/schema";
 
@@ -84,10 +84,11 @@ export const projectsRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
         }
 
-        // Allow access if user is the creator, supervisor, or admin
-        if (ctx.user.role === "admin" ||
-            project.createdBy === ctx.user.id ||
-            project.supervisorId === ctx.user.id) {
+        if (
+          ctx.user.role === "admin" ||
+          project.createdBy === ctx.user.id ||
+          project.supervisorId === ctx.user.id
+        ) {
           return project;
         }
 
@@ -112,7 +113,6 @@ export const projectsRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
         }
 
-        // Only allow deletion by the creator
         if (project.createdBy !== ctx.user.id) {
           throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
@@ -125,4 +125,83 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to delete project" });
       }
     }),
+
+  // ─── إحصائيات عامة للصفحة الرئيسية ──────────────────────────────────
+  getStats: publicProcedure.query(async () => {
+    return db.getProjectStats();
+  }),
+
+  // ─── قبول المشروع ────────────────────────────────────────────────────
+  approve: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "teacher" && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Teacher access required" });
+      }
+
+      try {
+        const project = await db.getProjectById(input.id);
+        if (!project) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+
+        await db.updateProject(input.id, {
+          status: "approved",
+          approvedBy: ctx.user.id,
+          approvedAt: new Date(),
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[TRPC] Failed to approve project:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to approve project" });
+      }
+    }),
+
+  // ─── إرجاع المشروع للمراجعة ──────────────────────────────────────────
+  reject: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        reason: z.string().min(1, "Rejection reason is required"),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role !== "teacher" && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Teacher access required" });
+      }
+
+      try {
+        const project = await db.getProjectById(input.id);
+        if (!project) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+
+        await db.updateProject(input.id, {
+          status: "rejected",
+          rejectionReason: input.reason,
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        console.error("[TRPC] Failed to reject project:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to reject project" });
+      }
+    }),
+
+  // ─── جلب جميع المشاريع (للمدرس والأدمن) ─────────────────────────────
+  getAll: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role !== "teacher" && ctx.user.role !== "admin") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+    }
+
+    try {
+      return await db.getAllProjects();
+    } catch (error) {
+      console.error("[TRPC] Failed to get all projects:", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch projects" });
+    }
+  }),
 });

@@ -56,7 +56,7 @@ function TeacherDashboardContent() {
       refetchOnWindowFocus: false,
     });
 
-  const approveMutation = trpc.projects.approve.useMutation({
+  const approveMutation = trpc.teacher.approve.useMutation({
     onSuccess: async () => {
       toast.success("Project approved successfully.");
       await utils.teacher.getStudentSubmissions.invalidate();
@@ -66,7 +66,7 @@ function TeacherDashboardContent() {
     },
   });
 
-  const rejectMutation = trpc.projects.reject.useMutation({
+  const rejectMutation = trpc.teacher.reject.useMutation({
     onSuccess: async () => {
       toast.success("Project returned for revision.");
       setRejectingId(null);

@@ -1,39 +1,59 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Clock, CheckCircle } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 export default function TeacherAnalytics() {
-  // Sample analytics data - will be connected to backend
-  const analyticsData = {
-    projectsReviewed: 24,
-    averageReviewTime: 45, // minutes
-    studentEngagementScore: 8.5, // out of 10
-    feedbackSent: 28,
-    approvalRate: 85,
-    revisionRate: 15,
-  };
+  const { data: analyticsData, isLoading } = trpc.teacher.getAnalytics.useQuery({
+    date: new Date().toISOString().split('T')[0], // Today's date
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="h-20 bg-muted rounded animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!analyticsData) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <BarChart3 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+        <p>No analytics data available</p>
+      </div>
+    );
+  }
 
   const metrics = [
     {
       title: "Projects Reviewed",
-      value: analyticsData.projectsReviewed,
+      value: analyticsData.projectsReviewed || 0,
       icon: CheckCircle,
       color: "bg-green-500/10 text-green-600",
     },
     {
       title: "Avg Review Time",
-      value: `${analyticsData.averageReviewTime}m`,
+      value: `${analyticsData.averageReviewTime || 0}m`,
       icon: Clock,
       color: "bg-blue-500/10 text-blue-600",
     },
     {
       title: "Feedback Sent",
-      value: analyticsData.feedbackSent,
+      value: analyticsData.feedbackSent || 0,
       icon: BarChart3,
       color: "bg-purple-500/10 text-purple-600",
     },
     {
       title: "Approval Rate",
-      value: `${analyticsData.approvalRate}%`,
+      value: `${analyticsData.approvalRate || 0}%`,
       icon: TrendingUp,
       color: "bg-orange-500/10 text-orange-600",
     },

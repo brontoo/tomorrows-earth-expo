@@ -211,12 +211,13 @@ function LiveDataSection() {
                           {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </p>
                       </div>
-                      <span className={`ml-3 flex-shrink-0 text-xs font-black px-3 py-1 rounded-full ${daysLeft <= 7
+                      <span className={`ml-3 flex-shrink-0 text-xs font-black px-3 py-1 rounded-full ${
+                        daysLeft <= 7
                           ? "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                           : daysLeft <= 30
-                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
-                            : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                        }`}>
+                          ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                          : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                      }`}>
                         {daysLeft}d
                       </span>
                     </div>
@@ -263,20 +264,20 @@ export default function Home() {
   const { data: stats } = trpc.projects.getStats.useQuery(undefined, {
     retry: false,
     // @ts-ignore
-    onError: () => { },
+    onError: () => {},
   });
   const { data: categories } = trpc.categories.getAll.useQuery(undefined, {
     retry: false,
     // @ts-ignore
-    onError: () => { },
+    onError: () => {},
   });
 
   const dashboardPath =
     user?.role === "admin"
       ? "/admin/dashboard"
       : user?.role === "teacher"
-        ? "/teacher/dashboard"
-        : "/student/dashboard";
+      ? "/teacher/dashboard"
+      : "/student/dashboard";
 
   const firstName = (user?.name ?? "").split(" ")[0];
 
