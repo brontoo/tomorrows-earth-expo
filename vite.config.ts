@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
 export default defineConfig({
-  root: 'client',  // ← هنا فقط، مش في CLI
+  root: 'client',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
@@ -19,6 +19,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: true
+    host: true,
+    proxy: {              // ← أضف هذا
+      '/api/trpc': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      }
+    }
   }
 })

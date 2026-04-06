@@ -6,8 +6,7 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { adminRouter } from "./routers/admin";
 import { authRouter } from "./routers/auth";
-import { projectsRouter } from "./routers/projects";
-import { projectsRouter } from "./routers/projects";
+import { projectsRouter } from "./routers/projects";  // ← مرة واحدة فقط
 import * as db from "./db";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
@@ -40,8 +39,7 @@ export const appRouter = router({
   system: systemRouter,
   admin: adminRouter,
   auth: authRouter,
-  notifications: notificationsRouter,
-  projects: projectsRouter,
+  projects: projectsRouter,  // ← بدون notifications
 
   users: router({
     getAll: adminProcedure.query(async () => {
@@ -181,189 +179,6 @@ export const appRouter = router({
           ...rest,
           expertise: expertise ? JSON.stringify(expertise) : undefined,
         });
-        return { success: true };
-      }),
-  }),
-
-  journeyPosts: router({
-    getByCategory: publicProcedure
-      .input(z.object({ categoryId: z.number() }))
-      .query(async ({ input }) => {
-        return db.getProjectsByCategory(input.categoryId);
-      }),
-    getBySubcategory: publicProcedure
-      .input(z.object({ subcategoryId: z.number() }))
-      .query(async ({ input }) => {
-        return db.getProjectsBySubcategory(input.subcategoryId);
-      }),
-    getByStatus: publicProcedure
-      .input(z.object({ status: z.enum(["approved", "draft", "submitted", "rejected", "finalist"]) }))
-      .query(async ({ input }) => {
-        return db.getProjectsByStatus(input.status);
-      }),
-    getMyProjects: protectedProcedure.query(async ({ ctx }) => {
-      return db.getProjectsByUser(ctx.user.id);
-    }),
-    getStats: publicProcedure.query(async () => {
-      return db.getProjectStats();
-    }),
-    submitProject: studentProcedure
-      .input(z.object({
-        title: z.string().min(1),
-        teamName: z.string().min(1),
-        description: z.string().min(1),
-        grade: z.string().min(1),
-        subcategoryId: z.number(),
-        supervisorId: z.number().optional(),   // ✅ اجعله optional
-        teacherName: z.string().optional(),    // ✅ أضف اسم المعلمة كـ fallback
-        documentUrls: z.array(z.string()).optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const subcategory = await db.getSubcategoryById(input.subcategoryId);
-        if (!subcategory) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Subcategory not found" });
-        }
-
-        const result = await db.createProject({
-          title: input.title,
-          teamName: input.teamName,
-          description: input.description,
-          categoryId: subcategory.categoryId,
-          subcategoryId: input.subcategoryId,
-          supervisorId: input.supervisorId ?? null,  // ✅ null مقبول
-          createdBy: ctx.user.id,
-          grade: input.grade,
-          status: "submitted",
-          submittedAt: new Date(),
-          documentUrls: input.documentUrls ? JSON.stringify(input.documentUrls) : null,
-        });
-
-        // ✅ أرسل الإشعار فقط إذا كان supervisorId موجوداً
-        if (input.supervisorId) {
-          await db.createNotification({
-            userId: input.supervisorId,
-            type: "project_submitted",
-            title: "New Project Submission",
-            message: `${ctx.user.name} submitted a project: ${input.title}`,
-            relatedProjectId: (result as any).insertId as number,
-          });
-        }
-
-        return { success: true, projectId: (result as any).insertId };
-      }),
-    create: studentProcedure
-      .input(z.object({
-        title: z.string(),
-        teamName: z.string(),
-        categoryId: z.number(),
-        grade: z.string(),
-        teamMemberIds: z.array(z.number()).optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await db.createProject({
-          ...input,
-          createdBy: ctx.user.id,
-          teamMemberIds: input.teamMemberIds ? JSON.stringify(input.teamMemberIds) : null,
-          status: "draft",
-        });
-        return { success: true };
-      }),
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        title: z.string().optional(),
-        teamName: z.string().optional(),
-        categoryId: z.number().optional(),
-        abstract: z.string().optional(),
-        scientificQuestion: z.string().optional(),
-        sdgAlignment: z.array(z.number()).optional(),
-        researchMethod: z.string().optional(),
-        experimentDetails: z.string().optional(),
-        dataExplanation: z.string().optional(),
-        thumbnailUrl: z.string().optional(),
-        imageUrls: z.array(z.string()).optional(),
-        videoUrl: z.string().optional(),
-        model3dUrl: z.string().optional(),
-        status: z.enum(["draft", "submitted", "approved", "rejected", "finalist"]).optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const { id, sdgAlignment, imageUrls, ...rest } = input;
-        const project = await db.getProjectById(id);
-
-        if (!project) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
-        }
-
-        if (
-          project.createdBy !== ctx.user.id &&
-          ctx.user.role !== "teacher" &&
-          ctx.user.role !== "admin"
-        ) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized to update this project" });
-        }
-
-        await db.updateProject(id, {
-          ...rest,
-          sdgAlignment: sdgAlignment ? JSON.stringify(sdgAlignment) : undefined,
-          imageUrls: imageUrls ? JSON.stringify(imageUrls) : undefined,
-        });
-
-        return { success: true };
-      }),
-    submit: studentProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const project = await db.getProjectById(input.id);
-
-        if (!project || project.createdBy !== ctx.user.id) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
-        }
-
-        await db.updateProject(input.id, {
-          status: "submitted",
-          submittedAt: new Date(),
-        });
-
-        return { success: true };
-      }),
-    approve: teacherProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        await db.updateProject(input.id, {
-          status: "approved",
-          approvedBy: ctx.user.id,
-          approvedAt: new Date(),
-        });
-
-        return { success: true };
-      }),
-    reject: teacherProcedure
-      .input(z.object({
-        id: z.number(),
-        reason: z.string(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        await db.updateProject(input.id, {
-          status: "rejected",
-          rejectionReason: input.reason,
-        });
-
-        return { success: true };
-      }),
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        const project = await db.getProjectById(input.id);
-
-        if (!project) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
-        }
-
-        if (project.createdBy !== ctx.user.id && ctx.user.role !== "admin") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized" });
-        }
-
-        await db.deleteProject(input.id);
         return { success: true };
       }),
   }),

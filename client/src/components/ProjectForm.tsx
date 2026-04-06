@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,7 +40,6 @@ import { nanoid } from "nanoid";
 import { trpc } from "@/lib/trpc";
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
-// categoryId is NOT in the schema — it comes from AssignmentWizard setup
 const projectFormSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters").max(200),
   teamName: z.string().min(2, "Team name must be at least 2 characters").max(100),
@@ -48,8 +48,6 @@ const projectFormSchema = z.object({
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
-
-type UserIdentifier = { id?: string | number; openId?: string };
 
 const CATEGORY_SLUG_TO_ID: Record<string, number> = {
   environmental: 1,
@@ -72,23 +70,15 @@ const resolveCategoryId = (value: unknown) => {
   return null;
 };
 
-const resolveSupabaseUid = (user: UserIdentifier | null) => {
-  if (!user) return null;
-  if (typeof user.openId === "string" && user.openId) return user.openId;
-  if (typeof user.id === "string" && user.id) return user.id;
-  if (typeof user.id === "number" && !Number.isNaN(user.id)) return String(user.id);
-  return null;
-};
-
 // ─── Upload helpers ───────────────────────────────────────────────────────────
-const BUCKET = "project-files"; // Create this bucket in Supabase Dashboard → Storage
+const BUCKET = "project-files";
 
 interface UploadedFile {
   file: File;
-  url: string | null;       // null = not uploaded yet
+  url: string | null;
   uploading: boolean;
   error: string | null;
-  preview?: string;         // for images
+  preview?: string;
 }
 
 async function uploadToSupabase(
@@ -111,14 +101,7 @@ async function uploadToSupabase(
 
 // ─── DropZone sub-component ───────────────────────────────────────────────────
 function DropZone({
-  accept,
-  label,
-  hint,
-  icon: Icon,
-  files,
-  onAdd,
-  onRemove,
-  maxFiles = 10,
+  accept, label, hint, icon: Icon, files, onAdd, onRemove, maxFiles = 10,
 }: {
   accept: string;
   label: string;
@@ -148,16 +131,16 @@ function DropZone({
         <span className="text-xs text-slate-400 ml-auto">{files.length}/{maxFiles}</span>
       </div>
 
-      {/* Drop area */}
       <label
         htmlFor={`upload-${label}`}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl p-6 cursor-pointer transition-all duration-200 ${dragging
+        className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-2xl p-6 cursor-pointer transition-all duration-200 ${
+          dragging
             ? "border-primary bg-primary/5"
             : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800/50"
-          }`}
+        }`}
       >
         <Upload size={24} className="text-slate-400" />
         <p className="text-sm font-medium text-slate-500 dark:text-slate-400 text-center">{hint}</p>
@@ -172,41 +155,24 @@ function DropZone({
         />
       </label>
 
-      {/* File list */}
       {files.length > 0 && (
         <div className="space-y-2">
           {files.map((f, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3"
-            >
-              {/* Image preview */}
+            <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3">
               {f.preview && (
                 <img src={f.preview} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
               )}
-
-              {/* File name */}
               <span className="text-xs font-medium text-slate-600 dark:text-slate-300 truncate flex-1">
                 {f.file.name}
               </span>
-
-              {/* Status */}
               <div className="flex-shrink-0">
                 {f.uploading && <Loader2 size={16} className="animate-spin text-primary" />}
                 {!f.uploading && f.url && <CheckCircle2 size={16} className="text-green-500" />}
                 {!f.uploading && f.error && (
-                  <span title={f.error}>
-                    <AlertCircle size={16} className="text-red-500" />
-                  </span>
+                  <span title={f.error}><AlertCircle size={16} className="text-red-500" /></span>
                 )}
               </div>
-
-              {/* Remove */}
-              <button
-                type="button"
-                onClick={() => onRemove(i)}
-                className="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors"
-              >
+              <button type="button" onClick={() => onRemove(i)} className="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors">
                 <X size={16} />
               </button>
             </div>
@@ -226,28 +192,25 @@ function StepBar({ step }: { step: number }) {
         {steps.map((label, i) => (
           <div key={i} className="flex items-center flex-1 last:flex-none">
             <div className="flex flex-col items-center">
-              <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${step > i + 1
-                    ? "bg-green-500 text-white"
-                    : step === i + 1
-                      ? "bg-primary text-white ring-4 ring-primary/20"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-400"
-                  }`}
-              >
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-sm transition-all duration-300 ${
+                step > i + 1
+                  ? "bg-green-500 text-white"
+                  : step === i + 1
+                  ? "bg-primary text-white ring-4 ring-primary/20"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+              }`}>
                 {step > i + 1 ? <CheckCircle2 size={18} /> : i + 1}
               </div>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wide mt-1 hidden sm:block ${step === i + 1 ? "text-primary" : "text-slate-400"
-                  }`}
-              >
+              <span className={`text-[10px] font-bold uppercase tracking-wide mt-1 hidden sm:block ${
+                step === i + 1 ? "text-primary" : "text-slate-400"
+              }`}>
                 {label}
               </span>
             </div>
             {i < steps.length - 1 && (
-              <div
-                className={`flex-1 h-px mx-2 mb-4 transition-colors duration-500 ${step > i + 1 ? "bg-green-400" : "bg-slate-200 dark:bg-slate-700"
-                  }`}
-              />
+              <div className={`flex-1 h-px mx-2 mb-4 transition-colors duration-500 ${
+                step > i + 1 ? "bg-green-400" : "bg-slate-200 dark:bg-slate-700"
+              }`} />
             )}
           </div>
         ))}
@@ -267,7 +230,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
   const [step, setStep] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Read pre-selected category/subcategory/teacher from AssignmentWizard
   const setup = (() => {
     try {
       return JSON.parse(localStorage.getItem("project-setup") || "{}");
@@ -276,27 +238,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     }
   })();
 
-  // TRPC mutation for project submission
-  const submitProjectMutation = trpc.projects.submitProject.useMutation({
-    onSuccess: () => {
-      toast.success("🎉 Project submitted successfully!");
-      localStorage.removeItem("project-setup");
-      form.reset();
-      setStep(1);
-      setImages([]);
-      setVideos([]);
-      setDocuments([]);
-      setIsUploading(false);
-      onSuccess?.();
-    },
-    onError: (error) => {
-      console.warn("[ProjectForm] TRPC submission failed:", error.message);
-      // Fallback to local storage
-      toast.success("Project saved locally.");
-      // ... existing fallback code ...
-    },
-  });
-
   // ── File states ──
   const [images, setImages] = useState<UploadedFile[]>([]);
   const [videos, setVideos] = useState<UploadedFile[]>([]);
@@ -304,12 +245,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
-    defaultValues: initialData || {
-      title: "",
-      teamName: "",
-      description: "",
-      grade: "",
-    },
+    defaultValues: initialData || { title: "", teamName: "", description: "", grade: "" },
   });
 
   // ── Add files helper ──
@@ -328,7 +264,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       }));
       setter((prev) => [...prev, ...wrapped]);
 
-      // Upload each immediately
       wrapped.forEach((_, i) => {
         const idx = (setter === setImages ? images : setter === setVideos ? videos : documents).length + i;
         uploadFile(newFiles[i], folder, setter, idx);
@@ -345,112 +280,84 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
   ) => {
     if (!user?.id) return;
 
-    setter((prev) =>
-      prev.map((f, i) => (i === idx ? { ...f, uploading: true, error: null } : f))
-    );
+    setter((prev) => prev.map((f, i) => (i === idx ? { ...f, uploading: true, error: null } : f)));
 
     try {
       const url = await uploadToSupabase(file, folder, String(user.id));
-      setter((prev) =>
-        prev.map((f, i) => (i === idx ? { ...f, uploading: false, url } : f))
-      );
+      setter((prev) => prev.map((f, i) => (i === idx ? { ...f, uploading: false, url } : f)));
     } catch (err: any) {
       setter((prev) =>
-        prev.map((f, i) =>
-          i === idx ? { ...f, uploading: false, error: err.message || "Upload failed" } : f
-        )
+        prev.map((f, i) => i === idx ? { ...f, uploading: false, error: err.message || "Upload failed" } : f)
       );
       toast.error(`Failed to upload ${file.name}`);
     }
   };
 
-  const removeFile = (
-    idx: number,
-    setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>
-  ) => setter((prev) => prev.filter((_, i) => i !== idx));
+  const removeFile = (idx: number, setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>) =>
+    setter((prev) => prev.filter((_, i) => i !== idx));
+const submitProjectMutation = trpc.projects.submitProject.useMutation();
 
-  // ── Submit — uses TRPC backend ──
+  // ── Submit ──
   const onSubmit = async (data: ProjectFormValues) => {
-    const anyUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
-    if (anyUploading) {
-      toast.error("Please wait for all files to finish uploading.");
-      return;
-    }
+  const anyUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
+  if (anyUploading) {
+    toast.error("Please wait for all files to finish uploading.");
+    return;
+  }
 
-    if (!user) {
-      toast.error("You must be logged in to submit a project.");
-      return;
-    }
+  if (!user) {
+    toast.error("You must be logged in to submit a project.");
+    return;
+  }
 
-    setIsUploading(true);
+  const categoryId = resolveCategoryId(setup.categoryId);
+  const subcategoryId = parseInteger(setup.subcategoryId);
+  const supervisorId = parseInteger(setup.supervisorId);
 
-    const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
-    const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
-    const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
+  if (!categoryId || !subcategoryId || !supervisorId) {
+    console.error("[ProjectForm] Invalid setup values", { setup, categoryId, subcategoryId, supervisorId });
+    toast.error("Invalid project configuration. Please reselect teacher/category/subcategory.");
+    return;
+  }
 
-    const categoryId = resolveCategoryId(setup.categoryId);
-    const subcategoryId = parseInteger(setup.subcategoryId);
-    const supervisorId = parseInteger(setup.supervisorId);
+  setIsUploading(true);
 
-    if (!categoryId || !subcategoryId || !supervisorId) {
-      console.error("[ProjectForm] Invalid setup values", {
-        setup,
-        categoryId,
-        subcategoryId,
-        supervisorId,
-      });
-      toast.error("Invalid project configuration. Please reselect teacher/category/subcategory.");
-      setIsUploading(false);
-      return;
-    }
+  const imageUrls = images.filter((f) => f.url).map((f) => f.url!);
+  const videoUrls = videos.filter((f) => f.url).map((f) => f.url!);
+  const docUrls = documents.filter((f) => f.url).map((f) => f.url!);
 
-    try {
-      await submitProjectMutation.mutateAsync({
-        title: data.title,
-        teamName: data.teamName,
-        description: data.description,
-        grade: data.grade,
-        categoryId: categoryId,
-        subcategoryId: subcategoryId,
-        supervisorId: supervisorId,
-        imageUrls: imageUrls,
-        videoUrl: videoUrls[0] || undefined,
-        documentUrls: docUrls,
-      });
-    } catch (err: any) {
-      console.warn("[ProjectForm] TRPC submission failed:", err?.message);
-      // Fallback to local storage
-      const fallback = {
-        id: nanoid(),
-        title: data.title,
-        teamName: data.teamName,
-        description: data.description,
-        grade: data.grade,
-        supabase_uid: user.id,
-        teacher: setup.teacher,
-        category: setup.categoryName,
-        subcategory: setup.subcategory,
-        imageUrls: JSON.stringify(imageUrls),
-        videoUrl: videoUrls[0] ?? null,
-        documentUrls: JSON.stringify(docUrls),
-        status: "submitted",
-        submittedAt: new Date().toISOString(),
-      };
-      const existing = JSON.parse(localStorage.getItem("local-projects") || "[]");
-      existing.push(fallback);
-      localStorage.setItem("local-projects", JSON.stringify(existing));
-      toast.success("Project saved locally.");
-      // Clean up
-      localStorage.removeItem("project-setup");
-      form.reset();
-      setStep(1);
-      setImages([]);
-      setVideos([]);
-      setDocuments([]);
-      setIsUploading(false);
-      onSuccess?.();
-    }
-  };
+  try {
+    await submitProjectMutation.mutateAsync({
+      title: data.title,
+      teamName: data.teamName,
+      description: data.description,
+      grade: data.grade,
+      categoryId,
+      subcategoryId,
+      supervisorId,
+      imageUrls,
+      videoUrl: videoUrls[0] || undefined,
+      documentUrls: docUrls,
+    });
+
+    // ✅ نجح الإرسال
+    toast.success("🎉 Project submitted successfully!");
+    localStorage.removeItem("project-setup");
+    form.reset();
+    setStep(1);
+    setImages([]);
+    setVideos([]);
+    setDocuments([]);
+    onSuccess?.();
+
+  } catch (err: any) {
+    // ✅ خطأ حقيقي — بدون fallback
+    console.error("[ProjectForm] Submission error:", err);
+    toast.error(`Submission failed: ${err?.message || "Unknown error. Check console for details."}`);
+  } finally {
+    setIsUploading(false);
+  }
+};
 
   const allUploading = [...images, ...videos, ...documents].some((f) => f.uploading);
 
@@ -461,7 +368,7 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-          {/* ══ STEP 1: Basic Info ══ */}
+          {/* ══ STEP 1 ══ */}
           {step === 1 && (
             <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
               <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
@@ -484,146 +391,85 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
                 )}
               </CardHeader>
               <CardContent className="pt-6 space-y-5">
+                <FormField control={form.control} name="title" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Project Title *</FormLabel>
+                    <FormControl><Input placeholder="e.g. Solar-Powered Water Purifier" className="h-11" {...field} /></FormControl>
+                    <FormDescription>A clear, descriptive title (5–200 characters)</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField control={form.control} name="title"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-bold">Project Title *</FormLabel>
+                <FormField control={form.control} name="teamName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Team Name *</FormLabel>
+                    <FormControl><Input placeholder="e.g. Green Innovators" className="h-11" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Project Description *</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Describe your project, the problem it solves, and your approach..." className="min-h-[120px] resize-none" {...field} />
+                    </FormControl>
+                    <FormDescription>Minimum 20 characters</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
+                <FormField control={form.control} name="grade" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-bold">Grade Level *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <Input placeholder="e.g. Solar-Powered Water Purifier" className="h-11" {...field} />
+                        <SelectTrigger className="h-11"><SelectValue placeholder="Select grade" /></SelectTrigger>
                       </FormControl>
-                      <FormDescription>A clear, descriptive title (5–200 characters)</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField control={form.control} name="teamName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-bold">Team Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Green Innovators" className="h-11" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField control={form.control} name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-bold">Project Description *</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Describe your project, the problem it solves, and your approach..."
-                          className="min-h-[120px] resize-none"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>Minimum 20 characters</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 gap-4">
-                  <FormField control={form.control} name="grade"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-bold">Grade Level *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-11">
-                              <SelectValue placeholder="Select grade" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {["9", "10", "11", "12"].map((g) => (
-                              <SelectItem key={g} value={g}>Grade {g}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                      <SelectContent>
+                        {["9", "10", "11", "12"].map((g) => (
+                          <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </CardContent>
             </Card>
           )}
 
-          {/* ══ STEP 2: Media Upload ══ */}
+          {/* ══ STEP 2 ══ */}
           {step === 2 && (
             <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
               <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
-                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">
-                  Upload Project Media
-                </CardTitle>
-                <p className="text-sm text-slate-500 mt-1">
-                  Files upload to Supabase Storage automatically after selection. ✓ = uploaded.
-                </p>
+                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">Upload Project Media</CardTitle>
+                <p className="text-sm text-slate-500 mt-1">Files upload to Supabase Storage automatically after selection. ✓ = uploaded.</p>
               </CardHeader>
               <CardContent className="pt-6 space-y-8">
-
-                <DropZone
-                  accept="image/*"
-                  label="Project Photos"
-                  hint="JPG, PNG, WEBP — photos of your project stages and results"
-                  icon={ImageIcon}
-                  files={images}
-                  onAdd={(f) => addFiles(f, setImages, "images")}
-                  onRemove={(i) => removeFile(i, setImages)}
-                  maxFiles={10}
-                />
-
+                <DropZone accept="image/*" label="Project Photos" hint="JPG, PNG, WEBP — photos of your project stages and results" icon={ImageIcon} files={images} onAdd={(f) => addFiles(f, setImages, "images")} onRemove={(i) => removeFile(i, setImages)} maxFiles={10} />
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
-                  <DropZone
-                    accept="video/mp4,video/mov,video/webm"
-                    label="Project Video"
-                    hint="MP4 or MOV — a short video presenting your project (max 500MB)"
-                    icon={Video}
-                    files={videos}
-                    onAdd={(f) => addFiles(f, setVideos, "videos")}
-                    onRemove={(i) => removeFile(i, setVideos)}
-                    maxFiles={2}
-                  />
+                  <DropZone accept="video/mp4,video/mov,video/webm" label="Project Video" hint="MP4 or MOV — a short video presenting your project (max 500MB)" icon={Video} files={videos} onAdd={(f) => addFiles(f, setVideos, "videos")} onRemove={(i) => removeFile(i, setVideos)} maxFiles={2} />
                 </div>
-
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
-                  <DropZone
-                    accept=".pdf,.doc,.docx,.ppt,.pptx"
-                    label="Documents (Optional)"
-                    hint="PDF, Word, PowerPoint — research papers or presentations"
-                    icon={FileText}
-                    files={documents}
-                    onAdd={(f) => addFiles(f, setDocuments, "documents")}
-                    onRemove={(i) => removeFile(i, setDocuments)}
-                    maxFiles={5}
-                  />
+                  <DropZone accept=".pdf,.doc,.docx,.ppt,.pptx" label="Documents (Optional)" hint="PDF, Word, PowerPoint — research papers or presentations" icon={FileText} files={documents} onAdd={(f) => addFiles(f, setDocuments, "documents")} onRemove={(i) => removeFile(i, setDocuments)} maxFiles={5} />
                 </div>
-
                 {allUploading && (
                   <div className="flex items-center gap-2 text-sm text-primary font-medium">
-                    <Loader2 size={16} className="animate-spin" />
-                    Uploading files to Supabase Storage...
+                    <Loader2 size={16} className="animate-spin" /> Uploading files to Supabase Storage...
                   </div>
                 )}
               </CardContent>
             </Card>
           )}
 
-          {/* ══ STEP 3: Review ══ */}
+          {/* ══ STEP 3 ══ */}
           {step === 3 && (
             <Card className="rounded-2xl border-slate-200 dark:border-slate-700 shadow-sm">
               <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
-                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">
-                  Review & Submit
-                </CardTitle>
+                <CardTitle className="text-lg font-black text-slate-800 dark:text-slate-100">Review & Submit</CardTitle>
               </CardHeader>
               <CardContent className="pt-6 space-y-5">
-
-                {/* Summary */}
                 <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 p-5 space-y-3">
                   {[
                     { label: "Title", value: form.getValues("title") },
@@ -641,7 +487,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
                   ))}
                 </div>
 
-                {/* Media summary */}
                 <div className="grid grid-cols-3 gap-3">
                   {[
                     { icon: ImageIcon, label: "Photos", count: images.filter((f) => f.url).length, total: images.length },
@@ -652,14 +497,11 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
                       <Icon size={20} className="mx-auto text-slate-400 mb-1" />
                       <p className="text-xl font-black text-slate-800 dark:text-slate-100">{count}</p>
                       <p className="text-[10px] uppercase tracking-wide font-bold text-slate-400">{label}</p>
-                      {total > count && (
-                        <p className="text-[10px] text-amber-500 font-bold">{total - count} still uploading</p>
-                      )}
+                      {total > count && <p className="text-[10px] text-amber-500 font-bold">{total - count} still uploading</p>}
                     </div>
                   ))}
                 </div>
 
-                {/* Image previews */}
                 {images.filter((f) => f.preview && f.url).length > 0 && (
                   <div className="grid grid-cols-3 gap-2">
                     {images.filter((f) => f.preview && f.url).slice(0, 6).map((f, i) => (
@@ -668,7 +510,6 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
                   </div>
                 )}
 
-                {/* Disclaimer */}
                 <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4">
                   <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
                     By submitting, you confirm all information is accurate. You may edit your project until the submission deadline — <strong>April 30, 2026</strong>.
@@ -678,38 +519,24 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
             </Card>
           )}
 
-          {/* ══ Navigation buttons ══ */}
+          {/* ══ Navigation ══ */}
           <div className="flex justify-between gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setStep(Math.max(1, step - 1))}
-              disabled={step === 1}
-              className="rounded-xl px-6"
-            >
+            <Button type="button" variant="outline" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1} className="rounded-xl px-6">
               Back
             </Button>
 
             {step < 3 ? (
-              <Button
-                type="button"
-                onClick={async () => {
-                  if (step === 1) {
-                    const ok = await form.trigger(["title", "teamName", "description", "grade"]);
-                    if (!ok) return;
-                  }
-                  setStep(step + 1);
-                }}
-                className="rounded-xl px-8 premium-gradient text-white border-none"
-              >
+              <Button type="button" onClick={async () => {
+                if (step === 1) {
+                  const ok = await form.trigger(["title", "teamName", "description", "grade"]);
+                  if (!ok) return;
+                }
+                setStep(step + 1);
+              }} className="rounded-xl px-8 premium-gradient text-white border-none">
                 Continue →
               </Button>
             ) : (
-              <Button
-                type="submit"
-                disabled={isUploading || allUploading}
-                className="rounded-xl px-8 premium-gradient text-white border-none min-w-36"
-              >
+              <Button type="submit" disabled={isUploading || allUploading} className="rounded-xl px-8 premium-gradient text-white border-none min-w-36">
                 {isUploading ? (
                   <><Loader2 size={16} className="animate-spin mr-2" /> Submitting...</>
                 ) : allUploading ? (

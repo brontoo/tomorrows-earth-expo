@@ -145,6 +145,7 @@ export default function ProjectSubmissionForm({
       const result = await submitProjectMutation.mutateAsync({
         title: data.title,
         description: data.description,
+        categoryId: categoryId ? parseInt(categoryId) : 1,
         subcategoryId: subcategoryId || 1,
         // using a generic supervisor id or taking from search params if we updated the DB 
         supervisorId: 1,
