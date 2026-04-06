@@ -160,7 +160,11 @@ export default function MyProjectsDashboard() {
         .eq("supabase_uid", uid)
         .order("created_at", { ascending: false });
 
-      if (!error && data) setProjects(data);
+      if (!error && data) {
+        setProjects(data);
+        // Try to sync local projects
+        await syncLocalProjects(uid);
+      }
     } catch (e) {
       console.warn("[MyProjects] Supabase fetch failed:", e);
       // Fallback: show local projects
@@ -168,6 +172,44 @@ export default function MyProjectsDashboard() {
       setProjects(local);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const syncLocalProjects = async (uid: string) => {
+    const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
+    if (localProjects.length === 0) return;
+
+    for (const local of localProjects) {
+      try {
+        const { error } = await supabase.from("projects").insert({
+          title: local.title,
+          team_name: local.teamName,
+          description: local.description,
+          abstract: local.abstract,
+          grade: local.grade,
+          supabase_uid: uid,
+          category_id: local.categoryId,
+          subcategory_id: local.subcategoryId,
+          supervisor_id: local.supervisorId,
+          image_urls: local.imageUrls,
+          video_url: local.videoUrl,
+          document_urls: local.documentUrls,
+          status: local.status,
+          submitted_at: local.submittedAt,
+          created_at: local.createdAt,
+          updated_at: local.updatedAt,
+        });
+        if (!error) {
+          // Remove from local storage
+          const updated = localProjects.filter((p: any) => p.id !== local.id);
+          localStorage.setItem("local-projects", JSON.stringify(updated));
+          toast.success("Local project synced to server!");
+          // Refetch to show the synced project
+          await refetch();
+        }
+      } catch (err) {
+        console.warn("[MyProjects] Failed to sync local project:", err);
+      }
     }
   };
 
