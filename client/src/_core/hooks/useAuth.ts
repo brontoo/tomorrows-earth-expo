@@ -14,6 +14,7 @@ type AuthUser = {
   grade?: string;
   schoolClass?: string;
   openId?: string;
+  loginMethod?: string;
 };
 
 // ─── Role detection — من جداول DB مباشرة ────────────────────────────────────
@@ -24,11 +25,11 @@ async function detectRoleFromDB(
 ): Promise<UserRole> {
   try {
     // helper: race any promise against a timeout
-    const withTimeout = (p: Promise<any>, ms = 6000) =>
+    const withTimeout = <T>(p: PromiseLike<T>, ms = 6000) =>
       Promise.race([
         p,
-        new Promise<any>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
-      ]);
+        new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
+      ]) as Promise<T>;
 
     // 1. هل هو Admin؟
     const adminRes = await withTimeout(

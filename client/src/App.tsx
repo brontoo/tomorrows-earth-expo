@@ -17,6 +17,7 @@ import Vote from "./pages/Vote";
 import ProjectSubmissionPage from "./pages/ProjectSubmissionPage";
 import SubcategoriesPage from "./pages/SubcategoriesPage";
 import SubcategoryDetailPage from "./pages/SubcategoryDetailPage";
+import ChooseRole from "./pages/ChooseRole";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import { UserWelcomeToast } from "./components/UserWelcomeToast";
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={SignUp} />
+      <Route path="/choose-role" component={ChooseRole} />
       <Route path="/innovation-hub" component={InnovationHub} />
       <Route path="/innovation-hub/:categorySlug" component={InnovationHub} />
       <Route path="/project/:id" component={ProjectDetail} />

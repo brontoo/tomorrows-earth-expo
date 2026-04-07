@@ -13,7 +13,7 @@ export default function ProjectDetail() {
   const params = useParams<{ id: string }>();
   const projectId = parseInt(params.id || "0");
 
-  const { data: project, isLoading } = trpc.projects.getById.useQuery({ id: projectId });
+  const { data: project, isLoading } = trpc.projects.getProjectById.useQuery({ id: projectId });
   const { data: categories } = trpc.categories.getAll.useQuery();
   const { data: journeyPosts } = trpc.journeyPosts.getByProject.useQuery({ projectId });
   const { data: comments } = trpc.comments.getByProject.useQuery({ projectId });

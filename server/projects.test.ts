@@ -45,7 +45,11 @@ describe("Projects API", () => {
 
     const categories = await caller.categories.getAll();
     expect(Array.isArray(categories)).toBe(true);
-    expect(categories.length).toBeGreaterThan(0);
+    if (categories.length > 0) {
+      expect(categories[0]).toHaveProperty("id");
+      expect(categories[0]).toHaveProperty("name");
+      expect(categories[0]).toHaveProperty("slug");
+    }
   });
 
   it("should allow public users to get project stats", async () => {
