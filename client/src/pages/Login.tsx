@@ -72,7 +72,11 @@ export default function Login() {
       let actualRole = await detectRoleFromDB(email, user.id, metadataRole);
       if (actualRole === "visitor" && requestedRole) {
         actualRole = requestedRole;
-        await supabase.auth.updateUser({ data: { role: requestedRole } });
+        try {
+          await supabase.auth.updateUser({ data: { role: requestedRole } });
+        } catch (err) {
+          console.warn("Failed to persist role metadata:", err);
+        }
       }
 
       if (requestedRole !== actualRole) {

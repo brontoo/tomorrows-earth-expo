@@ -55,7 +55,7 @@ export async function detectRoleFromDB(
     if (teacherRes?.data) return "teacher";
 
     const projectRes = await withTimeout(
-      supabase.from("projects").select("id").eq("supabase_uid", supabaseUid).limit(1).maybeSingle()
+      supabase.from("projects").select("id").eq("created_by", supabaseUid).limit(1).maybeSingle()
     );
     if (projectRes?.data) return "student";
 

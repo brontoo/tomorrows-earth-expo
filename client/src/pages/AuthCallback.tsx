@@ -37,7 +37,11 @@ export default function AuthCallback() {
 
         if (actualRole === "visitor" && requestedRole) {
           actualRole = requestedRole;
-          await supabase.auth.updateUser({ data: { role: requestedRole } });
+          try {
+            await supabase.auth.updateUser({ data: { role: requestedRole } });
+          } catch (err) {
+            console.warn("Failed to persist role metadata:", err);
+          }
         }
 
         if (requestedRole && requestedRole !== actualRole) {
