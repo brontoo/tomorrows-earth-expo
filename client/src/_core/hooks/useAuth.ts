@@ -17,12 +17,26 @@ type AuthUser = {
   loginMethod?: string;
 };
 
-// --- Role detection — ?? ????? DB ?????? ------------------------------------
-// ????????: admins ? approved_teachers ? projects (???? ??? ?????) ? visitor
+const normalizeRole = (role: unknown): UserRole | null => {
+  if (typeof role !== "string") return null;
+  const normalized = role.toLowerCase() as UserRole;
+  return VALID_ROLES.includes(normalized) ? normalized : null;
+};
+
+const isValidRole = (role: unknown): role is UserRole => normalizeRole(role) !== null;
+
+// --- Role detection ----------------------------------------------------------
+// Try user metadata first, then fall back to Supabase role tables if they exist.
 export async function detectRoleFromDB(
   email: string,
-  supabaseUid: string
+  supabaseUid: string,
+  metadataRole?: unknown
 ): Promise<UserRole> {
+  const normalizedMetadataRole = normalizeRole(metadataRole);
+  if (normalizedMetadataRole) {
+    return normalizedMetadataRole;
+  }
+
   try {
     const withTimeout = <T>(p: PromiseLike<T>, ms = 6000) =>
       Promise.race([
@@ -65,7 +79,8 @@ export function useAuth(options?: any) {
   const buildUser = useCallback(async (session: any): Promise<AuthUser> => {
     const supabaseUid = session.user.id as string;
     const email = (session.user.email ?? "") as string;
-    const role = await detectRoleFromDB(email, supabaseUid);
+    const metadataRole = session.user.user_metadata?.role;
+    const role = await detectRoleFromDB(email, supabaseUid, metadataRole);
 
     return {
       id: supabaseUid,

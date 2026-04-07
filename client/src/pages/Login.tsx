@@ -68,7 +68,13 @@ export default function Login() {
       const user = data?.user;
       if (!user) throw new Error("No user returned from Supabase");
 
-      const actualRole = await detectRoleFromDB(email, user.id);
+      const metadataRole = user.user_metadata?.role as LoginRole | undefined;
+      let actualRole = await detectRoleFromDB(email, user.id, metadataRole);
+      if (actualRole === "visitor" && requestedRole) {
+        actualRole = requestedRole;
+        await supabase.auth.updateUser({ data: { role: requestedRole } });
+      }
+
       if (requestedRole !== actualRole) {
         setError(`This email is registered as ${actualRole} and cannot access the ${requestedRole} portal.`);
         localStorage.removeItem("requestedRole");

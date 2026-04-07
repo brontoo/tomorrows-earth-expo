@@ -30,9 +30,15 @@ export default function AuthCallback() {
 
         const user = session.user;
         const email = user.email ?? "";
+        const metadataRole = user.user_metadata?.role as Role | undefined;
 
-        const actualRole = await detectRoleFromDB(email, user.id);
+        let actualRole = await detectRoleFromDB(email, user.id, metadataRole);
         const requestedRole = localStorage.getItem("requestedRole") as Role | null;
+
+        if (actualRole === "visitor" && requestedRole) {
+          actualRole = requestedRole;
+          await supabase.auth.updateUser({ data: { role: requestedRole } });
+        }
 
         if (requestedRole && requestedRole !== actualRole) {
           setErrorMsg(`This email is registered as ${actualRole} and cannot access the ${requestedRole} portal.`);
