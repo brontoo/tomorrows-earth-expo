@@ -8,15 +8,11 @@ import { AlertCircle, CheckCircle, Eye, EyeOff, User, Loader } from "lucide-reac
 import { useLocation, Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
-type UserRole = "student" | "teacher" | "admin";
-
 interface FormData {
   fullName: string;
   email: string;
   password: string;
   confirmPassword: string;
-  role: UserRole;
-  subject?: string;
 }
 
 interface FormErrors {
@@ -24,22 +20,16 @@ interface FormErrors {
   email?: string;
   password?: string;
   confirmPassword?: string;
-  subject?: string;
   general?: string;
 }
 
 export default function SignUp() {
   const [, setLocation] = useLocation();
-  const [formData, setFormData] = useState<FormData>(() => {
-    const requestedRole = localStorage.getItem("requestedRole") as UserRole | null;
-    return {
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      role: requestedRole === "admin" || requestedRole === "teacher" || requestedRole === "student" ? requestedRole : "student",
-      subject: "",
-    };
+  const [formData, setFormData] = useState<FormData>({
+    fullName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -78,10 +68,6 @@ export default function SignUp() {
       newErrors.confirmPassword = "Passwords do not match";
     }
 
-    if (formData.role === "teacher" && !formData.subject) {
-      newErrors.subject = "Subject is required for teachers";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -94,22 +80,6 @@ export default function SignUp() {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    try {
-      setErrors({});
-      setIsLoading(true);
-      localStorage.setItem("requestedRole", formData.role);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      setErrors({ general: err.message || "Failed to start Google signup." });
-      setIsLoading(false);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage(null);
@@ -119,38 +89,31 @@ export default function SignUp() {
 
     setIsLoading(true);
     try {
-      localStorage.setItem("requestedRole", formData.role);
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
         options: {
           data: {
             full_name: formData.fullName,
-            role:      formData.role,
-            subject:   formData.subject || null,
           },
         },
       });
 
       if (error) throw error;
 
-      if (data.user) {
+      const user = data.user;
+      if (user) {
         localStorage.setItem("mock-user", JSON.stringify({
-          id:     data.user.id,
-          openId: data.user.id,
-          email:  data.user.email,
-          name:   formData.fullName,
-          role:   formData.role,
+          id: user.id,
+          openId: user.id,
+          email: user.email ?? "",
+          name: formData.fullName,
+          role: "visitor",
         }));
       }
 
-      setSuccessMessage(
-        data.user
-          ? "Account created! Check your email to confirm, then sign in."
-          : "This email may already be registered. Please sign in instead."
-      );
-
-      setTimeout(() => setLocation("/login"), 3000);
+      setSuccessMessage("Account created! Redirecting you to choose your portal...");
+      setTimeout(() => setLocation("/choose-role"), 1500);
     } catch (err: any) {
       setErrors({
         general: err.message || "Registration failed. Please try again.",
@@ -191,55 +154,6 @@ export default function SignUp() {
                   <p className="text-primary font-semibold text-sm">{successMessage}</p>
                 </div>
               )}
-
-              <div className="space-y-4">
-                <Label className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
-                  Choose Your Path
-                </Label>
-                <div className="grid grid-cols-3 gap-2 p-1.5 glass-card rounded-xl border-white/10 bg-black/5">
-                  {(["student", "teacher", "admin"] as const).map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, role }))}
-                      className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${
-                        formData.role === role
-                          ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
-                          : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                      }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <Button
-                  variant="outline"
-                  className="w-full py-7 glass-card border-border hover:bg-black/5 flex items-center justify-center gap-3 group transition-all duration-300 active:scale-[0.98]"
-                  onClick={handleGoogleSignup}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <Loader className="h-5 w-5 animate-spin" />
-                  ) : (
-                    <>
-                      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                      <span className="font-bold text-foreground text-lg">Continue with Google</span>
-                    </>
-                  )}
-                </Button>
-
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/50" />
-                  </div>
-                  <div className="relative flex justify-center text-[10px] uppercase tracking-widest font-bold">
-                    <span className="bg-background px-4 text-muted-foreground/60">Or use email</span>
-                  </div>
-                </div>
-              </div>
 
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 gap-4">

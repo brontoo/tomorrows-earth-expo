@@ -22,18 +22,11 @@ import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import { UserWelcomeToast } from "./components/UserWelcomeToast";
 import PageNavigation from "./components/PageNavigation";
-import AuthCallback from "@/pages/AuthCallback";
 
 function Router() {
   return (
     <Switch>
-    <Route path="/" component={Home} />
-      <Route path="/auth/callback" component={AuthCallback} />
-      <Route path="/login" component={Login} />
-      <Route path="/signup" component={SignUp} />
-      <Route path="/choose-role" component={ChooseRole} />  {/* ← أضف هذا */}
       <Route path="/" component={Home} />
-      <Route path="/auth/callback" component={AuthCallback} />
       <Route path="/login" component={Login} />
       <Route path="/signup" component={SignUp} />
       <Route path="/choose-role" component={ChooseRole} />
