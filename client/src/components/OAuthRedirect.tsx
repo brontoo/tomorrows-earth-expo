@@ -2,11 +2,11 @@ import { useEffect } from "react";
 
 /**
  * Keeps authenticated users on the home page.
- * Only clears the temporary selectedRole value after OAuth.
+ * Clears the temporary requestedRole value after OAuth.
  */
 export function OAuthRedirect() {
   useEffect(() => {
-    localStorage.removeItem("selectedRole");
+    localStorage.removeItem("requestedRole");
   }, []);
 
   return null;

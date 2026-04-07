@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
-import { AlertCircle, CheckCircle, Eye, EyeOff, User, BookOpen, Users, Shield, Loader } from "lucide-react";
+import { AlertCircle, CheckCircle, Eye, EyeOff, User, Loader } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
@@ -31,13 +30,16 @@ interface FormErrors {
 
 export default function SignUp() {
   const [, setLocation] = useLocation();
-  const [formData, setFormData] = useState<FormData>({
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-    role: "student",
-    subject: "",
+  const [formData, setFormData] = useState<FormData>(() => {
+    const requestedRole = localStorage.getItem("requestedRole") as UserRole | null;
+    return {
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      role: requestedRole === "admin" || requestedRole === "teacher" || requestedRole === "student" ? requestedRole : "student",
+      subject: "",
+    };
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
@@ -46,7 +48,6 @@ export default function SignUp() {
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // ─── Validation ───────────────────────────────────────────────────────────
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -93,12 +94,11 @@ export default function SignUp() {
     }
   };
 
-  // ─── Google OAuth ─────────────────────────────────────────────────────────
   const handleGoogleSignup = async () => {
     try {
       setErrors({});
       setIsLoading(true);
-      localStorage.setItem("selectedRole", formData.role);
+      localStorage.setItem("requestedRole", formData.role);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -110,7 +110,6 @@ export default function SignUp() {
     }
   };
 
-  // ─── Email/Password signup — Supabase direct, no backend ─────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage(null);
@@ -120,6 +119,7 @@ export default function SignUp() {
 
     setIsLoading(true);
     try {
+      localStorage.setItem("requestedRole", formData.role);
       const { data, error } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
@@ -134,7 +134,6 @@ export default function SignUp() {
 
       if (error) throw error;
 
-      // Save mock-user so the app recognises the session immediately
       if (data.user) {
         localStorage.setItem("mock-user", JSON.stringify({
           id:     data.user.id,
@@ -143,13 +142,12 @@ export default function SignUp() {
           name:   formData.fullName,
           role:   formData.role,
         }));
-        localStorage.setItem("selectedRole", formData.role);
       }
 
       setSuccessMessage(
-        data.user?.identities?.length === 0
-          ? "This email is already registered. Please sign in instead."
-          : "Account created! Check your email to confirm, then sign in."
+        data.user
+          ? "Account created! Check your email to confirm, then sign in."
+          : "This email may already be registered. Please sign in instead."
       );
 
       setTimeout(() => setLocation("/login"), 3000);
@@ -187,8 +185,6 @@ export default function SignUp() {
             </CardHeader>
 
             <CardContent className="px-8 pb-10 space-y-8">
-
-              {/* Success Message */}
               {successMessage && (
                 <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl flex items-start gap-3 animate-fadeIn">
                   <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -196,7 +192,6 @@ export default function SignUp() {
                 </div>
               )}
 
-              {/* Role Selection */}
               <div className="space-y-4">
                 <Label className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
                   Choose Your Path
@@ -219,7 +214,6 @@ export default function SignUp() {
                 </div>
               </div>
 
-              {/* Google Sign Up */}
               <div className="space-y-4 pt-2">
                 <Button
                   variant="outline"
@@ -247,13 +241,12 @@ export default function SignUp() {
                 </div>
               </div>
 
-              {/* Email Form */}
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 gap-4">
-
                   <div className="space-y-2">
                     <Input
-                      id="fullName" name="fullName"
+                      id="fullName"
+                      name="fullName"
                       placeholder="Full Name"
                       value={formData.fullName}
                       onChange={handleInputChange}
@@ -264,7 +257,9 @@ export default function SignUp() {
 
                   <div className="space-y-2">
                     <Input
-                      id="email" name="email" type="email"
+                      id="email"
+                      name="email"
+                      type="email"
                       placeholder="Email Address"
                       value={formData.email}
                       onChange={handleInputChange}
@@ -276,7 +271,8 @@ export default function SignUp() {
                   {formData.role === "teacher" && (
                     <div className="space-y-2 animate-fadeIn">
                       <Input
-                        id="subject" name="subject"
+                        id="subject"
+                        name="subject"
                         placeholder="Subject (e.g. Science, Technology)"
                         value={formData.subject}
                         onChange={handleInputChange}
@@ -289,7 +285,8 @@ export default function SignUp() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2 relative">
                       <Input
-                        id="password" name="password"
+                        id="password"
+                        name="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         value={formData.password}
@@ -301,9 +298,11 @@ export default function SignUp() {
                         {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                     </div>
+
                     <div className="space-y-2 relative">
                       <Input
-                        id="confirmPassword" name="confirmPassword"
+                        id="confirmPassword"
+                        name="confirmPassword"
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Confirm"
                         value={formData.confirmPassword}
@@ -330,7 +329,6 @@ export default function SignUp() {
                 </Button>
               </form>
 
-              {/* Error Message */}
               {errors.general && (
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
                   <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -343,7 +341,7 @@ export default function SignUp() {
           <div className="mt-8 text-center">
             <p className="text-sm text-muted-foreground font-medium">
               Already a member?{" "}
-              <Link href="/login">
+              <Link href="/choose-role">
                 <span className="text-primary hover:underline cursor-pointer font-bold">Sign in here</span>
               </Link>
             </p>

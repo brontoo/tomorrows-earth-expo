@@ -233,7 +233,7 @@ export default function MyProjectsDashboard() {
 
   // ── The single entry point for "new project" ──
   const handleNewProject = () => {
-    if (!isAuthenticated) { navigate("/login"); return; }
+    if (!isAuthenticated) { navigate("/choose-role"); return; }
     setShowWizard(true);
   };
 

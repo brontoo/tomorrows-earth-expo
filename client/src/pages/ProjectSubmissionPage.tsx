@@ -91,8 +91,8 @@ export default function ProjectSubmissionPage() {
           <p className="text-sm text-slate-400 font-medium">
             You must be logged in as a student to submit a project.
           </p>
-          <Button onClick={() => navigate("/login")} className="w-full premium-gradient text-white border-none rounded-xl font-bold">
-            Sign In
+          <Button onClick={() => navigate("/choose-role")} className="w-full premium-gradient text-white border-none rounded-xl font-bold">
+            Select Role & Sign In
           </Button>
         </div>
       </div>

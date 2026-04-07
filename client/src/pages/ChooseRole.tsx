@@ -1,121 +1,127 @@
-// src/pages/ChooseRole.tsx
-// تظهر للمستخدم الجديد غير المعروف بعد تسجيل الدخول
-// يختار: طالب (يسجل مشروعه) أم زائر (يصوّت فقط)
+﻿// src/pages/ChooseRole.tsx
+// ???? ???????? ?????? ??? ????? ??????
+// ?????: ????? ????? ????? ?? ????/??? ???
 
-import { useState } from "react";
-import { BookOpen, ThumbsUp, ArrowRight } from "lucide-react";
+import { useState, type ComponentType } from "react";
+import { BookOpen, ThumbsUp, Shield, Users, ArrowRight } from "lucide-react";
+
+type RequestedRole = "student" | "teacher" | "admin" | "visitor";
+
+const ROLE_CARDS: Array<{
+  value: RequestedRole;
+  title: string;
+  description: string;
+  accent: "green" | "blue" | "purple" | "amber";
+  icon: ComponentType<{ size: number; className?: string }>;
+}> = [
+  {
+    value: "student",
+    title: "I'm a Student",
+    description: "I want to submit my sustainability project.",
+    accent: "green",
+    icon: BookOpen,
+  },
+  {
+    value: "visitor",
+    title: "I'm a Visitor / Parent",
+    description: "I want to explore projects and vote for the best.",
+    accent: "blue",
+    icon: ThumbsUp,
+  },
+  {
+    value: "teacher",
+    title: "I'm a Teacher",
+    description: "I want to mentor students and review project submissions.",
+    accent: "purple",
+    icon: Users,
+  },
+  {
+    value: "admin",
+    title: "I'm an Admin",
+    description: "I want to manage the expo and approve content.",
+    accent: "amber",
+    icon: Shield,
+  },
+];
 
 export default function ChooseRole() {
-  const [selected, setSelected] = useState<"student" | "visitor" | null>(null);
+  const [selected, setSelected] = useState<RequestedRole | null>(null);
 
   const confirm = () => {
     if (!selected) return;
 
-    // حدّث mock-user بالدور المختار
-    try {
-      const u = JSON.parse(localStorage.getItem("mock-user") || "{}");
-      u.role = selected;
-      localStorage.setItem("mock-user", JSON.stringify(u));
-      localStorage.setItem("selectedRole", selected);
-    } catch {}
+    localStorage.setItem("requestedRole", selected);
 
-    window.location.href =
-  selected === "student" ? "/student/dashboard" : "/";
+    if (selected === "visitor") {
+      window.location.href = "/vote";
+      return;
+    }
+
+    window.location.href = "/login";
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-
-        {/* Header */}
+      <div className="w-full max-w-5xl">
         <div className="text-center mb-10">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-5 shadow-lg">
-            <span className="text-3xl">🌍</span>
+            <span className="text-3xl">??</span>
           </div>
-          <h1 className="text-2xl font-black text-slate-800 mb-2">Welcome!</h1>
-          <p className="text-sm text-slate-500 font-medium">
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 mb-3">Welcome!</h1>
+          <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
             How will you be participating in Tomorrow's Earth Expo?
           </p>
         </div>
 
-        {/* Role cards */}
-        <div className="space-y-4 mb-8">
-
-          {/* Student */}
-          <button
-            onClick={() => setSelected("student")}
-            className={`w-full text-left rounded-2xl border-2 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-              selected === "student"
-                ? "border-green-500 bg-green-50 shadow-md"
-                : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                selected === "student" ? "bg-green-100" : "bg-slate-100"
-              }`}>
-                <BookOpen size={22} className={selected === "student" ? "text-green-600" : "text-slate-500"} />
-              </div>
-              <div>
-                <p className="font-black text-slate-800 text-sm">I'm a Student</p>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  I want to submit my sustainability project
-                </p>
-              </div>
-              {selected === "student" && (
-                <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-[10px]">✓</span>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 mb-10">
+          {ROLE_CARDS.map(({ value, title, description, accent, icon: Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setSelected(value)}
+              className={`group rounded-3xl border-2 p-6 text-left transition-all duration-200 shadow-sm ${
+                selected === value
+                  ? "border-current bg-white shadow-lg"
+                  : "border-slate-200 bg-slate-50/80 hover:border-slate-300"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                  selected === value ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"
+                } ${accent === "green" ? "text-emerald-600" : accent === "blue" ? "text-blue-600" : accent === "purple" ? "text-violet-600" : "text-amber-600"}`}>
+                  <Icon size={24} />
                 </div>
-              )}
-            </div>
-          </button>
-
-          {/* Visitor / Parent */}
-          <button
-            onClick={() => setSelected("visitor")}
-            className={`w-full text-left rounded-2xl border-2 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-              selected === "visitor"
-                ? "border-blue-500 bg-blue-50 shadow-md"
-                : "border-slate-200 bg-white hover:border-slate-300"
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                selected === "visitor" ? "bg-blue-100" : "bg-slate-100"
-              }`}>
-                <ThumbsUp size={22} className={selected === "visitor" ? "text-blue-600" : "text-slate-500"} />
-              </div>
-              <div>
-                <p className="font-black text-slate-800 text-sm">I'm a Visitor / Parent</p>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  I want to explore projects and vote for the best
-                </p>
-              </div>
-              {selected === "visitor" && (
-                <div className="ml-auto w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-[10px]">✓</span>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-black text-slate-900 text-sm md:text-base">{title}</h2>
+                    {selected === value && (
+                      <span className="text-[10px] uppercase tracking-[0.35em] font-bold text-white bg-slate-900 px-2 py-1 rounded-full">
+                        Selected
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2 leading-5">{description}</p>
                 </div>
-              )}
-            </div>
-          </button>
+              </div>
+            </button>
+          ))}
         </div>
 
-        {/* Confirm button */}
         <button
           onClick={confirm}
           disabled={!selected}
-          className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
+          className={`w-full py-4 rounded-3xl text-sm font-black uppercase transition-all duration-200 ${
             selected
-              ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white hover:scale-[1.01] shadow-lg shadow-green-200"
-              : "bg-slate-100 text-slate-400 cursor-not-allowed"
+              ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-xl hover:scale-[1.01]"
+              : "bg-slate-200 text-slate-500 cursor-not-allowed"
           }`}
         >
           Continue
-          <ArrowRight size={16} />
+          <ArrowRight size={18} className="ml-2 inline-block" />
         </button>
 
-        <p className="text-center text-xs text-slate-400 font-medium mt-5">
-          You can always change this later from your profile
+        <p className="text-center text-xs text-slate-500 mt-5">
+          This is only your preferred portal. Your actual access is checked securely after login.
         </p>
       </div>
     </div>

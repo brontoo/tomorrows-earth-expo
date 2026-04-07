@@ -160,7 +160,7 @@ export default function HeroSection() {
                     Explore Innovation Hub
                   </Button>
                 </Link>
-                <Link href="/login">
+                <Link href="/choose-role">
                   <Button
                     size="lg"
                     variant="outline"

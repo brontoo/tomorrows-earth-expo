@@ -369,7 +369,7 @@ export default function Home() {
                 </Button>
               </Link>
             ) : (
-              <Link href="/login">
+              <Link href="/choose-role">
                 <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
                   <LogIn size={18} /> Get Started
                 </Button>
@@ -403,7 +403,7 @@ export default function Home() {
                   </Button>
                 </Link>
               ) : (
-                <Link href="/login">
+                <Link href="/choose-role">
                   <Button size="sm" variant="outline" className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800 gap-2 mt-2">
                     <LogIn size={14} /> Sign In
                   </Button>
@@ -426,7 +426,7 @@ export default function Home() {
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-4">Account</p>
                 <ul className="space-y-3">
-                  {[{ label: "Sign In", href: "/login" }, { label: "Register", href: "/signup" }, { label: "Student Dashboard", href: "/student/dashboard" }].map(({ label, href }) => (
+                  {[{ label: "Sign In", href: "/choose-role" }, { label: "Register", href: "/signup" }, { label: "Student Dashboard", href: "/student/dashboard" }].map(({ label, href }) => (
                     <li key={label}>
                       <Link href={href}>
                         <span className="text-sm font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer">{label}</span>

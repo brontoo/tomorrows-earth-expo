@@ -161,7 +161,7 @@ export default function Navigation() {
                 asChild
                 className="rounded-full px-6 premium-gradient border-none text-white hover:shadow-lg hover:shadow-primary/20 transition-all"
               >
-                <Link href="/login">Get Started</Link>
+                <Link href="/choose-role">Get Started</Link>
               </Button>
             )}
           </div>
@@ -224,7 +224,7 @@ export default function Navigation() {
                     className="w-full justify-start text-white"
                     onClick={() => {
                       setMobileMenuOpen(false);
-                      window.location.href = "/login";
+                      window.location.href = "/choose-role";
                     }}
                   >
                     Login

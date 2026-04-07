@@ -1,30 +1,41 @@
+﻿import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
-import { Loader, Eye, EyeOff, Mail } from "lucide-react";
+import { Loader, Eye, EyeOff, Mail, AlertTriangle } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { detectRoleFromDB } from "@/_core/hooks/useAuth";
+
+type LoginRole = "admin" | "teacher" | "student";
+
+const DASHBOARD_MAP: Record<LoginRole, string> = {
+  admin: "/admin/dashboard",
+  teacher: "/teacher/dashboard",
+  student: "/student/dashboard",
+};
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const [loginMethod, setLoginMethod] = useState<"oauth" | "email">("oauth");
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-
+  const [requestedRole, setRequestedRole] = useState<LoginRole>(() => {
+    const stored = localStorage.getItem("requestedRole") as LoginRole | null;
+    return stored === "admin" || stored === "teacher" || stored === "student" ? stored : "student";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [selectedRole, setSelectedRole] = useState<"admin" | "teacher" | "student">("student");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // ─── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
     setError(null);
     setIsLoading(true);
+
     try {
-      localStorage.setItem("selectedRole", selectedRole);
+      localStorage.setItem("requestedRole", requestedRole);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -36,9 +47,8 @@ export default function Login() {
     }
   };
 
-  // ─── Email / Password — Supabase direct ───────────────────────────────────
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError(null);
 
     if (!email || !password) {
@@ -48,36 +58,36 @@ export default function Login() {
 
     setIsLoading(true);
     try {
+      localStorage.setItem("requestedRole", requestedRole);
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) throw signInError;
-
-      const user = data.user;
+      const user = data?.user;
       if (!user) throw new Error("No user returned from Supabase");
 
-      // Determine role: from user_metadata (set during signup) or fallback to selectedRole
-      const role = (user.user_metadata?.role as string) || selectedRole;
+      const actualRole = await detectRoleFromDB(email, user.id);
+      if (requestedRole !== actualRole) {
+        setError(`This email is registered as ${actualRole} and cannot access the ${requestedRole} portal.`);
+        localStorage.removeItem("requestedRole");
+        setIsLoading(false);
+        return;
+      }
 
-      // Save mock-user so the rest of the app can read it
-      localStorage.setItem("mock-user", JSON.stringify({
-        id:     user.id,
-        openId: user.id,
-        email:  user.email,
-        name:   user.user_metadata?.full_name || user.email?.split("@")[0],
-        role,
-      }));
-      localStorage.setItem("selectedRole", role);
-
-      // Redirect to correct dashboard
-      const dashboardMap: Record<string, string> = {
-        admin:   "/admin/dashboard",
-        teacher: "/teacher/dashboard",
-        student: "/student/dashboard",
-      };
-      setLocation(dashboardMap[role] || "/student/dashboard");
+      localStorage.setItem(
+        "mock-user",
+        JSON.stringify({
+          id: user.id,
+          openId: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
+          role: actualRole,
+        })
+      );
+      localStorage.removeItem("requestedRole");
+      setLocation(DASHBOARD_MAP[actualRole]);
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {
@@ -106,9 +116,7 @@ export default function Login() {
                 </div>
               </div>
               <CardHeader className="p-0">
-                <h2 className="text-3xl font-extrabold tracking-tight hero-text-glow text-foreground">
-                  Welcome Back
-                </h2>
+                <h2 className="text-3xl font-extrabold tracking-tight hero-text-glow text-foreground">Welcome Back</h2>
                 <p className="text-muted-foreground mt-2 font-medium text-sm">
                   Sign in to Tomorrow's Earth Expo 2026
                 </p>
@@ -116,8 +124,6 @@ export default function Login() {
             </CardHeader>
 
             <CardContent className="px-8 pb-10 space-y-8">
-
-              {/* Role Selection */}
               <div className="space-y-4">
                 <Label className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
                   Identify Yourself
@@ -126,9 +132,10 @@ export default function Login() {
                   {(["student", "teacher", "admin"] as const).map((role) => (
                     <button
                       key={role}
-                      onClick={() => setSelectedRole(role)}
+                      type="button"
+                      onClick={() => setRequestedRole(role)}
                       className={`py-2 text-xs font-bold rounded-lg transition-all duration-300 capitalize ${
-                        selectedRole === role
+                        requestedRole === role
                           ? "bg-white text-primary shadow-lg ring-1 ring-black/5"
                           : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                       }`}
@@ -137,19 +144,18 @@ export default function Login() {
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-slate-500">
+                  Selected portal: <span className="font-semibold text-slate-900">{requestedRole}</span>
+                </p>
               </div>
 
-              {/* Google Login */}
               <div className="space-y-4 pt-2">
                 <Button
                   size="lg"
                   variant="outline"
                   className="w-full py-7 glass-card border-border hover:bg-black/5 flex items-center justify-center gap-3 group transition-all duration-300 active:scale-[0.98]"
                   disabled={isLoading}
-                  onClick={() => {
-                    localStorage.setItem("selectedRole", selectedRole);
-                    handleGoogleLogin();
-                  }}
+                  onClick={handleGoogleLogin}
                 >
                   {isLoading && loginMethod === "oauth" ? (
                     <Loader className="h-5 w-5 animate-spin" />
@@ -169,10 +175,10 @@ export default function Login() {
                 </p>
               </div>
 
-              {/* Email toggle + form */}
               <div className="pt-4 border-t border-border/50">
                 <div className="flex flex-col gap-4">
                   <button
+                    type="button"
                     onClick={() => setLoginMethod(loginMethod === "email" ? "oauth" : "email")}
                     className="text-xs font-semibold text-primary/70 hover:text-primary transition-colors flex items-center justify-center gap-2 group"
                   >
@@ -187,29 +193,33 @@ export default function Login() {
                           type="email"
                           placeholder="Email Address"
                           value={email}
-                          onChange={e => setEmail(e.target.value)}
+                          onChange={(e) => setEmail(e.target.value)}
                           className="bg-white/50 border-border"
                         />
-                        <div className="relative">
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Password"
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="bg-white/50 border-border"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                          >
-                            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="bg-white/50 border-border"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
                       </div>
 
                       {error && (
-                        <p className="text-destructive text-xs font-bold">{error}</p>
+                        <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-3 text-destructive text-xs font-semibold flex items-start gap-2">
+                          <AlertTriangle size={16} />
+                          <span>{error}</span>
+                        </div>
                       )}
 
                       <Button
@@ -222,7 +232,6 @@ export default function Login() {
                     </form>
                   )}
 
-                  {/* Error outside form (for OAuth errors) */}
                   {error && loginMethod === "oauth" && (
                     <p className="text-destructive text-xs font-bold text-center">{error}</p>
                   )}
@@ -233,7 +242,7 @@ export default function Login() {
 
           <div className="mt-8 text-center space-y-4">
             <p className="text-sm text-muted-foreground font-medium">
-              Don't have an account?{" "}
+              Don't have an account?{' '}
               <Link href="/signup">
                 <span className="text-primary hover:underline cursor-pointer font-bold">Join the movement</span>
               </Link>
