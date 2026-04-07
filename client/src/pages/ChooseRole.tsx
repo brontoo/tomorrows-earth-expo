@@ -50,6 +50,31 @@ export default function ChooseRole() {
   const confirm = () => {
     if (!selected) return;
 
+    // Check if user is already logged in
+    const mockUserStr = localStorage.getItem("mock-user");
+    if (mockUserStr) {
+      try {
+        const mockUser = JSON.parse(mockUserStr);
+        // Update role to the selected portal
+        mockUser.role = selected;
+        localStorage.setItem("mock-user", JSON.stringify(mockUser));
+        localStorage.removeItem("requestedRole");
+
+        // Route to dashboard based on selected role
+        const dashboardMap: Record<RequestedRole, string> = {
+          admin: "/admin/dashboard",
+          teacher: "/teacher/dashboard",
+          student: "/student/dashboard",
+          visitor: "/vote",
+        };
+        window.location.href = dashboardMap[selected];
+        return;
+      } catch (err) {
+        console.error("Error updating user role", err);
+      }
+    }
+
+    // User not logged in - save intended role and go to login
     localStorage.setItem("requestedRole", selected);
 
     if (selected === "visitor") {

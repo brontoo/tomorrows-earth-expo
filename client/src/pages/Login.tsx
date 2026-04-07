@@ -48,7 +48,16 @@ export default function Login() {
       };
 
       localStorage.setItem("mock-user", JSON.stringify(authUser));
-      setLocation("/choose-role");
+      
+      // Route based on the user's actual role
+      const dashboardMap: Record<LoginRole, string> = {
+        admin: "/admin/dashboard",
+        teacher: "/teacher/dashboard",
+        student: "/student/dashboard",
+        visitor: "/vote",
+      };
+      
+      setLocation(dashboardMap[role] || "/vote");
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {
