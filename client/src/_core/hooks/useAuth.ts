@@ -23,32 +23,32 @@ async function detectRoleFromDB(
   supabaseUid: string
 ): Promise<UserRole> {
   try {
+    // helper: race any promise against a timeout
+    const withTimeout = (p: Promise<any>, ms = 6000) =>
+      Promise.race([
+        p,
+        new Promise<any>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
+      ]);
+
     // 1. هل هو Admin؟
-    const { data: admin } = await supabase
-      .from("admins")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
-    if (admin) return "admin";
+    const adminRes = await withTimeout(
+      supabase.from("admins").select("email").eq("email", email).maybeSingle().then(r => r)
+    );
+    if (adminRes?.data) return "admin";
 
     // 2. هل هو معلم معتمد؟
-    const { data: teacher } = await supabase
-      .from("approved_teachers")
-      .select("email")
-      .eq("email", email)
-      .maybeSingle();
-    if (teacher) return "teacher";
+    const teacherRes = await withTimeout(
+      supabase.from("approved_teachers").select("email").eq("email", email).maybeSingle().then(r => r)
+    );
+    if (teacherRes?.data) return "teacher";
 
     // 3. هل سبق وسجّل مشروعاً كطالب؟
-    const { data: project } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("supabase_uid", supabaseUid)
-      .limit(1)
-      .maybeSingle();
-    if (project) return "student";
+    const projectRes = await withTimeout(
+      supabase.from("projects").select("id").eq("supabase_uid", supabaseUid).limit(1).maybeSingle().then(r => r)
+    );
+    if (projectRes?.data) return "student";
 
-    // 4. غير معروف بعد — visitor
+    // 4. غير معروف — visitor
     return "visitor";
 
   } catch (err) {
