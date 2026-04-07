@@ -128,10 +128,8 @@ export function useAuth(options?: any) {
           localStorage.setItem("mock-user", JSON.stringify(authUser));
           setUser(authUser);
           setLoading(false);
-
-          if (authUser.role === "visitor") {
-            window.location.href = "/choose-role";
-          }
+          // Don't auto-redirect to choose-role on auth state change
+          // Let the dashboard handle role validation
         } else if (event === "SIGNED_OUT") {
           localStorage.removeItem("mock-user");
           localStorage.removeItem("requestedRole");

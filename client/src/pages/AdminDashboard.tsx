@@ -6,11 +6,72 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { trpc } from "@/lib/trpc";
-import { useRouter } from "wouter";
+import { Link } from "wouter";
 import { Users, BarChart3, Settings, Vote, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import PageNavigation from "@/components/PageNavigation";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
 
 export default function AdminDashboard() {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PageNavigation />
+        <div className="container py-20 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PageNavigation />
+        <div className="container pt-24 pb-16">
+          <Card className="max-w-lg mx-auto">
+            <CardHeader>
+              <CardTitle>Please login</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                You need to be logged in as an admin to access this dashboard.
+              </p>
+              <Button asChild>
+                <a href={getLoginUrl()}>Login</a>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (user?.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-background">
+        <PageNavigation />
+        <div className="container pt-24 pb-16">
+          <Card className="max-w-lg mx-auto">
+            <CardHeader>
+              <CardTitle>Access denied</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This dashboard is only accessible to admins.
+              </p>
+              <Link href="/">
+                <Button variant="outline">Go home</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <PageNavigation />
@@ -21,40 +82,6 @@ export default function AdminDashboard() {
 
 function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState("overview");
-
-  // Queries
-  const statsQuery = trpc.admin.getPlatformStats.useQuery();
-  const usersQuery = trpc.admin.getAllUsers.useQuery();
-  const eventSettingsQuery = trpc.admin.getEventSettings.useQuery();
-  const votingStatsQuery = trpc.admin.getVotingStats.useQuery();
-  const activityLogsQuery = trpc.admin.getActivityLogs.useQuery({ limit: 20 });
-
-  // Mutations
-  const updateEventSettingsMutation = trpc.admin.updateEventSettings.useMutation();
-  const toggleVotingMutation = trpc.admin.toggleVoting.useMutation();
-  const updateUserStatusMutation = trpc.admin.updateUserStatus.useMutation();
-  const deleteUserMutation = trpc.admin.deleteUser.useMutation();
-
-  // Auth check via trpc query
-  const authQuery = trpc.auth.me.useQuery();
-  const user = authQuery.data;
-  
-  if (!user || user.role !== "admin") {
-    return (
-      <div className="container py-20 text-center">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Admin access required</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  const stats = statsQuery.data;
-  const users = usersQuery.data || [];
-  const eventSettings = eventSettingsQuery.data;
-  const votingStats = votingStatsQuery.data;
-  const activityLogs = activityLogsQuery.data || [];
 
   const handleToggleVoting = async () => {
     if (!votingStats) return;
