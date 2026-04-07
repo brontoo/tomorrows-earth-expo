@@ -1,10 +1,9 @@
 import HeroSection from "@/components/HeroSection";
-import CategorySelection from "@/components/CategorySelection";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import Navigation from "@/components/Navigation";
 import { Link } from "wouter";
-import { OAuthRedirect } from "@/components/OAuthRedirect";
+import { OAuthRedirect } from "@/components/OAuthRedirect.tsx";
 import ValueProposition from "@/components/ValueProposition";
 import { useAuth } from "@/_core/hooks/useAuth";
 import {
@@ -17,13 +16,13 @@ import { useEffect, useState } from "react";
 interface WeatherData { temperature: number; windspeed: number; weathercode: number; }
 
 function getWeatherInfo(code: number) {
-  if (code === 0) return { label: "Clear Sky", emoji: "☀️" };
-  if (code <= 3) return { label: "Partly Cloudy", emoji: "⛅" };
-  if (code <= 48) return { label: "Foggy", emoji: "🌫️" };
-  if (code <= 67) return { label: "Rainy", emoji: "🌧️" };
-  if (code <= 77) return { label: "Snowy", emoji: "❄️" };
-  if (code <= 82) return { label: "Showers", emoji: "🌦️" };
-  return { label: "Stormy", emoji: "⛈️" };
+  if (code === 0)  return { label: "Clear Sky",     emoji: "☀️" };
+  if (code <= 3)   return { label: "Partly Cloudy", emoji: "⛅" };
+  if (code <= 48)  return { label: "Foggy",         emoji: "🌫️" };
+  if (code <= 67)  return { label: "Rainy",         emoji: "🌧️" };
+  if (code <= 77)  return { label: "Snowy",         emoji: "❄️" };
+  if (code <= 82)  return { label: "Showers",       emoji: "🌦️" };
+  return                  { label: "Stormy",         emoji: "⛈️" };
 }
 
 function useAbuDhabiWeather() {
@@ -41,11 +40,11 @@ function useAbuDhabiWeather() {
       .then(d => {
         if (d.current_weather) setData({
           temperature: Math.round(d.current_weather.temperature),
-          windspeed: Math.round(d.current_weather.windspeed),
+          windspeed:   Math.round(d.current_weather.windspeed),
           weathercode: d.current_weather.weathercode,
         });
       })
-      .catch(() => { }) // فشل الـ API لا يؤثر على الصفحة
+      .catch(() => {}) // فشل الـ API لا يؤثر على الصفحة
       .finally(() => { clearTimeout(timeout); setLoading(false); });
 
     return () => { controller.abort(); clearTimeout(timeout); };
@@ -55,6 +54,15 @@ function useAbuDhabiWeather() {
 
 // ─── Environmental Days hook ──────────────────────────────────────────────────
 interface EnvDay { name: string; date: { iso: string }; }
+interface NasaApodLite {
+  title: string;
+  url: string;
+  hdurl?: string;
+  media_type: string;
+  thumbnail_url?: string;
+  date?: string;
+  explanation?: string;
+}
 
 const ENV_KEYWORDS = [
   "earth", "environment", "water", "ocean", "forest", "wildlife",
@@ -64,10 +72,10 @@ const ENV_KEYWORDS = [
 
 // Fixed fallback — all dates in the future from today (Apr 2026)
 const FALLBACK_DAYS: EnvDay[] = [
-  { name: "World Earth Day", date: { iso: "2026-04-22" } },
-  { name: "World Environment Day", date: { iso: "2026-06-05" } },
-  { name: "World Oceans Day", date: { iso: "2026-06-08" } },
-  { name: "World Wildlife Day", date: { iso: "2027-03-03" } },
+  { name: "World Earth Day",        date: { iso: "2026-04-22" } },
+  { name: "World Environment Day",  date: { iso: "2026-06-05" } },
+  { name: "World Oceans Day",       date: { iso: "2026-06-08" } },
+  { name: "World Wildlife Day",     date: { iso: "2027-03-03" } },
 ];
 
 function useEnvDays() {
@@ -118,84 +126,150 @@ function useEnvDays() {
   return { days, loading };
 }
 
+function useNasaPreview() {
+  const [data, setData] = useState<NasaApodLite | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+
+    fetch("https://api.nasa.gov/planetary/apod?api_key=opzhq4SjSKyje1q0JqjgajekWW7OahVvKqvNItZe&thumbs=true", {
+      signal: controller.signal,
+    })
+      .then(r => r.json())
+      .then((d: NasaApodLite) => setData(d))
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  return { data, loading };
+}
+
 // ─── Live Info Bar (shown only when authenticated) ────────────────────────────
 function LiveInfoBar() {
   const { data: weather, loading: wLoading } = useAbuDhabiWeather();
   const { days, loading: dLoading } = useEnvDays();
+  const { data: nasa, loading: nLoading } = useNasaPreview();
   const weatherInfo = weather ? getWeatherInfo(weather.weathercode) : null;
+  const nasaImage = nasa?.media_type === "image" ? (nasa.hdurl || nasa.url) : nasa?.thumbnail_url;
+  const upcomingDays = days.slice(0, 3);
 
   return (
-    <div className="bg-green-700/30 border-t border-green-500/20 px-4 py-4">
+    <div className="px-4 py-8 bg-slate-50 dark:bg-slate-900/40">
       <div className="container">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-          {/* Weather pill */}
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3">
-            <div className="flex-shrink-0 text-2xl leading-none">
-              {wLoading ? "⏳" : weatherInfo?.emoji ?? "🌡️"}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="glass-card rounded-[2.5rem] p-8 min-h-[420px] border-white/20 shadow-2xl hover:scale-[1.03] hover:-translate-y-2 transition-all duration-500">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center">
+                <Wind size={15} className="text-green-600" />
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Abu Dhabi Weather</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-green-200 mb-0.5">
-                Abu Dhabi · Live Weather
-              </p>
-              {wLoading ? (
-                <div className="h-4 bg-white/10 rounded animate-pulse w-24" />
-              ) : weather && weatherInfo ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-white font-black text-sm">{weather.temperature}°C</span>
-                  <span className="text-green-200 text-xs font-medium">{weatherInfo.label}</span>
-                  <span className="text-green-300/60 text-[10px]">· {weather.windspeed} km/h wind</span>
+            {wLoading ? (
+              <div className="space-y-2">
+                <div className="h-7 w-20 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                <div className="h-4 w-36 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+              </div>
+            ) : weather && weatherInfo ? (
+              <>
+                <p className="text-3xl font-black text-slate-900 dark:text-white leading-none">{weather.temperature}°C</p>
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300 mt-2">
+                  {weatherInfo.emoji} {weatherInfo.label}
+                </p>
+                <p className="text-xs font-medium text-slate-400 mt-1">Wind {weather.windspeed} km/h</p>
+                <div className="mt-5 pt-5 border-t border-slate-200/70 dark:border-slate-700/70 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500">Live from Abu Dhabi</p>
+                  <p className="text-xs text-slate-400">Updated in real-time from Open-Meteo</p>
                 </div>
-              ) : (
-                <span className="text-green-200/60 text-xs">Unavailable</span>
-              )}
-            </div>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Weather unavailable</p>
+            )}
           </div>
 
-          {/* Next env day pill */}
-          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl px-4 py-3">
-            <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
-              <Leaf size={15} className="text-green-200" />
+          <div className="glass-card rounded-[2.5rem] p-8 min-h-[420px] border-white/20 shadow-2xl hover:scale-[1.03] hover:-translate-y-2 transition-all duration-500">
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-12 h-12 rounded-2xl glass-card flex items-center justify-center">
+                <Leaf size={15} className="text-emerald-600" />
+              </div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Upcoming Environmental Days</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-widest text-green-200 mb-0.5">
-                Next Environmental Day
-              </p>
-              {dLoading ? (
-                <div className="h-4 bg-white/10 rounded animate-pulse w-36" />
-              ) : days.length > 0 ? (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-white font-black text-sm truncate">{days[0].name}</span>
-                  <span className="flex-shrink-0 text-[10px] font-black bg-white/20 text-white px-2 py-0.5 rounded-full">
-                    {Math.ceil((new Date(days[0].date.iso).getTime() - Date.now()) / 86400000)}d
-                  </span>
-                </div>
-              ) : (
-                <span className="text-green-200/60 text-xs">No upcoming days</span>
-              )}
-            </div>
+            {dLoading ? (
+              <div className="space-y-2">
+                <div className="h-5 w-44 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                <div className="h-4 w-24 rounded bg-slate-100 dark:bg-slate-800 animate-pulse" />
+              </div>
+            ) : upcomingDays.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingDays.map((day) => {
+                  const dayDate = new Date(day.date.iso);
+                  const daysLeft = Math.ceil((dayDate.getTime() - Date.now()) / 86400000);
+                  return (
+                    <div key={day.date.iso} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/70 p-3">
+                      <p className="text-sm font-black text-slate-900 dark:text-white leading-tight line-clamp-2">{day.name}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <p className="text-xs font-semibold text-slate-500">In {daysLeft} days</p>
+                        <p className="text-xs font-medium text-slate-400">
+                          {dayDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No upcoming days</p>
+            )}
           </div>
 
+          <div className="glass-card rounded-[2.5rem] min-h-[420px] border-white/20 shadow-2xl hover:scale-[1.03] hover:-translate-y-2 transition-all duration-500 overflow-hidden">
+            {nLoading ? (
+              <div className="h-full p-8">
+                <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+                <div className="h-4 w-32 rounded bg-slate-100 dark:bg-slate-800 animate-pulse mt-3" />
+              </div>
+            ) : nasaImage ? (
+              <>
+                <img src={nasaImage} alt={nasa?.title || "NASA APOD"} className="w-full h-44 object-cover" loading="lazy" />
+                <div className="p-6">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-1">NASA APOD</p>
+                  <p className="text-base font-black text-slate-900 dark:text-white leading-tight line-clamp-2 mb-2">
+                    {nasa?.title || "Astronomy Picture of the Day"}
+                  </p>
+                  {nasa?.date && (
+                    <p className="text-xs font-semibold text-slate-500 mb-2">
+                      {new Date(nasa.date).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-500 line-clamp-2">
+                    {nasa?.explanation || "Daily image and story from NASA Astronomy Picture of the Day."}
+                  </p>
+                  <a
+                    href={nasa?.hdurl || nasa?.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex mt-3 text-xs font-bold text-cyan-600 hover:text-cyan-500 transition-colors"
+                  >
+                    View Full Image
+                  </a>
+                </div>
+              </>
+            ) : (
+              <div className="h-full p-8 flex items-center">
+                <p className="text-sm text-slate-500">NASA image unavailable</p>
+              </div>
+            )}
+          </div>
         </div>
-
-        {/* All upcoming days row */}
-        {!dLoading && days.length > 1 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {days.slice(1).map(day => {
-              const d = new Date(day.date.iso);
-              const dLeft = Math.ceil((d.getTime() - Date.now()) / 86400000);
-              return (
-                <div key={day.date.iso}
-                  className="flex items-center gap-2 bg-white/8 border border-white/10 rounded-full px-3 py-1.5">
-                  <span className="text-xs font-semibold text-green-100 truncate max-w-[160px]">{day.name}</span>
-                  <span className="text-[10px] font-black text-green-300">
-                    {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {dLeft}d
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -207,17 +281,17 @@ export default function Home() {
   const { data: stats } = trpc.projects.getStats.useQuery(undefined, {
     retry: false,
     // @ts-ignore
-    onError: () => { },
+    onError: () => {},
   });
   const { data: categories } = trpc.categories.getAll.useQuery(undefined, {
     retry: false,
     // @ts-ignore
-    onError: () => { },
+    onError: () => {},
   });
 
   const dashboardPath =
-    user?.role === "admin" ? "/admin/dashboard" :
-      user?.role === "teacher" ? "/teacher/dashboard" : "/student/dashboard";
+    user?.role === "admin"   ? "/admin/dashboard"   :
+    user?.role === "teacher" ? "/teacher/dashboard" : "/student/dashboard";
 
   const firstName = (user?.name ?? "").split(" ")[0];
 
@@ -229,7 +303,7 @@ export default function Home() {
       {/* 1. HERO */}
       <HeroSection />
 
-      {/* 2. AUTH WELCOME BANNER + Live Info below it */}
+      {/* 2. AUTH WELCOME BANNER */}
       {isAuthenticated && user && (
         <div className="bg-gradient-to-r from-green-600 to-emerald-500">
           {/* Welcome row */}
@@ -250,8 +324,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Live weather + env days — directly below */}
-          <LiveInfoBar />
         </div>
       )}
 
@@ -260,9 +332,9 @@ export default function Home() {
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { icon: Globe, label: stats?.totalProjects ? "Projects Submitted" : "Be the first to submit!", value: stats?.totalProjects ?? 0, color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20" },
-              { icon: Users, label: stats?.totalStudents ? "Students Participating" : "Join the movement!", value: stats?.totalStudents ?? 0, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20" },
-              { icon: Layers, label: "Innovation Categories", value: categories?.length ?? 4, color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
+              { icon: Globe,  label: stats?.totalProjects ? "Projects Submitted" : "Be the first to submit!", value: stats?.totalProjects ?? 0, color: "text-green-600",  bg: "bg-green-50 dark:bg-green-900/20" },
+              { icon: Users,  label: stats?.totalStudents ? "Students Participating" : "Join the movement!",   value: stats?.totalStudents ?? 0, color: "text-blue-600",   bg: "bg-blue-50 dark:bg-blue-900/20" },
+              { icon: Layers, label: "Innovation Categories",                                                   value: categories?.length ?? 4,   color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
             ].map((stat, idx) => (
               <div key={idx} className="flex items-center gap-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
                 <div className={`w-14 h-14 rounded-2xl ${stat.bg} flex items-center justify-center flex-shrink-0`}>
@@ -278,11 +350,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 4. VALUE PROPOSITION */}
-      <ValueProposition />
+      {/* 4. LIVE INFO CARDS */}
+      <LiveInfoBar />
 
-      {/* 5. CATEGORY SELECTION */}
-      <CategorySelection />
+      {/* 5. VALUE PROPOSITION */}
+      <ValueProposition />
 
       {/* 6. MISSION */}
       <section className="py-20 bg-white dark:bg-slate-950">
@@ -335,9 +407,9 @@ export default function Home() {
               <p className="text-[10px] uppercase tracking-widest font-black text-violet-600 mb-5 text-center">Key Milestones</p>
               <div className="space-y-3">
                 {[
-                  { date: "Apr 30", label: "Submission Deadline", accent: "text-slate-700 dark:text-slate-200" },
-                  { date: "May 1–10", label: "Review Period", accent: "text-slate-700 dark:text-slate-200" },
-                  { date: "May 14", label: "Expo Day 🎉", accent: "text-green-600 dark:text-green-400" },
+                  { date: "Apr 30",   label: "Submission Deadline", accent: "text-slate-700 dark:text-slate-200" },
+                  { date: "May 1–10", label: "Review Period",       accent: "text-slate-700 dark:text-slate-200" },
+                  { date: "May 14",   label: "Expo Day 🎉",         accent: "text-green-600 dark:text-green-400" },
                 ].map(({ date, label, accent }) => (
                   <div key={date} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-2.5">
                     <span className={`text-sm font-black ${accent}`}>{date}</span>
@@ -369,7 +441,7 @@ export default function Home() {
                 </Button>
               </Link>
             ) : (
-              <Link href="/choose-role">
+              <Link href="/login">
                 <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
                   <LogIn size={18} /> Get Started
                 </Button>
@@ -403,7 +475,7 @@ export default function Home() {
                   </Button>
                 </Link>
               ) : (
-                <Link href="/choose-role">
+                <Link href="/login">
                   <Button size="sm" variant="outline" className="rounded-full border-slate-700 text-slate-300 hover:bg-slate-800 gap-2 mt-2">
                     <LogIn size={14} /> Sign In
                   </Button>
@@ -426,7 +498,7 @@ export default function Home() {
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-black text-slate-500 mb-4">Account</p>
                 <ul className="space-y-3">
-                  {[{ label: "Sign In", href: "/choose-role" }, { label: "Register", href: "/signup" }, { label: "Student Dashboard", href: "/student/dashboard" }].map(({ label, href }) => (
+                  {[{ label: "Sign In", href: "/login" }, { label: "Register", href: "/signup" }, { label: "Student Dashboard", href: "/student/dashboard" }].map(({ label, href }) => (
                     <li key={label}>
                       <Link href={href}>
                         <span className="text-sm font-semibold text-slate-400 hover:text-white transition-colors cursor-pointer">{label}</span>
