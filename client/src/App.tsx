@@ -23,7 +23,6 @@ import SignUp from "./pages/SignUp";
 import { UserWelcomeToast } from "./components/UserWelcomeToast";
 import PageNavigation from "./components/PageNavigation";
 import AuthCallback from "@/pages/AuthCallback";
-import ChooseRole from "./pages/ChooseRole";
 
 function Router() {
   return (

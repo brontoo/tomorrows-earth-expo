@@ -20,7 +20,7 @@ export default function ChooseRole() {
     } catch {}
 
     window.location.href =
-      selected === "student" ? "/student/dashboard" : "/vote";
+  selected === "student" ? "/student/dashboard" : "/";
   };
 
   return (

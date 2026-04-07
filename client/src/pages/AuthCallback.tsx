@@ -79,8 +79,7 @@ export default function AuthCallback() {
           role,
         };
         localStorage.setItem("mock-user", JSON.stringify(mockUser));
-        localStorage.setItem("selectedRole", role);
-        localStorage.removeItem("selectedRole"); // نظّف القديم
+localStorage.setItem("selectedRole", role);
 
         // 4. وجّه للـ dashboard الصحيح
         window.location.href = DASHBOARD[role];
