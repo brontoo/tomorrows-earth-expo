@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState, useCallback } from "react"
 import { getLoginUrl } from "@/const";
 import { supabase } from "@/lib/supabase";
 
-// ─── الـ roles المسموح بها من قاعدة البيانات فقط ──────────────────────────────
-// لا يمكن لأي مستخدم اختيار role بنفسه — يُقرأ دائماً من جدول users في Supabase
-const VALID_ROLES = ["student", "teacher", "admin"] as const;
+// ─── Types ────────────────────────────────────────────────────────────────────
+const VALID_ROLES = ["student", "teacher", "admin", "visitor"] as const;
 type UserRole = typeof VALID_ROLES[number];
 
 type AuthUser = {
-  id: string | number;
+  id: string;
   email: string;
   role: UserRole;
   name: string;
@@ -17,100 +16,127 @@ type AuthUser = {
   openId?: string;
 };
 
-// ─── جلب الـ role الحقيقي من قاعدة البيانات ──────────────────────────────────
-async function fetchRoleFromDB(supabaseUserId: string): Promise<UserRole> {
+// ─── Role detection — من جداول DB مباشرة ────────────────────────────────────
+// الأولوية: admins → approved_teachers → projects (طالب سبق وسجّل) → visitor
+async function detectRoleFromDB(
+  email: string,
+  supabaseUid: string
+): Promise<UserRole> {
   try {
-    const { data, error } = await supabase
-      .from("users")
-      .select("role")
-      .eq("open_id", supabaseUserId)  // ← تأكد من اسم العمود الصحيح عندك
-      .single();
+    // 1. هل هو Admin؟
+    const { data: admin } = await supabase
+      .from("admins")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+    if (admin) return "admin";
 
-    if (error || !data?.role) {
-      console.warn("[Auth] Could not fetch role from DB, defaulting to student:", error?.message);
-      return "student"; // Default آمن
-    }
+    // 2. هل هو معلم معتمد؟
+    const { data: teacher } = await supabase
+      .from("approved_teachers")
+      .select("email")
+      .eq("email", email)
+      .maybeSingle();
+    if (teacher) return "teacher";
 
-    // تحقق إضافي أن الـ role قيمة صحيحة
-    const role = data.role as string;
-    if (!VALID_ROLES.includes(role as UserRole)) {
-      console.warn("[Auth] Invalid role from DB:", role, "— defaulting to student");
-      return "student";
-    }
+    // 3. هل سبق وسجّل مشروعاً كطالب؟
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("supabase_uid", supabaseUid)
+      .limit(1)
+      .maybeSingle();
+    if (project) return "student";
 
-    return role as UserRole;
-  } catch {
-    return "student";
+    // 4. غير معروف بعد — visitor
+    return "visitor";
+
+  } catch (err) {
+    console.warn("[Auth] Could not detect role from DB:", err);
+    return "visitor";
   }
 }
 
+// ─── useAuth ─────────────────────────────────────────────────────────────────
 export function useAuth(options?: any) {
-  const { redirectOnUnauthenticated = false, redirectPath = getLoginUrl() } = options ?? {};
+  const {
+    redirectOnUnauthenticated = false,
+    redirectPath = getLoginUrl(),
+  } = options ?? {};
 
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // ─── بناء بيانات المستخدم من Session + Role من DB ─────────────────────────
-  const buildUserFromSession = useCallback(async (session: any): Promise<AuthUser> => {
-    const supabaseId = session.user.id;
+  // ── بناء AuthUser من session ──────────────────────────────────────────────
+  const buildUser = useCallback(async (session: any): Promise<AuthUser> => {
+    const supabaseUid = session.user.id as string;
+    const email = (session.user.email ?? "") as string;
 
-    // ✅ الـ role يأتي من DB فقط — ليس من localStorage أو user input
-    const role = await fetchRoleFromDB(supabaseId);
+    // جلب الدور من DB
+    const role = await detectRoleFromDB(email, supabaseUid);
 
     return {
-      id: supabaseId,
-      email: session.user.email!,
+      id: supabaseUid,
+      openId: supabaseUid,
+      email,
       name: session.user.user_metadata?.full_name
-        || session.user.email?.split("@")[0]
-        || "User",
+        ?? email.split("@")[0]
+        ?? "User",
       role,
-      openId: supabaseId,
     };
   }, []);
 
-  // ─── تهيئة الـ Auth ───────────────────────────────────────────────────────
+  // ── تهيئة عند تحميل الصفحة ────────────────────────────────────────────────
   useEffect(() => {
-    const initAuth = async () => {
+    const init = async () => {
       try {
-        // جلب الـ Session من Supabase
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session) {
-          // ✅ بناء المستخدم من DB — لا نثق بأي قيمة محلية للـ role
-          const authUser = await buildUserFromSession(session);
-          // حفظ في localStorage للأداء (قراءة سريعة) لكن بدون role قابل للتلاعب
-          localStorage.setItem("auth-user-cache", JSON.stringify(authUser));
+          const authUser = await buildUser(session);
+          // حفظ في localStorage كـ mock-user للتوافق مع باقي الكود
+          localStorage.setItem("mock-user", JSON.stringify(authUser));
           setUser(authUser);
-          return;
+        } else {
+          // لا session → نحاول نقرأ من localStorage كـ fallback
+          const cached = localStorage.getItem("mock-user");
+          if (cached) {
+            try { setUser(JSON.parse(cached)); } catch { }
+          } else {
+            setUser(null);
+          }
         }
-
-        // لا يوجد session — مستخدم غير مسجل
-        localStorage.removeItem("auth-user-cache");
-        setUser(null);
-
-      } catch (error) {
-        console.warn("[Auth] Auth init error:", error);
-        setUser(null);
+      } catch (err) {
+        console.warn("[Auth] Init error:", err);
+        // fallback للـ localStorage
+        const cached = localStorage.getItem("mock-user");
+        if (cached) {
+          try { setUser(JSON.parse(cached)); } catch { }
+        }
       } finally {
         setLoading(false);
       }
     };
 
-    initAuth();
+    init();
 
-    // مراقبة تغييرات الـ session (login/logout)
+    // مراقبة تغييرات الـ session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("[Auth] Auth state changed:", event);
-
         if (event === "SIGNED_IN" && session) {
-          const authUser = await buildUserFromSession(session);
-          localStorage.setItem("auth-user-cache", JSON.stringify(authUser));
+          const authUser = await buildUser(session);
+          localStorage.setItem("mock-user", JSON.stringify(authUser));
           setUser(authUser);
           setLoading(false);
+
+          // إذا كان visitor → وجّهه لصفحة اختيار الدور
+          if (authUser.role === "visitor") {
+            window.location.href = "/choose-role";
+          }
+
         } else if (event === "SIGNED_OUT") {
-          localStorage.removeItem("auth-user-cache");
-          localStorage.removeItem("selectedRole"); // تنظيف أي بقايا
+          localStorage.removeItem("mock-user");
+          localStorage.removeItem("selectedRole");
           setUser(null);
           setLoading(false);
         }
@@ -118,31 +144,39 @@ export function useAuth(options?: any) {
     );
 
     return () => subscription.unsubscribe();
-  }, [buildUserFromSession]);
+  }, [buildUser]);
 
-  // ─── Logout ───────────────────────────────────────────────────────────────
+  // ── Redirect if unauthenticated ───────────────────────────────────────────
+  useEffect(() => {
+    if (!loading && !user && redirectOnUnauthenticated) {
+      if (window.location.pathname !== redirectPath) {
+        window.location.href = redirectPath;
+      }
+    }
+  }, [loading, user, redirectOnUnauthenticated, redirectPath]);
+
+  // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
-    localStorage.removeItem("auth-user-cache");
+    localStorage.removeItem("mock-user");
     localStorage.removeItem("selectedRole");
     await supabase.auth.signOut();
     setUser(null);
     window.location.href = "/";
   }, []);
 
-  // ─── Refresh (إعادة جلب الـ role من DB) ──────────────────────────────────
+  // ── Refresh (إعادة جلب الدور من DB) ──────────────────────────────────────
   const refresh = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      const authUser = await buildUserFromSession(session);
-      localStorage.setItem("auth-user-cache", JSON.stringify(authUser));
+      const authUser = await buildUser(session);
+      localStorage.setItem("mock-user", JSON.stringify(authUser));
       setUser(authUser);
     }
-  }, [buildUserFromSession]);
+  }, [buildUser]);
 
-  // ─── loginMock للتطوير فقط ────────────────────────────────────────────────
-  // ⚠️ هذا للـ development فقط — احذفه في الـ production
+  // ── loginMock — development only ─────────────────────────────────────────
   const loginMock = useCallback(async (role: UserRole) => {
-    if (process.env.NODE_ENV === "production") {
+    if (import.meta.env.PROD) {
       console.error("[Auth] loginMock is disabled in production!");
       return;
     }
@@ -152,7 +186,7 @@ export function useAuth(options?: any) {
       role,
       name: "Demo " + role.charAt(0).toUpperCase() + role.slice(1),
     };
-    localStorage.setItem("auth-user-cache", JSON.stringify(mockUser));
+    localStorage.setItem("mock-user", JSON.stringify(mockUser));
     setUser(mockUser);
     setTimeout(() => { window.location.href = "/"; }, 100);
   }, []);
@@ -164,10 +198,5 @@ export function useAuth(options?: any) {
     error: null,
   }), [user, loading]);
 
-  return {
-    ...state,
-    refresh,
-    logout,
-    loginMock,
-  };
+  return { ...state, refresh, logout, loginMock };
 }
