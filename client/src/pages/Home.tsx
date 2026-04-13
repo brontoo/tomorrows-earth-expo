@@ -1,8 +1,8 @@
 import HeroSection from "@/components/HeroSection";
+import BranchScrollAnimation from "@/components/BranchScrollAnimation";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import Navigation from "@/components/Navigation";
-import DecorativeTreeSystem from "@/components/DecorativeTreeSystem";
 import { Link } from "wouter";
 import { OAuthRedirect } from "@/components/OAuthRedirect.tsx";
 import ValueProposition from "@/components/ValueProposition";
@@ -11,7 +11,7 @@ import {
   LayoutDashboard, LogIn, Globe, Users, Layers,
   CalendarDays, MapPin, Flag, Sparkles, Wind, Leaf, Newspaper, ExternalLink, ChevronLeft, ChevronRight, X,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 
 // ─── Weather hook (Abu Dhabi via Open-Meteo) ──────────────────────────────────
@@ -181,7 +181,7 @@ function LiveInfoBar() {
   const upcomingDays = days.slice(0, 3);
 
   return (
-    <div className="px-4 py-8 bg-slate-50 dark:bg-slate-900/40">
+    <div className="px-4 py-8 bg-white dark:bg-slate-950">
       <div className="container">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 auto-rows-fr">
           <div className="glass-card rounded-[2rem] p-6 border-white/20 shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col animate-in fade-in duration-500">
@@ -498,6 +498,7 @@ export default function Home() {
   const firstName = (user?.name ?? "").split(" ")[0];
   const [activeExpoCard, setActiveExpoCard] = useState<number | null>(null);
   const [expoDirection, setExpoDirection] = useState(0);
+  const footerRef = useRef<HTMLElement>(null);
 
   const milestoneRows = [
     { date: "May 5", label: "Submission Deadline", accent: "text-slate-700 dark:text-slate-200" },
@@ -597,37 +598,22 @@ export default function Home() {
   }, [activeExpoCard]);
 
   return (
-    <div className="relative isolate min-h-screen bg-white dark:bg-slate-950 overflow-x-hidden">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "radial-gradient(1200px 520px at 50% -10%, rgba(16,185,129,0.12), transparent 60%), radial-gradient(900px 420px at 10% 32%, rgba(59,130,246,0.08), transparent 60%), radial-gradient(900px 420px at 90% 42%, rgba(14,165,233,0.08), transparent 60%)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-[-12%] top-[16%] h-[28rem] w-[28rem] rounded-full bg-emerald-200/30 blur-3xl dark:bg-emerald-900/15"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-[-10%] top-[38%] h-[24rem] w-[24rem] rounded-full bg-cyan-200/35 blur-3xl dark:bg-cyan-900/15"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-[34%] top-[62%] h-[22rem] w-[22rem] rounded-full bg-lime-100/40 blur-3xl dark:bg-lime-900/10"
-      />
-      <DecorativeTreeSystem
-        startDate="2026-01-01T00:00:00+04:00"
-        endDate="2026-05-20T09:00:00+04:00"
-      />
-      <div className="relative z-10">
+    <div className="page-container isolate min-h-screen bg-white dark:bg-slate-950 overflow-x-hidden">
+
+      <div className="page-content">
       <OAuthRedirect />
       <Navigation reserveSpace={false} />
 
       {/* 1. HERO */}
-      <HeroSection />
+      <div>
+        <HeroSection />
+      </div>
+
+      {/* ── Post-hero wrapper: branches.svg scroll animation sits behind all
+           sections below via position:absolute z-index:-1 inside this
+           position:relative container. ──────────────────────────────────── */}
+      <div className="relative">
+        <BranchScrollAnimation />
 
       {/* 2. AUTH WELCOME BANNER */}
       {isAuthenticated && user && (
@@ -654,7 +640,7 @@ export default function Home() {
       )}
 
       {/* 3. STATS BAR */}
-      <section className="border-y border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 py-10">
+      <section className="border-y border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -662,7 +648,7 @@ export default function Home() {
               { icon: Users,  label: stats?.totalStudents ? "Students Participating" : "Join the movement!",   value: stats?.totalStudents ?? 0, color: "text-blue-600",   bg: "bg-blue-50 dark:bg-blue-900/20" },
               { icon: Layers, label: "Innovation Categories",                                                   value: categories?.length ?? 4,   color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
             ].map((stat, idx) => (
-              <div key={idx} className="flex items-center gap-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
+              <div key={idx} className="flex items-center gap-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/80 backdrop-blur-[10px] p-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
                 <div className={`w-14 h-14 rounded-2xl ${stat.bg} flex items-center justify-center flex-shrink-0`}>
                   <stat.icon size={26} className={stat.color} />
                 </div>
@@ -677,7 +663,7 @@ export default function Home() {
       </section>
 
       {/* 4. EVENT INFO */}
-      <section className="py-20 bg-slate-50 dark:bg-slate-900">
+      <section className="py-20 bg-white dark:bg-slate-950">
         <div className="container">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-4 py-1.5 mb-5">
@@ -794,57 +780,60 @@ export default function Home() {
       <LiveInfoBar />
 
       {/* 7. MISSION */}
-      <section className="py-20 bg-white dark:bg-slate-950">
-        <div className="container max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-slate-800 rounded-full px-4 py-1.5 mb-6">
-            <Flag size={13} className="text-green-600" />
-            <span className="text-xs font-black uppercase tracking-widest text-slate-500">Our Mission</span>
+      <section className="py-16 bg-white dark:bg-slate-950">
+        <div className="container">
+          <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 md:p-12 text-center shadow-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 mb-6">
+              <Flag size={13} className="text-slate-500" />
+              <span className="text-xs font-black uppercase tracking-widest text-slate-500">Our Mission</span>
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white mb-6 tracking-tight">
+              Empowering the Next Generation of Innovators
+            </h2>
+            <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+              Tomorrow's Earth Expo empowers high school students to become environmental innovators and leaders. Through collaborative projects in environmental protection, sustainable communities, green innovation, and educational awareness, we inspire the next generation to design realistic solutions that raise awareness and demonstrate positive impact for a thriving planet.
+            </p>
           </div>
-          <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white mb-6 tracking-tight">
-            Empowering the Next Generation of Innovators
-          </h2>
-          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-            Tomorrow's Earth Expo empowers high school students to become environmental innovators and leaders. Through collaborative projects in environmental protection, sustainable communities, green innovation, and educational awareness, we inspire the next generation to design realistic solutions that raise awareness and demonstrate positive impact for a thriving planet.
-          </p>
         </div>
       </section>
 
       {/* 8. CTA */}
-      <section className="py-28 relative overflow-hidden bg-white dark:bg-slate-950">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,var(--tw-gradient-stops))] from-green-50 via-white to-white dark:from-green-950/20 dark:via-slate-950 dark:to-slate-950 pointer-events-none" />
-        <div className="container text-center relative z-10">
-          <h2 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter text-slate-900 dark:text-white">
+      <section className="pb-24 bg-white dark:bg-slate-950">
+        <div className="container">
+          <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 md:p-12 text-center shadow-sm">
+            <h2 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter text-slate-900 dark:text-white">
             Ready to{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-cyan-500">Innovate?</span>
-          </h2>
-          <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 mb-12 max-w-xl mx-auto font-medium leading-relaxed">
-            Join the journey of sustainability. Showcase your brilliance, vote for the best, and help us save the planet.
-          </p>
-          <div className="flex justify-center gap-4 flex-wrap">
-            {isAuthenticated ? (
-              <Link href={dashboardPath}>
-                <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
-                  <LayoutDashboard size={18} /> Go to My Dashboard
+            </h2>
+            <p className="text-base md:text-lg text-slate-500 dark:text-slate-400 mb-12 max-w-xl mx-auto font-medium leading-relaxed">
+              Join the journey of sustainability. Showcase your brilliance, vote for the best, and help us save the planet.
+            </p>
+            <div className="flex justify-center gap-4 flex-wrap">
+              {isAuthenticated ? (
+                <Link href={dashboardPath}>
+                  <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
+                    <LayoutDashboard size={18} /> Go to My Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
+                    <LogIn size={18} /> Get Started
+                  </Button>
+                </Link>
+              )}
+              <Link href="/vote">
+                <Button size="lg" variant="outline" className="rounded-full px-10 py-6 border-slate-200 dark:border-slate-700 text-base font-bold hover:scale-105 transition-transform hover:bg-slate-50 dark:hover:bg-slate-800">
+                  Vote Now
                 </Button>
               </Link>
-            ) : (
-              <Link href="/login">
-                <Button size="lg" className="rounded-full px-10 py-6 premium-gradient text-white text-base font-bold shadow-xl hover:scale-105 transition-transform border-none gap-2">
-                  <LogIn size={18} /> Get Started
-                </Button>
-              </Link>
-            )}
-            <Link href="/vote">
-              <Button size="lg" variant="outline" className="rounded-full px-10 py-6 border-slate-200 dark:border-slate-700 text-base font-bold hover:scale-105 transition-transform hover:bg-slate-50 dark:hover:bg-slate-800">
-                Vote Now
-              </Button>
-            </Link>
+            </div>
           </div>
         </div>
       </section>
 
       {/* 9. FOOTER */}
-      <footer className="bg-slate-900 dark:bg-black pt-16 pb-8">
+      <footer ref={footerRef} className="bg-slate-900 dark:bg-black pt-16 pb-8">
         <div className="container px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start mb-16">
             <div className="space-y-4">
@@ -901,7 +890,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
-      </div>
+        </div>{/* end post-hero relative wrapper */}
+        </div>
     </div>
   );
 }
