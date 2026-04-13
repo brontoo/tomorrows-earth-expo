@@ -1,13 +1,5 @@
 /**
- * BranchScrollAnimation
- *
- * Loads branches.svg inline, then drives two scroll-scrubbed GSAP animations:
- *   1. Branch paths (fill #147664) – progressive reveal via SVG clipPath
- *      (simulates the stroke-dashoffset "drawing" effect on filled paths).
- *   2. Leaf/bud shapes (fill #029d92) – scale + fade-in with random stagger.
- *
- * The component is absolutely positioned so it sits as a background layer
- * behind all content in its nearest `position: relative` ancestor.
+ * Scroll-scrubbed branch growth background for the home page.
  */
 
 import { useEffect, useRef } from "react";
@@ -55,13 +47,14 @@ export default function BranchScrollAnimation() {
           svg.insertBefore(defs, svg.firstChild);
         }
 
-        // ── 3. Create the clipPath that drives the "drawing" reveal ─────────
+        // Reveal all filled geometry from top to bottom.
         const clipId = "branch-scroll-reveal-clip";
         const clipPath = document.createElementNS(
           "http://www.w3.org/2000/svg",
           "clipPath"
         );
         clipPath.setAttribute("id", clipId);
+        clipPath.setAttribute("clipPathUnits", "userSpaceOnUse");
 
         const clipRect = document.createElementNS(
           "http://www.w3.org/2000/svg",
@@ -75,7 +68,7 @@ export default function BranchScrollAnimation() {
         clipPath.appendChild(clipRect);
         defs.appendChild(clipPath);
 
-        // ── 4. Move all paths into a <g> with the clipPath applied ──────────
+        // Group original geometry under one clipped group.
         const allPaths = Array.from(svg.querySelectorAll("path"));
         const branchGroup = document.createElementNS(
           "http://www.w3.org/2000/svg",
@@ -85,14 +78,31 @@ export default function BranchScrollAnimation() {
         allPaths.forEach((p) => branchGroup.appendChild(p));
         svg.appendChild(branchGroup);
 
-        // ── 5. Identify leaf/bud paths (fill #029d92) ───────────────────────
+        // Identify leaves/buds by color (#029d92).
         const leafPaths = allPaths.filter((p) => {
           const style = p.getAttribute("style") ?? "";
           const fill = p.getAttribute("fill") ?? "";
           return style.includes("029d92") || fill.includes("029d92");
         });
 
-        // ── 6. Set initial state for leaves (hidden, scaled to 0) ───────────
+        // Create stroke overlays for the 3 main branch paths so dash drawing is explicit.
+        const mainBranchPaths = allPaths.filter((p) => (p.getAttribute("id") ?? "").startsWith("main-branch"));
+        const strokeOverlayGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        const strokeOverlays: SVGPathElement[] = [];
+
+        mainBranchPaths.forEach((path) => {
+          const clone = path.cloneNode(true) as SVGPathElement;
+          clone.setAttribute("fill", "none");
+          clone.setAttribute("stroke", "#147664");
+          clone.setAttribute("stroke-width", "20");
+          clone.setAttribute("stroke-linecap", "round");
+          clone.setAttribute("stroke-linejoin", "round");
+          clone.setAttribute("opacity", "0.95");
+          strokeOverlayGroup.appendChild(clone);
+          strokeOverlays.push(clone);
+        });
+
+        // Initial state for leaves.
         gsap.set(leafPaths, {
           transformBox: "fill-box",
           transformOrigin: "50% 50%",
@@ -100,29 +110,54 @@ export default function BranchScrollAnimation() {
           opacity: 0,
         });
 
-        // ── 7. Attach SVG to the DOM wrapper ────────────────────────────────
+        svg.appendChild(strokeOverlayGroup);
+
+        // Attach SVG to wrapper.
         wrapperRef.current.appendChild(svg);
 
-        // ── 8. Build GSAP animations inside a context for clean teardown ────
+        const triggerElement = wrapper.parentElement ?? wrapper;
+
+        // Build animations in GSAP context for clean teardown.
         gsapCtx = gsap.context(() => {
-          // ── 8a. Branch drawing: grow the clipRect height 0 → SVG_H ────────
+          // Global growth reveal for all filled shapes.
           gsap.to(clipRect, {
             attr: { height: SVG_H },
             ease: "none",
             scrollTrigger: {
-              trigger: wrapper,
+              trigger: triggerElement,
               start: "top 80%",
               end: "bottom 20%",
               scrub: 1,
             },
           });
 
-          // ── 8b. Leaf stagger: scale + fade-in after branch growth begins ──
+          // Dash-draw the primary branch paths.
+          strokeOverlays.forEach((path, index) => {
+            const length = path.getTotalLength();
+            gsap.set(path, {
+              strokeDasharray: length,
+              strokeDashoffset: length,
+            });
+
+            gsap.to(path, {
+              strokeDashoffset: 0,
+              ease: "none",
+              scrollTrigger: {
+                trigger: triggerElement,
+                start: "top 80%",
+                end: "bottom 20%",
+                scrub: 1,
+              },
+              delay: index * 0.04,
+            });
+          });
+
+          // Leaf stagger reveal.
           if (leafPaths.length > 0) {
             const leafTl = gsap.timeline({
               scrollTrigger: {
-                trigger: wrapper,
-                start: "top 60%",
+                trigger: triggerElement,
+                start: "top 80%",
                 end: "bottom 20%",
                 scrub: 1,
               },
@@ -142,7 +177,6 @@ export default function BranchScrollAnimation() {
         // Fetch was aborted on unmount or an error occurred – no action needed.
       });
 
-    // ── Cleanup ──────────────────────────────────────────────────────────────
     return () => {
       abortCtrl.abort();
       gsapCtx?.revert();
@@ -159,11 +193,11 @@ export default function BranchScrollAnimation() {
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: -1,
+        zIndex: 0,
         pointerEvents: "none",
         overflow: "hidden",
-        // Subtle opacity so the decorative layer doesn't overpower content
-        opacity: 0.18,
+        opacity: 0.65,
+        mixBlendMode: "multiply",
       }}
     />
   );
