@@ -215,15 +215,28 @@
   overflow: visible;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.9;
+  opacity: 0.95;
 }
 
 #tree-animation-container .tree-animation-svg {
   width: 100%;
   height: auto;
-  min-height: 100%;
+  min-height: 120%;
   max-width: none;
   overflow: visible;
+}
+
+#tree-animation-container .tree-zigzag-segment {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  overflow: visible;
+  opacity: 0.8;
+}
+
+#tree-animation-container .tree-zigzag-flipped {
+  transform: scaleX(-1);
+  transform-origin: center;
 }
 
 @media (max-width: 768px) {
