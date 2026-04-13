@@ -8,10 +8,6 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// ── SVG coordinate constants (from branches.svg viewBox="0 0 4961 3508") ──────
-const SVG_W = 4961;
-const SVG_H = 3508;
-
 export default function BranchScrollAnimation() {
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -28,65 +24,32 @@ export default function BranchScrollAnimation() {
       .then((raw) => {
         if (!wrapperRef.current) return;
 
-        // ── 1. Parse the SVG ────────────────────────────────────────────────
         const tmp = document.createElement("div");
         tmp.innerHTML = raw;
         const svg = tmp.querySelector("svg");
         if (!svg) return;
         injectedSvg = svg as SVGSVGElement;
 
-        // Make it fill its container
+        // Responsive sizing so the artwork stays visible across screen sizes.
         svg.setAttribute("width", "100%");
-        svg.setAttribute("height", "100%");
+        svg.setAttribute("height", "auto");
+        svg.setAttribute("preserveAspectRatio", "xMidYMin meet");
+        svg.classList.add("tree-animation-svg");
         svg.style.display = "block";
 
-        // ── 2. Ensure <defs> exists ─────────────────────────────────────────
-        let defs = svg.querySelector("defs");
-        if (!defs) {
-          defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-          svg.insertBefore(defs, svg.firstChild);
-        }
-
-        // Reveal all filled geometry from top to bottom.
-        const clipId = "branch-scroll-reveal-clip";
-        const clipPath = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "clipPath"
-        );
-        clipPath.setAttribute("id", clipId);
-        clipPath.setAttribute("clipPathUnits", "userSpaceOnUse");
-
-        const clipRect = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "rect"
-        );
-        clipRect.setAttribute("x", "0");
-        clipRect.setAttribute("y", "0");
-        clipRect.setAttribute("width", String(SVG_W));
-        // Start height at 0 – the ScrollTrigger will grow it to SVG_H
-        clipRect.setAttribute("height", "0");
-        clipPath.appendChild(clipRect);
-        defs.appendChild(clipPath);
-
-        // Group original geometry under one clipped group.
         const allPaths = Array.from(svg.querySelectorAll("path"));
-        const branchGroup = document.createElementNS(
-          "http://www.w3.org/2000/svg",
-          "g"
-        );
-        branchGroup.setAttribute("clip-path", `url(#${clipId})`);
-        allPaths.forEach((p) => branchGroup.appendChild(p));
-        svg.appendChild(branchGroup);
+        const mainBranchPaths = ["main-branch", "main-branch1", "main-branch2"]
+          .map((id) => svg.querySelector<SVGPathElement>(`#${id}`))
+          .filter((path): path is SVGPathElement => Boolean(path));
 
-        // Identify leaves/buds by color (#029d92).
+        // Identify leaves by fill color (#029d92).
         const leafPaths = allPaths.filter((p) => {
           const style = p.getAttribute("style") ?? "";
           const fill = p.getAttribute("fill") ?? "";
           return style.includes("029d92") || fill.includes("029d92");
         });
 
-        // Create stroke overlays for the 3 main branch paths so dash drawing is explicit.
-        const mainBranchPaths = allPaths.filter((p) => (p.getAttribute("id") ?? "").startsWith("main-branch"));
+        // Create stroke overlays so the branch visibly draws with dashoffset.
         const strokeOverlayGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
         const strokeOverlays: SVGPathElement[] = [];
 
@@ -94,10 +57,10 @@ export default function BranchScrollAnimation() {
           const clone = path.cloneNode(true) as SVGPathElement;
           clone.setAttribute("fill", "none");
           clone.setAttribute("stroke", "#147664");
-          clone.setAttribute("stroke-width", "20");
+          clone.setAttribute("stroke-width", "18");
           clone.setAttribute("stroke-linecap", "round");
           clone.setAttribute("stroke-linejoin", "round");
-          clone.setAttribute("opacity", "0.95");
+          clone.setAttribute("opacity", "1");
           strokeOverlayGroup.appendChild(clone);
           strokeOverlays.push(clone);
         });
@@ -110,66 +73,87 @@ export default function BranchScrollAnimation() {
           opacity: 0,
         });
 
+        gsap.set(mainBranchPaths, { opacity: 0.2 });
+
         svg.appendChild(strokeOverlayGroup);
 
-        // Attach SVG to wrapper.
         wrapperRef.current.appendChild(svg);
 
         const triggerElement = wrapper.parentElement ?? wrapper;
 
-        // Build animations in GSAP context for clean teardown.
         gsapCtx = gsap.context(() => {
-          // Global growth reveal for all filled shapes.
-          gsap.to(clipRect, {
-            attr: { height: SVG_H },
-            ease: "none",
-            scrollTrigger: {
-              trigger: triggerElement,
-              start: "top 80%",
-              end: "bottom 20%",
-              scrub: 1,
-            },
-          });
+          if (strokeOverlays.length === 0) return;
 
-          // Dash-draw the primary branch paths.
-          strokeOverlays.forEach((path, index) => {
+          // Prepare stroke drawing values.
+          strokeOverlays.forEach((path) => {
             const length = path.getTotalLength();
             gsap.set(path, {
               strokeDasharray: length,
               strokeDashoffset: length,
             });
-
-            gsap.to(path, {
-              strokeDashoffset: 0,
-              ease: "none",
-              scrollTrigger: {
-                trigger: triggerElement,
-                start: "top 80%",
-                end: "bottom 20%",
-                scrub: 1,
-              },
-              delay: index * 0.04,
-            });
           });
 
-          // Leaf stagger reveal.
-          if (leafPaths.length > 0) {
-            const leafTl = gsap.timeline({
-              scrollTrigger: {
-                trigger: triggerElement,
-                start: "top 80%",
-                end: "bottom 20%",
-                scrub: 1,
-              },
+          // Group leaves by nearest branch segment, then reveal each group
+          // right after its branch segment finishes drawing.
+          const branchCenters = mainBranchPaths.map((path) => {
+            const box = path.getBBox();
+            return box.x + box.width / 2;
+          });
+
+          const leafGroups = strokeOverlays.map(() => [] as SVGPathElement[]);
+          leafPaths.forEach((leaf) => {
+            const box = leaf.getBBox();
+            const cx = box.x + box.width / 2;
+
+            let bestIndex = 0;
+            let bestDistance = Number.POSITIVE_INFINITY;
+            branchCenters.forEach((branchCx, idx) => {
+              const d = Math.abs(cx - branchCx);
+              if (d < bestDistance) {
+                bestDistance = d;
+                bestIndex = idx;
+              }
             });
 
-            leafTl.to(leafPaths, {
-              scale: 1,
-              opacity: 1,
-              stagger: { each: 0.04, from: "random" },
-              ease: "back.out(1.4)",
+            leafGroups[bestIndex].push(leaf);
+          });
+
+          const tl = gsap.timeline({
+            scrollTrigger: {
+              trigger: triggerElement,
+              start: "top 80%",
+              end: "bottom 20%",
+              scrub: true,
+            },
+          });
+
+          strokeOverlays.forEach((strokePath, index) => {
+            tl.to(strokePath, {
+              strokeDashoffset: 0,
               duration: 1,
+              ease: "none",
             });
+
+            tl.to(
+              mainBranchPaths[index],
+              {
+                opacity: 1,
+                duration: 0.08,
+                ease: "none",
+              },
+              "<"
+            );
+
+            const groupedLeaves = leafGroups[index] ?? [];
+            if (groupedLeaves.length > 0) {
+              tl.to(groupedLeaves, {
+                scale: 1,
+                opacity: 1,
+                stagger: 0.05,
+                duration: 0.55,
+                ease: "power2.out",
+              });
+            }
           }
         }, wrapper);
       })
@@ -188,17 +172,9 @@ export default function BranchScrollAnimation() {
 
   return (
     <div
+      id="tree-animation-container"
       ref={wrapperRef}
       aria-hidden="true"
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: "none",
-        overflow: "hidden",
-        opacity: 0.65,
-        mixBlendMode: "multiply",
-      }}
     />
   );
 }

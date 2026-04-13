@@ -20,74 +20,6 @@
   padding: 0.4rem;
 }
 
-/* Decorative eco tree system: cinematic, subtle, and always behind content. */
-.eco-tree-system {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  overflow: hidden;
-}
-
-.eco-tree-root {
-  --tree-growth: 0.2;
-  --tree-parallax: 0px;
-  --tree-sway: 0deg;
-
-  position: absolute;
-  top: clamp(14rem, 22vh, 18rem);
-  right: clamp(0.5rem, 2vw, 2.75rem);
-  bottom: 0;
-  width: min(23vw, 330px);
-  min-width: 170px;
-  opacity: 0.52;
-  transform-origin: bottom center;
-  /* Single transform chain prevents transform overrides between growth/parallax/wind. */
-  transform: translate3d(0, var(--tree-parallax), 0) rotate(var(--tree-sway)) scaleY(var(--tree-growth));
-  will-change: transform;
-  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.eco-tree-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.11));
-}
-
-.eco-leaf-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  overflow: hidden;
-}
-
-.eco-leaf {
-  position: absolute;
-  left: 0;
-  top: 0;
-  border-radius: 65% 35% 62% 38% / 47% 62% 38% 53%;
-  background: linear-gradient(135deg, hsl(calc(138 + var(--leaf-hue-shift, 0deg)) 46% 64% / 0.88), hsl(calc(160 + var(--leaf-hue-shift, 0deg)) 55% 42% / 0.82));
-  box-shadow: 0 3px 10px rgba(6, 78, 59, 0.16);
-  will-change: transform;
-}
-
-@media (max-width: 1024px) {
-  .eco-tree-root {
-    width: min(29vw, 270px);
-    opacity: 0.4;
-  }
-}
-
-@media (max-width: 720px) {
-  .eco-tree-root {
-    width: min(38vw, 220px);
-    right: -1.2rem;
-    opacity: 0.3;
-  }
-}
-
 .pc-wrap::before {
   content: "";
   position: absolute;
@@ -259,6 +191,44 @@
   .pc-seconds .pc-value-stack {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+/* Scroll-reveal tree layout */
+.page-container {
+  position: relative;
+  min-height: 100vh;
+  z-index: 1;
+}
+
+.page-content {
+  position: relative;
+  z-index: 1;
+}
+
+#tree-animation-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+}
+
+#tree-animation-container .tree-animation-svg {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  max-width: none;
+  overflow: visible;
+}
+
+@media (max-width: 768px) {
+  #tree-animation-container {
+    opacity: 0.7;
   }
 }
 
