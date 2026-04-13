@@ -154,7 +154,7 @@ export default function BranchScrollAnimation() {
                 ease: "power2.out",
               });
             }
-          }
+          });
         }, wrapper);
       })
       .catch(() => {
