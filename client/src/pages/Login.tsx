@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
 import { Loader, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 type LoginRole = "admin" | "teacher" | "student" | "visitor";
 
@@ -17,6 +17,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loginMutation = trpc.auth.loginWithEmail.useMutation();
 
   const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -29,35 +30,33 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const result = await loginMutation.mutateAsync({
         email,
         password,
       });
 
-      if (signInError) throw signInError;
-      const user = data?.user;
-      if (!user) throw new Error("No user returned from Supabase");
+      const resolvedRole: LoginRole = (result.user?.role as LoginRole) || "visitor";
 
-      const role = (user.user_metadata?.role as LoginRole | undefined) || "visitor";
       const authUser = {
-        id: user.id,
-        openId: user.id,
-        email: user.email ?? "",
-        name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-        role,
+        id: result.user?.id,
+        openId: `email:${email.toLowerCase()}`,
+        email: result.user?.email ?? email,
+        name: result.user?.name || email.split("@")[0] || "User",
+        role: resolvedRole,
       };
 
       localStorage.setItem("mock-user", JSON.stringify(authUser));
-      
-      // Route based on the user's actual role
-      const dashboardMap: Record<LoginRole, string> = {
-        admin: "/admin/dashboard",
-        teacher: "/teacher/dashboard",
-        student: "/student/dashboard",
-        visitor: "/vote",
-      };
-      
-      setLocation(dashboardMap[role] || "/vote");
+
+      if (resolvedRole === "visitor" || !result.user?.role) {
+        setLocation("/choose-role");
+      } else {
+        const dashboardMap: Record<string, string> = {
+          student: "/student/dashboard",
+          teacher: "/teacher/dashboard",
+          admin: "/admin/dashboard",
+        };
+        setLocation(dashboardMap[resolvedRole] || "/");
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please check your credentials.");
     } finally {

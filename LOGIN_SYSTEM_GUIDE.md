@@ -36,6 +36,9 @@ The following test accounts are available in the database:
 
 | Email | Role | Name | Status |
 |-------|------|------|--------|
+| afra.almarbouei@moe.sch.ae | Admin | Afra Al Marbouei | Active |
+| fatmia.alameri@moe.sch.ae | Admin | Fatmia Al Ameri | Active |
+| badreyya-ma.alshehhi@moe.sch.ae | Admin | Badreyy Al Shehhi | Active |
 | riham.hassan@moe.sch.ae | Admin | riham.hassan | Active |
 | ahmed.eid.legal@gmail.com | Admin | AHMED Eid | Active |
 

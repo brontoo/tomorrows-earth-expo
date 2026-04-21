@@ -53,14 +53,14 @@ describe("Admin Database Functions", () => {
         expect(settings.eventDate).toBe("2026-05-15");
         expect(settings.eventLocation).toBe("New Location");
       } else {
-        expect(settings.eventDate).toBe("2026-05-14");
+        expect(settings.eventDate).toBe("2026-05-20");
         expect(settings.eventLocation).toBe("Um Al-Emarat School");
       }
       
       // Reset to original values if database is available
       if (dbEnabled) {
         await adminDb.updateEventSettings({
-          eventDate: "2026-05-14",
+          eventDate: "2026-05-20",
           eventLocation: "Um Al-Emarat School",
         });
       }

@@ -7,12 +7,7 @@ import { detectRoleFromDB } from "@/_core/hooks/useAuth";
 
 type Role = "admin" | "teacher" | "student" | "visitor";
 
-const DASHBOARD: Record<Role, string> = {
-  admin:   "/admin/dashboard",
-  teacher: "/teacher/dashboard",
-  student: "/student/dashboard",
-  visitor: "/vote",
-};
+const POST_LOGIN_REDIRECT = "/";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState<"loading" | "error">("loading");
@@ -61,7 +56,7 @@ export default function AuthCallback() {
         localStorage.setItem("mock-user", JSON.stringify(mockUser));
         localStorage.removeItem("requestedRole");
 
-        window.location.href = DASHBOARD[actualRole];
+        window.location.href = POST_LOGIN_REDIRECT;
       } catch (err: any) {
         console.error("[AuthCallback]", err?.message);
         setErrorMsg(err?.message || "Authentication failed");

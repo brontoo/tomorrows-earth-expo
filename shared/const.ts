@@ -5,15 +5,15 @@ export const UNAUTHED_ERR_MSG = 'Please login (10001)';
 export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
 
 // Timeline dates for Tomorrow's Earth Expo 2026
-export const EXPO_DATE = new Date("2026-05-14T00:00:00Z");
+export const EXPO_DATE = new Date("2026-05-20T00:00:00Z");
 export const REGISTRATION_START = new Date("2026-02-01T00:00:00Z");
 export const ABSTRACT_APPROVAL_START = new Date("2026-02-01T00:00:00Z");
 export const ABSTRACT_APPROVAL_END = new Date("2026-03-31T23:59:59Z");
 export const MEDIA_UPLOAD_START = new Date("2026-03-01T00:00:00Z");
-export const MEDIA_UPLOAD_END = new Date("2026-04-30T23:59:59Z");
-export const SUBMISSION_DEADLINE = new Date("2026-04-30T23:59:59Z");
-export const ADMIN_EDIT_START = new Date("2026-05-01T00:00:00Z");
-export const ADMIN_EDIT_END = new Date("2026-05-10T23:59:59Z");
+export const MEDIA_UPLOAD_END = new Date("2026-05-05T23:59:59Z");
+export const SUBMISSION_DEADLINE = new Date("2026-05-05T23:59:59Z");
+export const ADMIN_EDIT_START = new Date("2026-05-05T00:00:00Z");
+export const ADMIN_EDIT_END = new Date("2026-05-15T23:59:59Z");
 
 // Category themes
 export const CATEGORY_THEMES = {

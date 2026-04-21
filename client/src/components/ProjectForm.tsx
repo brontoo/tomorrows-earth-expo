@@ -230,6 +230,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
   const [step, setStep] = useState(1);
   const [isUploading, setIsUploading] = useState(false);
 
+  const { data: categories = [] } = trpc.categories.getAll.useQuery();
+  const { data: teachers = [] } = trpc.teachers.getAll.useQuery();
+
   const setup = (() => {
     try {
       return JSON.parse(localStorage.getItem("project-setup") || "{}");
@@ -237,6 +240,30 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       return {};
     }
   })();
+
+  const rawCategoryId = resolveCategoryId(setup.categoryId);
+  const categoryId = (() => {
+    if (rawCategoryId && categories.some((c: any) => c.id === rawCategoryId)) {
+      return rawCategoryId;
+    }
+
+    const bySlug =
+      typeof setup.categoryId === "string"
+        ? categories.find((c: any) => c.slug === setup.categoryId)
+        : undefined;
+    if (bySlug?.id) return bySlug.id as number;
+
+    const byName =
+      typeof setup.categoryName === "string"
+        ? categories.find((c: any) => c.name === setup.categoryName)
+        : undefined;
+    return byName?.id ?? rawCategoryId;
+  })();
+
+  const { data: subcategories = [] } = trpc.subcategories.getByCategory.useQuery(
+    { categoryId: categoryId ?? 0 },
+    { enabled: Boolean(categoryId) }
+  );
 
   // ── File states ──
   const [images, setImages] = useState<UploadedFile[]>([]);
@@ -310,13 +337,26 @@ const submitProjectMutation = trpc.projects.submitProject.useMutation();
     return;
   }
 
-  const categoryId = resolveCategoryId(setup.categoryId);
-  const subcategoryId = parseInteger(setup.subcategoryId);
-  const supervisorId = parseInteger(setup.supervisorId);
+  let resolvedCategoryId = categoryId;
 
-  if (!categoryId || !subcategoryId || !supervisorId) {
-    console.error("[ProjectForm] Invalid setup values", { setup, categoryId, subcategoryId, supervisorId });
-    toast.error("Invalid project configuration. Please reselect teacher/category/subcategory.");
+  let subcategoryId = parseInteger(setup.subcategoryId);
+  if (subcategoryId && !subcategories.some((s: any) => s.id === subcategoryId)) {
+    subcategoryId = null;
+  }
+  if (!subcategoryId && typeof setup.subcategory === "string") {
+    const byName = subcategories.find((s: any) => s.name === setup.subcategory);
+    subcategoryId = byName?.id ?? null;
+  }
+
+  let supervisorId = parseInteger(setup.supervisorId);
+  if (supervisorId && !teachers.some((t: any) => t.userId === supervisorId)) {
+    const byTeacherTableId = teachers.find((t: any) => t.id === supervisorId);
+    supervisorId = byTeacherTableId?.userId ?? null;
+  }
+
+  if (!resolvedCategoryId || !subcategoryId) {
+    console.error("[ProjectForm] Invalid setup values", { setup, categoryId: resolvedCategoryId, subcategoryId, supervisorId });
+    toast.error("Invalid project configuration. Please reselect category/subcategory.");
     return;
   }
 
@@ -332,9 +372,9 @@ const submitProjectMutation = trpc.projects.submitProject.useMutation();
       teamName: data.teamName,
       description: data.description,
       grade: data.grade,
-      categoryId,
+      categoryId: resolvedCategoryId,
       subcategoryId,
-      supervisorId,
+      supervisorId: supervisorId || undefined,
       imageUrls,
       videoUrl: videoUrls[0] || undefined,
       documentUrls: docUrls,
@@ -512,7 +552,7 @@ const submitProjectMutation = trpc.projects.submitProject.useMutation();
 
                 <div className="rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 p-4">
                   <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
-                    By submitting, you confirm all information is accurate. You may edit your project until the submission deadline — <strong>April 30, 2026</strong>.
+                    By submitting, you confirm all information is accurate. You may edit your project until the submission deadline — <strong>May 5, 2026</strong>.
                   </p>
                 </div>
               </CardContent>

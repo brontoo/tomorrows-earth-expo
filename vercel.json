@@ -5,7 +5,11 @@
   "installCommand": "pnpm install",
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/trpc/(.*)",
+      "destination": "/api/trpc"
+    },
+    {
+      "source": "/api/oauth/(.*)",
       "destination": "/api/server"
     },
     {

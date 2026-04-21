@@ -1,7 +1,3 @@
-import { supabase } from './lib/supabase'  // ← أضف هذا
-console.log('✅ Supabase imported:', supabase)
-
-
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,6 +28,11 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
 
   if (!isUnauthorized) return;
+
+  // If frontend auth already has a user cached, avoid hard redirect loops.
+  // Some routes can still render while backend session is being established.
+  const hasFrontendUser = Boolean(localStorage.getItem("mock-user"));
+  if (hasFrontendUser) return;
 
   window.location.href = getLoginUrl();
 };

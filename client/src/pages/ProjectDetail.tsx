@@ -5,9 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navigation from "@/components/Navigation";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Calendar, Users, Award } from "lucide-react";
+import { ArrowLeft, Calendar, Users, Award, FileText } from "lucide-react";
 import QRCode from "react-qr-code";
-import PageNavigation from "@/components/PageNavigation";
 
 export default function ProjectDetail() {
   const params = useParams<{ id: string }>();
@@ -21,7 +20,6 @@ export default function ProjectDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <PageNavigation />
         <Navigation />
         <div className="container py-12">
           <div className="animate-pulse space-y-4">
@@ -37,7 +35,6 @@ export default function ProjectDetail() {
   if (!project) {
     return (
       <div className="min-h-screen bg-background">
-        <PageNavigation />
         <Navigation />
         <div className="container py-12 text-center">
           <h2 className="text-2xl font-bold mb-4">Project Not Found</h2>
@@ -50,13 +47,13 @@ export default function ProjectDetail() {
   }
 
   const category = categories?.find((c) => c.id === project.categoryId);
-  const imageUrls = project.imageUrls ? JSON.parse(project.imageUrls) : [];
+  const imageUrls: string[] = project.imageUrls ? JSON.parse(project.imageUrls) : [];
+  const documentUrls: string[] = (project as any).documentUrls ? JSON.parse((project as any).documentUrls) : [];
   const sdgAlignment = project.sdgAlignment ? JSON.parse(project.sdgAlignment) : [];
   const projectUrl = `${window.location.origin}/project/${project.id}`;
 
   return (
     <div className="min-h-screen bg-background">
-      <PageNavigation />
       <Navigation />
 
       <div className="container py-12">
@@ -109,23 +106,36 @@ export default function ProjectDetail() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="method">Method</TabsTrigger>
+            <TabsTrigger value="method">Details</TabsTrigger>
             <TabsTrigger value="media">Media</TabsTrigger>
             <TabsTrigger value="journey">Journey</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+          {/* Overview Tab — project description & key info */}
           <TabsContent value="overview" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Project Abstract</CardTitle>
+                <CardTitle>Project Description</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {project.abstract || "No abstract provided yet."}
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {project.description || project.abstract || "No description provided yet."}
                 </p>
               </CardContent>
             </Card>
+
+            {project.abstract && project.abstract !== project.description && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Abstract</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {project.abstract}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {project.scientificQuestion && (
               <Card>
@@ -158,93 +168,114 @@ export default function ProjectDetail() {
             )}
           </TabsContent>
 
-          {/* Scientific Method Tab */}
+          {/* Details Tab — team & submission info */}
           <TabsContent value="method" className="space-y-6">
-            {project.researchMethod && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Research Method</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {project.researchMethod}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Team & Project Info</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Team Name</p>
+                    <p className="font-medium">{project.teamName}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Grade</p>
+                    <p className="font-medium">{project.grade || "—"}</p>
+                  </div>
+                  {category && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Category</p>
+                      <p className="font-medium">{category.name}</p>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</p>
+                    <Badge variant={project.status === "finalist" ? "default" : "secondary"}>
+                      {project.status ?? "submitted"}
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-            {project.experimentDetails && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Experiment & Model</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {project.experimentDetails}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {project.dataExplanation && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Data & Analysis</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {project.dataExplanation}
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {!project.researchMethod && !project.experimentDetails && !project.dataExplanation && (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  Scientific method details will be added soon.
-                </CardContent>
-              </Card>
+            {(project.researchMethod || project.experimentDetails || project.dataExplanation) && (
+              <>
+                {project.researchMethod && (
+                  <Card>
+                    <CardHeader><CardTitle>Research Method</CardTitle></CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{project.researchMethod}</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {project.experimentDetails && (
+                  <Card>
+                    <CardHeader><CardTitle>Experiment & Model</CardTitle></CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{project.experimentDetails}</p>
+                    </CardContent>
+                  </Card>
+                )}
+                {project.dataExplanation && (
+                  <Card>
+                    <CardHeader><CardTitle>Data & Analysis</CardTitle></CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{project.dataExplanation}</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
             )}
           </TabsContent>
 
-          {/* Media Tab */}
+          {/* Media Tab — Video thumbnails → Images → PDFs */}
           <TabsContent value="media" className="space-y-6">
-            {/* Images */}
-            {imageUrls.length > 0 && (
+            {/* Videos */}
+            {project.videoUrl && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Image Gallery</CardTitle>
+                  <CardTitle className="flex items-center gap-2">🎬 Project Video</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {imageUrls.map((url: string, index: number) => (
-                      <div key={index} className="aspect-video overflow-hidden rounded-lg">
-                        <img
-                          src={url}
-                          alt={`Project image ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="aspect-video rounded-xl overflow-hidden bg-black border">
+                      <video
+                        src={project.videoUrl}
+                        controls
+                        preload="metadata"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Video */}
-            {project.videoUrl && (
+            {/* Images */}
+            {imageUrls.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Project Video</CardTitle>
+                  <CardTitle className="flex items-center gap-2">🖼️ Image Gallery</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="aspect-video">
-                    <video
-                      src={project.videoUrl}
-                      controls
-                      className="w-full h-full rounded-lg"
-                    />
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {imageUrls.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group block aspect-square overflow-hidden rounded-xl border bg-muted"
+                      >
+                        <img
+                          src={url}
+                          alt={`Project image ${index + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </a>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
@@ -268,7 +299,35 @@ export default function ProjectDetail() {
               </Card>
             )}
 
-            {imageUrls.length === 0 && !project.videoUrl && !project.model3dUrl && (
+            {/* Documents / PDFs */}
+            {documentUrls.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">📄 Attached Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {documentUrls.map((url: string, index: number) => {
+                      const filename = url.split("/").pop()?.split("?")[0] || `Document ${index + 1}`;
+                      return (
+                        <a
+                          key={index}
+                          href={url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted transition-colors"
+                        >
+                          <FileText size={20} className="text-red-500 shrink-0" />
+                          <span className="text-sm truncate">{decodeURIComponent(filename)}</span>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {imageUrls.length === 0 && !project.videoUrl && !project.model3dUrl && documentUrls.length === 0 && (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
                   Media content will be added soon.
@@ -335,9 +394,9 @@ export default function ProjectDetail() {
             ) : (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  <div className="text-4xl mb-4">📝</div>
-                  <p>No journey updates yet. Check back as the team documents their progress!</p>
-                </CardContent>
+                <div className="text-4xl mb-4">📝</div>
+                <p>No journey updates yet. Check back as the team documents their progress!</p>
+              </CardContent>
               </Card>
             )}
           </TabsContent>

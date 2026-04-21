@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, router } from "../_core/trpc";
-import * as adminDb from "../admin";
+import { adminProcedure, router } from "../_core/trpc.js";
+import * as adminDb from "../admin.js";
 
 export const adminRouter = router({
   // User Management
@@ -68,8 +68,40 @@ export const adminRouter = router({
 
   // Activity Logs
   getActivityLogs: adminProcedure
-    .input(z.object({ limit: z.number().default(50) }))
+    .input(z.object({ limit: z.number().default(50) }).optional())
     .query(async ({ input }) => {
-      return adminDb.getActivityLogs(input.limit);
+      return adminDb.getActivityLogs(input?.limit ?? 50);
+    }),
+
+  // Journey Cinema Management
+  getJourneyPosts: adminProcedure.query(async () => {
+    return adminDb.getJourneyPostsForAdmin();
+  }),
+
+  deleteJourneyPost: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await adminDb.deleteJourneyPostForAdmin(input.id);
+      return { success: true };
+    }),
+
+  // Project Management
+  getAllProjects: adminProcedure.query(async () => {
+    return adminDb.getAllProjectsForAdmin();
+  }),
+
+  deleteProject: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      try {
+        await adminDb.deleteProjectForAdmin(input.id);
+        return { success: true };
+      } catch (error) {
+        if (error instanceof Error && error.message === "Project not found") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
+        }
+
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to delete project" });
+      }
     }),
 });

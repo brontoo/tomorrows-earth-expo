@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { getSessionCookieOptions } from "../_core/cookies";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc.js";
+import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { getSessionCookieOptions } from "../_core/cookies.js";
+import * as db from "../db.js";
+import { sdk } from "../_core/sdk.js";
 
-type UserRole = "admin" | "teacher" | "student";
+type UserRole = "admin" | "teacher" | "student" | "public";
 
 export const authRouter = router({
   me: publicProcedure.query(({ ctx }) => {
@@ -22,28 +24,49 @@ export const authRouter = router({
       z.object({
         email: z.string().email("Invalid email address"),
         password: z.string().min(1, "Password is required"),
-        role: z.enum(["admin", "teacher", "student"]),
+        role: z.enum(["admin", "teacher", "student"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
 
-      ctx.res.cookie(
-        COOKIE_NAME,
-        `mock-session-${input.role}`,
-        {
-          ...cookieOptions,
-          maxAge: ONE_YEAR_MS,
-        }
-      );
+      const ensuredUser = await db.upsertUser({
+        email: input.email,
+        openId: `email:${input.email.toLowerCase()}`,
+        name: input.email.split("@")[0] ?? "User",
+        role: input.role,
+        loginMethod: "email",
+        lastSignedIn: new Date(),
+      });
+
+      if (!ensuredUser) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create user session" });
+      }
+
+      let sessionToken: string;
+      try {
+        sessionToken = await sdk.createSessionToken(ensuredUser.openId || `email:${input.email.toLowerCase()}`, {
+          name: ensuredUser.name || "User",
+          email: ensuredUser.email,
+          role: ensuredUser.role,
+        });
+      } catch (err) {
+        console.error("[Auth] Failed to sign session token:", err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Session signing failed. Contact an administrator." });
+      }
+
+      ctx.res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       return {
         success: true,
         user: {
-          id: 999999,
-          email: input.email,
-          name: "Mock User",
-          role: input.role as UserRole,
+          id: ensuredUser.id,
+          email: ensuredUser.email,
+          name: ensuredUser.name || "User",
+          role: ensuredUser.role as UserRole,
         },
       };
     }),
@@ -97,29 +120,51 @@ export const authRouter = router({
         email: z.string().email(),
         name: z.string().optional(),
         openId: z.string(),
-        role: z.enum(["admin", "teacher", "student"]).optional(),
+        role: z.enum(["admin", "teacher", "student", "public", "visitor"]).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const role = input.role ?? "student";
-      const cookieOptions = getSessionCookieOptions(ctx.req);
+      const normalizedRole: UserRole | undefined =
+        input.role === "visitor" ? "public" : input.role;
 
-      ctx.res.cookie(
-        COOKIE_NAME,
-        `mock-google-session-${role}`,
-        {
-          ...cookieOptions,
-          maxAge: ONE_YEAR_MS,
-        }
-      );
+      const ensuredUser = await db.upsertUser({
+        email: input.email,
+        openId: input.openId,
+        name: input.name ?? input.email.split("@")[0] ?? "User",
+        role: normalizedRole,
+        loginMethod: "email",
+        lastSignedIn: new Date(),
+      });
+
+      if (!ensuredUser) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to sync user" });
+      }
+
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      let sessionToken: string;
+      try {
+        sessionToken = await sdk.createSessionToken(ensuredUser.openId || input.openId, {
+          name: ensuredUser.name || "User",
+          email: ensuredUser.email,
+          role: ensuredUser.role,
+        });
+      } catch (err) {
+        console.error("[Auth] Failed to sign session token in syncUser:", err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Session signing failed. Contact an administrator." });
+      }
+
+      ctx.res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       return {
         success: true,
         user: {
-          id: 999999,
-          email: input.email,
-          name: input.name ?? "Google Mock User",
-          role,
+          id: ensuredUser.id,
+          email: ensuredUser.email,
+          name: ensuredUser.name ?? "User",
+          role: ensuredUser.role as UserRole,
         },
       };
     }),

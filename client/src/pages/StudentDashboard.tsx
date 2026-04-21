@@ -12,7 +12,6 @@ import {
 import MyProjectsDashboard from "@/components/MyProjectsDashboard";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
 import { StudentDashboardLayout } from "@/components/StudentDashboardLayout";
-import PageNavigation from "@/components/PageNavigation";
 import { ProfileSettings } from "@/components/ProfileSettings";
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
@@ -352,7 +351,7 @@ export default function StudentDashboard() {
 
   if (loading) return (
     <div className="min-h-screen bg-background">
-      <PageNavigation /><Navigation />
+      <Navigation />
       <div className="container py-12">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-1/3" />
@@ -364,7 +363,7 @@ export default function StudentDashboard() {
 
   if (!isAuthenticated) return (
     <div className="min-h-screen bg-background">
-      <PageNavigation /><Navigation />
+      <Navigation />
       <div className="container py-12 text-center">
         <h2 className="text-2xl font-bold mb-4">Please Login</h2>
         <p className="text-muted-foreground mb-6">You need to be logged in as a student to access the dashboard.</p>
@@ -388,7 +387,7 @@ export default function StudentDashboard() {
   const submittedCount = myProjects?.filter((p: any) => p.status !== "draft").length ?? 0;
   const votesCount = myProjects?.reduce((acc: number, p: any) => acc + (p.votesCount ?? 0), 0) ?? 0;
   const feedbackCount = myProjects?.filter((p: any) => p.status === "rejected").length ?? 0;
-  const deadline = new Date("2026-05-14");
+  const deadline = new Date("2026-05-05");
   const daysLeft = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 86400000));
   const firstName = (user?.name ?? "Student").split(" ")[0];
   const greeting = getGreeting();
@@ -443,7 +442,7 @@ export default function StudentDashboard() {
               <StatCard icon={ThumbsUp} label="Votes Received" value={votesCount}
                 sub="Community support" accent="#3b82f6" />
               <StatCard icon={Clock} label="Days Until Deadline" value={daysLeft}
-                sub="May 14, 2026" accent="#f59e0b" />
+                sub="May 5, 2026" accent="#f59e0b" />
               <StatCard icon={MessageSquare} label="Feedback Pending" value={feedbackCount}
                 sub={feedbackCount === 0 ? "All reviewed" : "Needs attention"} accent="#8b5cf6" />
             </div>

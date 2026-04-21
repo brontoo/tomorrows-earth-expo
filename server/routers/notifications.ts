@@ -1,7 +1,7 @@
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure } from "../_core/trpc.js";
 import { z } from "zod";
-import { getDb } from "../db";
-import { notifications, users } from "../../drizzle/schema";
+import { getDb } from "../db.js";
+import { notifications, users } from "../../drizzle/schema.js";
 import { eq, desc } from "drizzle-orm";
 
 export const notificationsRouter = router({

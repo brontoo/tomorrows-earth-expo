@@ -1,19 +1,19 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
-import { ForbiddenError } from "@shared/_core/errors";
+import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
 import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
-import type { User } from "../../drizzle/schema";
-import * as db from "../db";
-import { ENV } from "./env";
+import type { User } from "../../drizzle/schema.js";
+import * as db from "../db.js";
+import { ENV } from "./env.js";
 import type {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
   GetUserInfoResponse,
   GetUserInfoWithJwtRequest,
   GetUserInfoWithJwtResponse,
-} from "./types/manusTypes";
+} from "./types/manusTypes.js";
 // Utility function
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length > 0;
@@ -156,6 +156,13 @@ class SDKServer {
 
   private getSessionSecret() {
     const secret = ENV.cookieSecret;
+    if (!secret) {
+      // Deterministic fallback so sessions survive restarts without config.
+      // Production MUST set JWT_SECRET env var for real security.
+      const fallback = `tee-2026-${ENV.appId || "local"}`;
+      console.warn("[Auth] JWT_SECRET not set — using derived fallback. Set JWT_SECRET in production.");
+      return new TextEncoder().encode(fallback);
+    }
     return new TextEncoder().encode(secret);
   }
 
@@ -316,7 +323,11 @@ async authenticateRequest(req: Request): Promise<User> {
       loginMethod: 'oauth',
     });
 
-    return user;
+    const refreshedUser =
+      (await db.getUserByOpenId(user.openId)) ||
+      (user.email ? await db.getUserByEmail(user.email) : undefined);
+
+    return refreshedUser || user;
   }
 }
 

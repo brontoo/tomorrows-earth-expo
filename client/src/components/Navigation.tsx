@@ -13,7 +13,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
-export default function Navigation() {
+interface NavigationProps {
+  reserveSpace?: boolean;
+}
+
+export default function Navigation({ reserveSpace = true }: NavigationProps) {
   const [location] = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -61,23 +65,29 @@ export default function Navigation() {
   const getDashboardLink = () => {
     if (!user) return null;
     switch (user.role) {
-      case "admin": return { href: "/admin/dashboard", label: "Admin Dashboard" };
-      case "teacher": return { href: "/teacher/dashboard", label: "Teacher Dashboard" };
-      case "student": return { href: "/student/dashboard", label: "My Projects" };
+      case "admin": return [
+        { href: "/admin/dashboard", label: "Admin Dashboard" },
+        { href: "/teacher/dashboard", label: "Teacher Dashboard" },
+      ];
+      case "teacher": return [{ href: "/teacher/dashboard", label: "Teacher Dashboard" }];
+      case "student": return [{ href: "/student/dashboard", label: "My Projects" }];
       default: return null;
     }
   };
 
-  const dashboardLink = getDashboardLink();
+  const dashboardLinks = getDashboardLink();
+  const primaryDashboardLink = dashboardLinks?.[0];
 
   return (
-    <nav
-      className={`fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50 glass-card rounded-2xl py-2 px-4 transition-all duration-300 ${visible
-          ? "translate-y-0 opacity-100"
-          : "-translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none"
-        }`}
-    >
-      <div className="container px-0">
+    <>
+      {reserveSpace && <div aria-hidden="true" className="h-24" />}
+      <nav
+        className={`fixed top-4 left-1/2 -translate-x-1/2 w-[95%] max-w-7xl z-50 glass-card rounded-2xl py-2 px-4 transition-all duration-300 ${visible
+            ? "translate-y-0 opacity-100"
+            : "-translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none"
+          }`}
+      >
+        <div className="container px-0">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
@@ -106,13 +116,13 @@ export default function Navigation() {
                 <Link href={link.href}>{link.label}</Link>
               </Button>
             ))}
-            {dashboardLink && (
+            {primaryDashboardLink && (
               <Button
-                variant={location === dashboardLink.href ? "default" : "ghost"}
+                variant={location === primaryDashboardLink.href ? "default" : "ghost"}
                 size="sm"
                 asChild
               >
-                <Link href={dashboardLink.href}>{dashboardLink.label}</Link>
+                <Link href={primaryDashboardLink.href}>{primaryDashboardLink.label}</Link>
               </Button>
             )}
           </div>
@@ -123,8 +133,12 @@ export default function Navigation() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-accent/10">
+                    <span
+                      aria-hidden="true"
+                      className="user-avatar-ripple absolute inset-0 rounded-full"
+                    />
                     <Avatar className="h-9 w-9 border-2 border-primary/20">
-                      <AvatarFallback className="bg-gradient-to-br from-leaf-green to-digital-cyan text-white text-xs">
+                      <AvatarFallback className="bg-emerald-100 text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-100 text-xs font-black">
                         {user.name?.charAt(0).toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
@@ -141,12 +155,17 @@ export default function Navigation() {
                     </div>
                   </div>
                   <DropdownMenuSeparator />
-                  {dashboardLink && (
-                    <Link href={dashboardLink.href}>
-                      <DropdownMenuItem className="cursor-pointer">
-                        {dashboardLink.label}
-                      </DropdownMenuItem>
-                    </Link>
+                  {dashboardLinks && dashboardLinks.length > 0 && (
+                    <>
+                      {dashboardLinks.map((link) => (
+                        <Link key={link.href} href={link.href}>
+                          <DropdownMenuItem className="cursor-pointer">
+                            {link.label}
+                          </DropdownMenuItem>
+                        </Link>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </>
                   )}
                   <DropdownMenuItem
                     onClick={handleLogout}
@@ -192,16 +211,17 @@ export default function Navigation() {
                   <Link href={link.href}>{link.label}</Link>
                 </Button>
               ))}
-              {dashboardLink && (
+              {dashboardLinks?.map((link) => (
                 <Button
-                  variant={location === dashboardLink.href ? "default" : "ghost"}
+                  key={link.href}
+                  variant={location === link.href ? "default" : "ghost"}
                   className="w-full justify-start"
                   asChild
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Link href={dashboardLink.href}>{dashboardLink.label}</Link>
+                  <Link href={link.href}>{link.label}</Link>
                 </Button>
-              )}
+              ))}
               <div className="pt-4 border-t border-border mt-4">
                 {isAuthenticated && user ? (
                   <>
@@ -234,7 +254,8 @@ export default function Navigation() {
             </div>
           </div>
         )}
-      </div>
-    </nav>
+        </div>
+      </nav>
+    </>
   );
 }

@@ -20,7 +20,7 @@ export default function Resources() {
     },
     {
       question: "When is the submission deadline?",
-      answer: "All project submissions must be completed by April 30, 2026 at 11:59 PM. After this date, submissions will be automatically locked.",
+      answer: "All project submissions must be completed by May 5, 2026 at 11:59 PM. After this date, submissions will be automatically locked.",
     },
     {
       question: "Can I edit my project after submission?",

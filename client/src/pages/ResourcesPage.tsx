@@ -7,7 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import Navigation from "@/components/Navigation";
 import { trpc } from "@/lib/trpc";
 import { Download, FileText, Video, BookOpen, Search, Filter } from "lucide-react";
-import PageNavigation from "@/components/PageNavigation";
 
 type ResourceCategory = "guides" | "rubrics" | "templates" | "videos";
 
@@ -110,7 +109,6 @@ export default function ResourcesPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <PageNavigation />
       <Navigation />
 
       <div className="container py-12">

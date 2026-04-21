@@ -1,38 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { ChevronDown, LayoutDashboard } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
-
-interface CountdownTime {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-}
+import PremiumCountdown from "@/components/PremiumCountdown";
 
 export default function HeroSection() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { user, isAuthenticated } = useAuth();
-  const [countdown, setCountdown] = useState<CountdownTime>({
-    days: 0, hours: 0, minutes: 0, seconds: 0,
-  });
-
-  useEffect(() => {
-    const calc = () => {
-      const dist = new Date("2026-05-14T00:00:00").getTime() - Date.now();
-      if (dist > 0) setCountdown({
-        days: Math.floor(dist / 86400000),
-        hours: Math.floor((dist % 86400000) / 3600000),
-        minutes: Math.floor((dist % 3600000) / 60000),
-        seconds: Math.floor((dist % 60000) / 1000),
-      });
-    };
-    calc();
-    const t = setInterval(calc, 1000);
-    return () => clearInterval(t);
-  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -47,8 +23,6 @@ export default function HeroSection() {
     return () => { if (containerRef.current) observer.unobserve(containerRef.current); };
   }, []);
 
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
   const dashboardPath =
     user?.role === "admin"
       ? "/admin/dashboard"
@@ -60,7 +34,7 @@ export default function HeroSection() {
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden bg-black"
-      style={{ minHeight: "100svh" }}
+      style={{ minHeight: "clamp(32rem, 88svh, 62rem)" }}
     >
       {/* Background video */}
       <video
@@ -85,7 +59,7 @@ export default function HeroSection() {
       {/* Content */}
       <div
         className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center"
-        style={{ paddingTop: "80px" }}
+        style={{ paddingTop: "clamp(56px, 7vh, 92px)" }}
       >
         <div className="max-w-5xl mx-auto w-full space-y-8 animate-fade-in">
 
@@ -108,28 +82,7 @@ export default function HeroSection() {
           </h1>
 
           {/* Countdown */}
-          <div className="flex justify-center gap-3 md:gap-5">
-            {[
-              { label: "Days", value: countdown.days },
-              { label: "Hours", value: pad(countdown.hours) },
-              { label: "Minutes", value: pad(countdown.minutes) },
-              { label: "Seconds", value: pad(countdown.seconds) },
-            ].map((item, i, arr) => (
-              <div key={item.label} className="flex items-center gap-3 md:gap-5">
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl px-4 py-3 md:px-6 md:py-4 min-w-[68px] md:min-w-[96px] shadow-xl">
-                  <div className="text-3xl md:text-5xl font-black text-white tabular-nums leading-none mb-1">
-                    {item.value}
-                  </div>
-                  <div className="text-[9px] md:text-[11px] text-white/50 uppercase tracking-[0.22em] font-semibold">
-                    {item.label}
-                  </div>
-                </div>
-                {i < arr.length - 1 && (
-                  <span className="text-2xl md:text-3xl text-white/25 font-light">:</span>
-                )}
-              </div>
-            ))}
-          </div>
+          <PremiumCountdown className="w-full max-w-5xl mx-auto" />
 
           {/* Vision statement */}
           <p className="text-base md:text-lg lg:text-xl text-white/85 max-w-2xl mx-auto font-light italic leading-relaxed drop-shadow">

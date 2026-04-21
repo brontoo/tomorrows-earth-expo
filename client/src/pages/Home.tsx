@@ -1,5 +1,5 @@
 import HeroSection from "@/components/HeroSection";
-import BranchScrollAnimation from "@/components/BranchScrollAnimation";
+import LeafBackground from "@/components/LeafBackground";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import Navigation from "@/components/Navigation";
@@ -181,7 +181,7 @@ function LiveInfoBar() {
   const upcomingDays = days.slice(0, 3);
 
   return (
-    <div className="px-4 py-8 bg-white dark:bg-slate-950">
+    <div className="px-4 py-8 bg-transparent">
       <div className="container">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 auto-rows-fr">
           <div className="glass-card rounded-[2rem] p-6 border-white/20 shadow-xl hover:-translate-y-1 transition-all duration-300 h-full flex flex-col animate-in fade-in duration-500">
@@ -599,21 +599,18 @@ export default function Home() {
 
   return (
     <div className="page-container isolate min-h-screen bg-white dark:bg-slate-950 overflow-x-hidden">
-
       <div className="page-content">
-      <OAuthRedirect />
-      <Navigation reserveSpace={false} />
+        <OAuthRedirect />
+        <Navigation reserveSpace={false} />
 
-      {/* 1. HERO */}
-      <div>
-        <HeroSection />
-      </div>
+        {/* 1. HERO */}
+        <div>
+          <HeroSection />
+        </div>
 
-      {/* ── Post-hero wrapper: branches.svg scroll animation sits behind all
-           sections below via position:absolute z-index:-1 inside this
-           position:relative container. ──────────────────────────────────── */}
-      <div className="relative">
-        <BranchScrollAnimation />
+        <div className="relative z-0 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(202,236,85,0.24)_0%,rgba(202,236,85,0.12)_18%,rgba(255,255,255,0)_56%)] dark:bg-none">
+          <LeafBackground />
+          <div className="relative z-10">
 
       {/* 2. AUTH WELCOME BANNER */}
       {isAuthenticated && user && (
@@ -640,7 +637,7 @@ export default function Home() {
       )}
 
       {/* 3. STATS BAR */}
-      <section className="border-y border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950 py-10">
+      <section className="border-y border-slate-100 dark:border-slate-800 bg-transparent py-10">
         <div className="container">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
@@ -663,7 +660,7 @@ export default function Home() {
       </section>
 
       {/* 4. EVENT INFO */}
-      <section className="py-20 bg-white dark:bg-slate-950">
+      <section className="py-20 bg-transparent">
         <div className="container">
           <div className="text-center mb-14">
             <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-full px-4 py-1.5 mb-5">
@@ -780,7 +777,7 @@ export default function Home() {
       <LiveInfoBar />
 
       {/* 7. MISSION */}
-      <section className="py-16 bg-white dark:bg-slate-950">
+      <section className="py-16 bg-transparent">
         <div className="container">
           <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 md:p-12 text-center shadow-sm">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-700 px-4 py-1.5 mb-6">
@@ -798,7 +795,7 @@ export default function Home() {
       </section>
 
       {/* 8. CTA */}
-      <section className="pb-24 bg-white dark:bg-slate-950">
+      <section className="pb-24 bg-transparent">
         <div className="container">
           <div className="mx-auto max-w-4xl rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 md:p-12 text-center shadow-sm">
             <h2 className="text-5xl md:text-7xl font-black mb-6 tracking-tighter text-slate-900 dark:text-white">
@@ -890,6 +887,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+        </div>
         </div>{/* end post-hero relative wrapper */}
         </div>
     </div>

@@ -4,6 +4,8 @@
 
 import { useState, type ComponentType } from "react";
 import { BookOpen, ThumbsUp, Shield, Users, ArrowRight } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 
 type RequestedRole = "student" | "teacher" | "admin" | "visitor";
 
@@ -46,31 +48,52 @@ const ROLE_CARDS: Array<{
 
 export default function ChooseRole() {
   const [selected, setSelected] = useState<RequestedRole | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const syncUser = trpc.auth.syncUser.useMutation();
 
-  const confirm = () => {
+  const confirm = async () => {
     if (!selected) return;
+
+    const dashboardMap: Record<RequestedRole, string> = {
+      admin: "/admin/dashboard",
+      teacher: "/teacher/dashboard",
+      student: "/student/dashboard",
+      visitor: "/vote",
+    };
 
     // Check if user is already logged in
     const mockUserStr = localStorage.getItem("mock-user");
     if (mockUserStr) {
       try {
+        setIsLoading(true);
         const mockUser = JSON.parse(mockUserStr);
-        // Update role to the selected portal
-        mockUser.role = selected;
+
+        // Persist role to backend DB
+        try {
+          const syncResult = await syncUser.mutateAsync({
+            email: mockUser.email,
+            name: mockUser.name,
+            openId: mockUser.openId || mockUser.id,
+            role: selected === "visitor" ? undefined : selected,
+          });
+          // Use role returned from backend
+          mockUser.role = syncResult.user?.role || selected;
+        } catch {
+          mockUser.role = selected;
+        }
+
+        // Also update Supabase metadata
+        try {
+          await supabase.auth.updateUser({ data: { role: selected } });
+        } catch { /* non-blocking */ }
+
         localStorage.setItem("mock-user", JSON.stringify(mockUser));
         localStorage.removeItem("requestedRole");
-
-        // Route to dashboard based on selected role
-        const dashboardMap: Record<RequestedRole, string> = {
-          admin: "/admin/dashboard",
-          teacher: "/teacher/dashboard",
-          student: "/student/dashboard",
-          visitor: "/vote",
-        };
         window.location.href = dashboardMap[selected];
         return;
       } catch (err) {
         console.error("Error updating user role", err);
+        setIsLoading(false);
       }
     }
 
@@ -134,15 +157,15 @@ export default function ChooseRole() {
 
         <button
           onClick={confirm}
-          disabled={!selected}
+          disabled={!selected || isLoading}
           className={`w-full py-4 rounded-3xl text-sm font-black uppercase transition-all duration-200 ${
-            selected
+            selected && !isLoading
               ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-xl hover:scale-[1.01]"
               : "bg-slate-200 text-slate-500 cursor-not-allowed"
           }`}
         >
-          Continue
-          <ArrowRight size={18} className="ml-2 inline-block" />
+          {isLoading ? "Saving..." : "Continue"}
+          {!isLoading && <ArrowRight size={18} className="ml-2 inline-block" />}
         </button>
 
         <p className="text-center text-xs text-slate-500 mt-5">
