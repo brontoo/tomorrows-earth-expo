@@ -1,14 +1,14 @@
 "use client";
 
-import { useParams, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle2, Home, LayoutDashboard } from "lucide-react";
-import PageNavigation from "@/components/PageNavigation";
 import Navigation from "@/components/Navigation";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
 import ProjectForm from "@/components/ProjectForm";
+import { trpc } from "@/lib/trpc";
 
 // ─── Setup check ──────────────────────────────────────────────────────────────
 function getSetup() {
@@ -64,11 +64,54 @@ export default function ProjectSubmissionPage() {
   const [submitted, setSubmitted] = useState(false);
   const [hasSetup, setHasSetup] = useState(false);
 
-  // Check if wizard was already completed (setup saved in localStorage)
+  // Server-side assignment as primary source (survives cross-device)
+  const { data: serverAssignment } = trpc.assignments.getMyAssignment.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "student",
+  });
+  const { data: allCategories = [] } = trpc.categories.getAll.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "student",
+  });
+  const { data: allSubcategories = [] } = trpc.subcategories.getByCategory.useQuery(
+    { categoryId: serverAssignment?.mainCategoryId ?? 0 },
+    { enabled: Boolean(serverAssignment?.mainCategoryId) }
+  );
+  const { data: allTeachers = [] } = trpc.teachers.getAll.useQuery(undefined, {
+    enabled: isAuthenticated && user?.role === "student",
+  });
+
+  // Check localStorage on mount
   useEffect(() => {
     const setup = getSetup();
     setHasSetup(!!(setup.teacher && (setup.subcategory || setup.categoryId)));
   }, []);
+
+  // Sync server assignment → localStorage when localStorage is missing (cross-device)
+  useEffect(() => {
+    if (!serverAssignment || !serverAssignment.mainCategoryId) return;
+    // Already has setup in localStorage — don't overwrite
+    const existing = getSetup();
+    if (existing.teacher) {
+      setHasSetup(true);
+      return;
+    }
+    const category = (allCategories as any[]).find((c) => c.id === serverAssignment.mainCategoryId);
+    const subcat = (allSubcategories as any[]).find((s) => s.id === serverAssignment.subcategoryId);
+    if (!category || !subcat) return; // queries still loading
+
+    const teacher = (allTeachers as any[]).find((t) => t.name === serverAssignment.teacherName);
+    localStorage.setItem(
+      "project-setup",
+      JSON.stringify({
+        teacher: serverAssignment.teacherName,
+        categoryId: serverAssignment.mainCategoryId,
+        categoryName: category.name,
+        subcategory: subcat.name,
+        subcategoryId: serverAssignment.subcategoryId,
+        supervisorId: teacher?.userId ?? null,
+      })
+    );
+    setHasSetup(true);
+  }, [serverAssignment, allCategories, allSubcategories, allTeachers]);
 
   // ── Loading ──
   if (loading) {

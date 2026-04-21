@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import * as db from "../db";
-import { InsertProject } from "../../drizzle/schema";
+import { protectedProcedure, publicProcedure, router } from "../_core/trpc.js";
+import * as db from "../db.js";
+import { InsertProject } from "../../drizzle/schema.js";
 
 export const projectsRouter = router({
   submitProject: protectedProcedure
@@ -14,7 +14,7 @@ export const projectsRouter = router({
         grade: z.string().min(1, "Grade is required"),
         categoryId: z.number().int().positive("Category ID is required"),
         subcategoryId: z.number().int().positive("Subcategory ID is required"),
-        supervisorId: z.number().int().positive("Supervisor ID is required"),
+        supervisorId: z.number().int().positive("Supervisor ID is required").optional(),
         imageUrls: z.array(z.string()).optional(),
         videoUrl: z.string().optional(),
         documentUrls: z.array(z.string()).optional(),
@@ -30,6 +30,14 @@ export const projectsRouter = router({
       }
 
       try {
+        // Some legacy clients store teacher table IDs instead of users.id.
+        // Ignore invalid supervisor IDs and keep the field nullable in DB.
+        let supervisorId: number | null = null;
+        if (input.supervisorId) {
+          const teacher = await db.getTeacherByUserId(input.supervisorId);
+          supervisorId = teacher ? input.supervisorId : null;
+        }
+
         const projectData: InsertProject = {
           title: input.title,
           teamName: input.teamName,
@@ -37,7 +45,7 @@ export const projectsRouter = router({
           grade: input.grade,
           categoryId: input.categoryId,
           subcategoryId: input.subcategoryId,
-          supervisorId: input.supervisorId,
+          supervisorId,
           createdBy: ctx.user.id,
           status: "submitted",
           submittedAt: new Date(),
@@ -125,6 +133,16 @@ export const projectsRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to delete project" });
       }
     }),
+
+  // ─── مشاريع عامة للزوار (صفحة التصويت) ─────────────────────────────
+  getPublic: publicProcedure.query(async () => {
+    try {
+      return await db.getPublicProjects();
+    } catch (error) {
+      console.error("[TRPC] Failed to get public projects:", error);
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch projects" });
+    }
+  }),
 
   // ─── إحصائيات عامة للصفحة الرئيسية ──────────────────────────────────
   getStats: publicProcedure.query(async () => {

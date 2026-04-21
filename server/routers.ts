@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
-import { adminRouter } from "./routers/admin";
-import { authRouter } from "./routers/auth";
-import { projectsRouter } from "./routers/projects";  // ← مرة واحدة فقط
-import * as db from "./db";
-import { storagePut } from "./storage";
+import { COOKIE_NAME } from "../shared/const.js";
+import { getSessionCookieOptions } from "./_core/cookies.js";
+import { systemRouter } from "./_core/systemRouter.js";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc.js";
+import { adminRouter } from "./routers/admin.js";
+import { authRouter } from "./routers/auth.js";
+import { projectsRouter } from "./routers/projects.js";  // ← مرة واحدة فقط
+import * as db from "./db.js";
+import { storagePut } from "./storage.js";
 import { nanoid } from "nanoid";
 
 // Admin-only procedure
@@ -20,10 +20,17 @@ const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
 });
 
 // Teacher procedure (teacher or admin)
-const teacherProcedure = protectedProcedure.use(({ ctx, next }) => {
+const teacherProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (ctx.user.role !== "teacher" && ctx.user.role !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Teacher access required" });
   }
+    const canReview = await db.isProjectReviewer(ctx.user.id);
+    if (!canReview) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your account is not approved as a project reviewer",
+      });
+    }
   return next({ ctx });
 });
 
@@ -34,6 +41,17 @@ const studentProcedure = protectedProcedure.use(({ ctx, next }) => {
   }
   return next({ ctx });
 });
+
+// Per-IP rate limit for voting: max 1 request per 5 seconds
+const votingRateLimit = new Map<string, number>();
+
+function getClientIp(req: { headers: Record<string, string | string[] | undefined>; socket?: { remoteAddress?: string } }): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (forwarded) {
+    return (Array.isArray(forwarded) ? forwarded[0] : forwarded).split(",")[0].trim();
+  }
+  return req.socket?.remoteAddress ?? "unknown";
+}
 
 export const appRouter = router({
   system: systemRouter,
@@ -265,11 +283,18 @@ export const appRouter = router({
     vote: publicProcedure
       .input(z.object({
         projectId: z.number(),
-        voterIdentifier: z.string(),
+        voterIdentifier: z.string().min(1).max(255),
       }))
-      .mutation(async ({ input }) => {
-        const hasVoted = await db.hasUserVoted(input.voterIdentifier, input.projectId);
+      .mutation(async ({ ctx, input }) => {
+        const ip = getClientIp(ctx.req);
+        const now = Date.now();
+        const lastVote = votingRateLimit.get(ip) ?? 0;
+        if (now - lastVote < 5_000) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Please wait a moment before voting again" });
+        }
+        votingRateLimit.set(ip, now);
 
+        const hasVoted = await db.hasUserVoted(input.voterIdentifier, input.projectId);
         if (hasVoted) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Already voted for this project" });
         }
@@ -285,6 +310,12 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const votes = await db.getVotesByProject(input.projectId);
         return { count: votes.length };
+      }),
+    getUserVotes: publicProcedure
+      .input(z.object({ voterIdentifier: z.string().min(1).max(255) }))
+      .query(async ({ input }) => {
+        const rows = await db.getVotesByVoter(input.voterIdentifier);
+        return rows.map((r) => r.projectId);
       }),
   }),
 
@@ -349,6 +380,120 @@ export const appRouter = router({
       }),
   }),
 
+  news: router({
+    getEnvironment: publicProcedure.query(async () => {
+      const apiKey = process.env.GUARDIAN_API_KEY;
+      if (!apiKey) {
+        return [];
+      }
+
+      try {
+        const params = new URLSearchParams({
+          section: "environment",
+          q: "sustainability OR climate OR renewable",
+          "order-by": "newest",
+          "page-size": "3",
+          "show-fields": "thumbnail,trailText",
+          "api-key": apiKey,
+        });
+
+        const response = await fetch(`https://content.guardianapis.com/search?${params.toString()}`);
+
+        if (!response.ok) {
+          return [];
+        }
+
+        const stripHtml = (input: string) => input.replace(/<[^>]*>/g, "").trim();
+        const keywords = ["sustainability", "climate", "energy", "environment"];
+
+        const payload = await response.json() as {
+          response?: {
+            results?: Array<{
+              sectionId?: string;
+              webTitle?: string;
+              webUrl?: string;
+              webPublicationDate?: string;
+              fields?: {
+                thumbnail?: string;
+                trailText?: string;
+              };
+            }>;
+          };
+        };
+
+        return (payload.response?.results || [])
+          .filter((article) => article.sectionId === "environment")
+          .filter((article) => {
+            const title = (article.webTitle || "").toLowerCase();
+            return keywords.some((keyword) => title.includes(keyword));
+          })
+          .slice(0, 3)
+          .map((article) => ({
+            title: article.webTitle || "Untitled article",
+            url: article.webUrl || "#",
+            source: "The Guardian",
+            image: article.fields?.thumbnail || null,
+            description: article.fields?.trailText
+              ? stripHtml(article.fields.trailText)
+              : "Read the latest sustainability development from environmental reporting.",
+            publishedAt: article.webPublicationDate || null,
+          }));
+      } catch {
+        return [];
+      }
+    }),
+  }),
+
+  wildlife: router({
+    getObservations: publicProcedure.query(async () => {
+      try {
+        const token = process.env.INATURALIST_API_TOKEN;
+        const response = await fetch(
+          "https://api.inaturalist.org/v1/observations?iconic_taxa=Aves,Mammalia,Reptilia,Amphibia,Actinopterygii,Insecta,Animalia&photos=true&per_page=3&order=desc&order_by=created_at",
+          {
+            headers: token
+              ? {
+                  Authorization: `Bearer ${token}`,
+                }
+              : undefined,
+          }
+        );
+
+        if (!response.ok) {
+          return [];
+        }
+
+        const payload = await response.json() as {
+          results?: Array<{
+            id?: number;
+            photos?: Array<{ url?: string }>;
+            place_guess?: string;
+            taxon?: { preferred_common_name?: string; name?: string };
+            user?: { name?: string; login?: string };
+          }>;
+        };
+
+        return (payload.results || []).slice(0, 3).map((item) => {
+          const originalPhoto = item.photos?.[0]?.url || null;
+          const mediumPhoto = originalPhoto ? originalPhoto.replace("square", "medium") : null;
+
+          return {
+            id: item.id ?? Math.random(),
+            imageUrl: mediumPhoto,
+            speciesName:
+              item.taxon?.preferred_common_name ||
+              item.taxon?.name ||
+              "Unknown Species",
+            location: item.place_guess || "Location unavailable",
+            observer: item.user?.name || item.user?.login || null,
+          };
+        });
+      } catch {
+        return [];
+      }
+    }),
+  }),
+
   upload: router({
     getUploadUrl: protectedProcedure
       .input(z.object({
@@ -367,14 +512,18 @@ export const appRouter = router({
     }),
     create: studentProcedure
       .input(z.object({
-        teacherName: z.string(),
-        mainCategoryId: z.number(),
-        subcategoryId: z.number(),
+        teacherName: z.string().min(1),
+        mainCategoryId: z.number().int().positive(),
+        subcategoryId: z.number().int().positive(),
       }))
       .mutation(async ({ ctx, input }) => {
         const existing = await db.getAssignmentByStudentId(ctx.user.id);
-        if (existing && existing.status === "assigned") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Assignment already locked" });
+        if (existing) {
+          if (existing.status === "assigned") {
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Assignment is locked. Contact your teacher to make changes." });
+          }
+          // Unlocked or reset — allow update
+          return db.updateAssignment(ctx.user.id, input);
         }
         return db.createAssignment({
           studentId: ctx.user.id,
@@ -383,6 +532,12 @@ export const appRouter = router({
           subcategoryId: input.subcategoryId,
         });
       }),
+    getByTeacher: teacherProcedure.query(async ({ ctx }) => {
+      if (!ctx.user.name) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Teacher name not configured" });
+      }
+      return db.getAssignmentsByTeacherName(ctx.user.name);
+    }),
     getAll: adminProcedure.query(async () => {
       return db.getAllAssignments();
     }),

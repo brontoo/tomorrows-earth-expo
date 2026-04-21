@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navigation from "@/components/Navigation";
-import PageNavigation from "@/components/PageNavigation";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { getLoginUrl } from "@/const";
@@ -18,6 +17,8 @@ import {
   User,
   GraduationCap,
   MessageSquare,
+  Users,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,7 +47,6 @@ function TeacherDashboardContent() {
   const { user, isAuthenticated, loading } = useAuth();
   const utils = trpc.useUtils();
   const [rejectingId, setRejectingId] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState("");
 
   // ── جلب مشاريع المدرس فقط من الـ endpoint المخصص ──
   const { data: myProjects = [], isLoading: projectsLoading } =
@@ -55,6 +55,12 @@ function TeacherDashboardContent() {
       retry: false,
       refetchOnWindowFocus: false,
     });
+
+  // ── جلب قائمة الطلاب المعيّنين لهذا المدرس ──
+  const { data: studentAssignments = [] } = trpc.assignments.getByTeacher.useQuery(undefined, {
+    enabled: isAuthenticated && (user?.role === "teacher" || user?.role === "admin"),
+    retry: false,
+  });
 
   const approveMutation = trpc.teacher.approve.useMutation({
     onSuccess: async () => {
@@ -70,7 +76,6 @@ function TeacherDashboardContent() {
     onSuccess: async () => {
       toast.success("Project returned for revision.");
       setRejectingId(null);
-      setFeedback("");
       await utils.teacher.getStudentSubmissions.invalidate();
     },
     onError: (error: { message: any; }) => {
@@ -95,16 +100,6 @@ function TeacherDashboardContent() {
 
   const openRejectBox = (projectId: number) => {
     setRejectingId(projectId);
-    setFeedback("");
-  };
-
-  const handleReject = async (projectId: number) => {
-    const reason = feedback.trim();
-    if (!reason) {
-      toast.error("Please enter feedback before returning the project.");
-      return;
-    }
-    await rejectMutation.mutateAsync({ id: projectId, reason });
   };
 
   // ── States ──
@@ -174,160 +169,6 @@ function TeacherDashboardContent() {
     );
   }
 
-  // ── Sub-components ──
-  const StatCard = ({
-    title,
-    value,
-    icon: Icon,
-  }: {
-    title: string;
-    value: number;
-    icon: React.ElementType;
-  }) => (
-    <Card className="border-border/60 shadow-sm">
-      <CardContent className="flex items-center justify-between p-6">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{value}</p>
-        </div>
-        <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
-          <Icon className="h-5 w-5 text-foreground" />
-        </div>
-      </CardContent>
-    </Card>
-  );
-
-  const EmptyState = ({ title, text }: { title: string; text: string }) => (
-    <Card className="border-dashed">
-      <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-        <FolderOpen className="mb-4 h-10 w-10 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">{title}</h3>
-        <p className="mt-2 max-w-md text-sm text-muted-foreground">{text}</p>
-      </CardContent>
-    </Card>
-  );
-
-  const ProjectCard = ({ project }: { project: ProjectItem }) => {
-    const isRejecting = rejectingId === project.id;
-
-    return (
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="space-y-3">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <CardTitle className="text-xl">
-                {project.title || "Untitled project"}
-              </CardTitle>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {project.teamName || "No team name"} • Grade {project.grade || "-"}
-              </p>
-            </div>
-
-            <Link href={`/project/${project.id}`}>
-              <Button variant="outline" size="sm" className="shrink-0">
-                <Eye className="mr-2 h-4 w-4" />
-                View
-              </Button>
-            </Link>
-          </div>
-
-          <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span>{project.studentName || "Student not available"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" />
-              <span>
-                {project.subcategory?.name ||
-                  project.category?.name ||
-                  "Category not available"}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <p className="line-clamp-3 text-sm text-muted-foreground">
-            {project.description || project.abstract || "No project summary available."}
-          </p>
-
-          {project.submittedAt && (
-            <p className="text-xs text-muted-foreground">
-              Submitted on{" "}
-              {new Date(project.submittedAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-              })}
-            </p>
-          )}
-
-          {project.status === "rejected" && project.rejectionReason && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/20">
-              <div className="mb-1 flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
-                <MessageSquare className="h-4 w-4" />
-                Previous feedback
-              </div>
-              <p className="text-sm text-red-700/90 dark:text-red-300/90">
-                {project.rejectionReason}
-              </p>
-            </div>
-          )}
-
-          {project.status === "submitted" && (
-            <div className="space-y-3 border-t pt-4">
-              {isRejecting && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Feedback for student</label>
-                  <textarea
-                    value={feedback}
-                    onChange={(e) => setFeedback(e.target.value)}
-                    placeholder="Explain what should be revised before approval..."
-                    className="min-h-[110px] w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  onClick={() => handleApprove(project.id)}
-                  disabled={approveMutation.isPending}
-                  className="sm:flex-1"
-                >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Approve
-                </Button>
-
-                {!isRejecting ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => openRejectBox(project.id)}
-                    disabled={rejectMutation.isPending}
-                    className="sm:flex-1"
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Return for revision
-                  </Button>
-                ) : (
-                  <Button
-                    variant="destructive"
-                    onClick={() => handleReject(project.id)}
-                    disabled={rejectMutation.isPending || !feedback.trim()}
-                    className="sm:flex-1"
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Confirm return
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
-
   // ── Main Render ──
   return (
     <div className="min-h-screen bg-background">
@@ -358,13 +199,28 @@ function TeacherDashboardContent() {
             <TabsTrigger value="rejected">
               Needs Revision ({rejectedProjects.length})
             </TabsTrigger>
+            <TabsTrigger value="assignments">
+              <Users className="mr-1.5 h-3.5 w-3.5" />
+              Students ({(studentAssignments as any[]).length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="pending" className="space-y-4">
             {submittedProjects.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {submittedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    rejectingId={rejectingId}
+                    onApprove={handleApprove}
+                    onOpenReject={openRejectBox}
+                    onConfirmReject={async (id, reason) => {
+                      await rejectMutation.mutateAsync({ id, reason });
+                    }}
+                    isApprovePending={approveMutation.isPending}
+                    isRejectPending={rejectMutation.isPending}
+                  />
                 ))}
               </div>
             ) : (
@@ -379,7 +235,18 @@ function TeacherDashboardContent() {
             {approvedProjects.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {approvedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    rejectingId={rejectingId}
+                    onApprove={handleApprove}
+                    onOpenReject={openRejectBox}
+                    onConfirmReject={async (id, reason) => {
+                      await rejectMutation.mutateAsync({ id, reason });
+                    }}
+                    isApprovePending={approveMutation.isPending}
+                    isRejectPending={rejectMutation.isPending}
+                  />
                 ))}
               </div>
             ) : (
@@ -394,7 +261,18 @@ function TeacherDashboardContent() {
             {rejectedProjects.length ? (
               <div className="grid gap-4 lg:grid-cols-2">
                 {rejectedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    rejectingId={rejectingId}
+                    onApprove={handleApprove}
+                    onOpenReject={openRejectBox}
+                    onConfirmReject={async (id, reason) => {
+                      await rejectMutation.mutateAsync({ id, reason });
+                    }}
+                    isApprovePending={approveMutation.isPending}
+                    isRejectPending={rejectMutation.isPending}
+                  />
                 ))}
               </div>
             ) : (
@@ -404,8 +282,242 @@ function TeacherDashboardContent() {
               />
             )}
           </TabsContent>
+
+          <TabsContent value="assignments" className="space-y-4">
+            {(studentAssignments as any[]).length ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {(studentAssignments as any[]).map((a) => (
+                  <AssignmentCard key={a.id} assignment={a} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No students assigned yet"
+                text="Students who select you as their supervisor will appear here before they submit."
+              />
+            )}
+          </TabsContent>
         </Tabs>
       </div>
     </div>
+  );
+}
+
+// ── StatCard ──────────────────────────────────────────────────────────────────
+function StatCard({ title, value, icon: Icon }: { title: string; value: number; icon: React.ElementType }) {
+  return (
+    <Card className="border-border/60 shadow-sm">
+      <CardContent className="flex items-center justify-between p-6">
+        <div>
+          <p className="text-sm text-muted-foreground">{title}</p>
+          <p className="mt-2 text-3xl font-bold text-foreground">{value}</p>
+        </div>
+        <div className="rounded-xl border border-border/60 bg-muted/40 p-3">
+          <Icon className="h-5 w-5 text-foreground" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── EmptyState ────────────────────────────────────────────────────────────────
+function EmptyState({ title, text }: { title: string; text: string }) {
+  return (
+    <Card className="border-dashed">
+      <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+        <FolderOpen className="mb-4 h-10 w-10 text-muted-foreground" />
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">{text}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── AssignmentCard ────────────────────────────────────────────────────────────
+type AssignmentItem = {
+  id: number;
+  studentName: string | null;
+  studentEmail: string | null;
+  teacherName: string;
+  categoryName: string | null;
+  subcategoryName: string | null;
+  status: string;
+  assignedAt: string | Date;
+};
+
+function AssignmentCard({ assignment }: { assignment: AssignmentItem }) {
+  const statusColors: Record<string, string> = {
+    assigned: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    unlocked: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    reset: "bg-slate-100 text-slate-500",
+  };
+
+  return (
+    <Card className="border-border/60 shadow-sm">
+      <CardContent className="p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-semibold text-base truncate">
+              {assignment.studentName || assignment.studentEmail || "Unknown student"}
+            </p>
+            {assignment.studentEmail && assignment.studentName && (
+              <p className="text-xs text-muted-foreground truncate">{assignment.studentEmail}</p>
+            )}
+          </div>
+          <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[assignment.status] ?? statusColors.reset}`}>
+            {assignment.status}
+          </span>
+        </div>
+        <div className="space-y-1.5 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{assignment.categoryName ?? "—"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tag className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{assignment.subcategoryName ?? "—"}</span>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Assigned {new Date(assignment.assignedAt).toLocaleDateString("en-US", {
+            year: "numeric", month: "short", day: "numeric",
+          })}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── ProjectCard ───────────────────────────────────────────────────────────────
+function ProjectCard({
+  project,
+  rejectingId,
+  onApprove,
+  onOpenReject,
+  onConfirmReject,
+  isApprovePending,
+  isRejectPending,
+}: {
+  project: ProjectItem;
+  rejectingId: number | null;
+  onApprove: (id: number) => void;
+  onOpenReject: (id: number) => void;
+  onConfirmReject: (id: number, reason: string) => Promise<void>;
+  isApprovePending: boolean;
+  isRejectPending: boolean;
+}) {
+  const [localFeedback, setLocalFeedback] = useState("");
+  const isRejecting = rejectingId === project.id;
+
+  return (
+    <Card className="border-border/60 shadow-sm">
+      <CardHeader className="space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <CardTitle className="text-xl">
+              {project.title || "Untitled project"}
+            </CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {project.teamName || "No team name"} • Grade {project.grade || "-"}
+            </p>
+          </div>
+          <Link href={`/project/${project.id}`}>
+            <Button variant="outline" size="sm" className="shrink-0">
+              <Eye className="mr-2 h-4 w-4" />
+              View
+            </Button>
+          </Link>
+        </div>
+        <div className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
+          <div className="flex items-center gap-2">
+            <User className="h-4 w-4" />
+            <span>{project.studentName || "Student not available"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" />
+            <span>{project.subcategory?.name || project.category?.name || "Category not available"}</span>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        <p className="line-clamp-3 text-sm text-muted-foreground">
+          {project.description || project.abstract || "No project summary available."}
+        </p>
+
+        {project.submittedAt && (
+          <p className="text-xs text-muted-foreground">
+            Submitted on{" "}
+            {new Date(project.submittedAt).toLocaleDateString("en-US", {
+              year: "numeric", month: "short", day: "numeric",
+            })}
+          </p>
+        )}
+
+        {project.status === "rejected" && project.rejectionReason && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/20">
+            <div className="mb-1 flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-300">
+              <MessageSquare className="h-4 w-4" />
+              Previous feedback
+            </div>
+            <p className="text-sm text-red-700/90 dark:text-red-300/90">{project.rejectionReason}</p>
+          </div>
+        )}
+
+        {project.status === "submitted" && (
+          <div className="space-y-3 border-t pt-4">
+            {isRejecting && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Feedback for student</label>
+                <textarea
+                  value={localFeedback}
+                  onChange={(e) => setLocalFeedback(e.target.value)}
+                  placeholder="Explain what should be revised before approval..."
+                  className="min-h-[110px] w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+                />
+              </div>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                onClick={() => onApprove(project.id)}
+                disabled={isApprovePending}
+                className="sm:flex-1"
+              >
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+              {!isRejecting ? (
+                <Button
+                  variant="outline"
+                  onClick={() => { setLocalFeedback(""); onOpenReject(project.id); }}
+                  disabled={isRejectPending}
+                  className="sm:flex-1"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Return for revision
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!localFeedback.trim()) {
+                      toast.error("Please enter feedback before returning the project.");
+                      return;
+                    }
+                    await onConfirmReject(project.id, localFeedback.trim());
+                    setLocalFeedback("");
+                  }}
+                  disabled={isRejectPending || !localFeedback.trim()}
+                  className="sm:flex-1"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Confirm return
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

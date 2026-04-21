@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Play, ChevronRight, ChevronLeft, User, Layers, Tag, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 
 // ─── Teachers ─────────────────────────────────────────────────────────────────
 export const TEACHERS = [
@@ -137,36 +139,81 @@ function StepIndicator({
 export function AssignmentWizard() {
   const [step, setStep] = useState(1); // 1=teacher  2=category  3=subcategory
   const [selectedTeacher, setSelectedTeacher] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState(""); // slug from CATEGORIES
+  const [selectedSubcategory, setSelectedSubcategory] = useState(""); // display name
   const [, setLocation] = useLocation();
+
+  const { data: teachersFromApi = [] } = trpc.teachers.getAll.useQuery();
+  const { data: dbCategories = [] } = trpc.categories.getAll.useQuery();
+
+  // Find the DB category matching the selected slug
+  const dbCategory = (dbCategories as any[]).find(
+    (c) => c.slug === selectedCategoryId || c.name === CATEGORIES.find((cat) => cat.id === selectedCategoryId)?.name
+  );
+
+  const { data: dbSubcategories = [] } = trpc.subcategories.getByCategory.useQuery(
+    { categoryId: dbCategory?.id ?? 0 },
+    { enabled: Boolean(dbCategory?.id) }
+  );
+
+  const createAssignmentMutation = trpc.assignments.create.useMutation();
+
+  const teacherOptions = (teachersFromApi as any[]).length > 0
+    ? (teachersFromApi as any[])
+        .map((t) => ({
+          label: (t.name || t.email || `Teacher #${t.userId}`) as string,
+          userId: t.userId as number,
+        }))
+        .filter((t) => Boolean(t.userId))
+    : TEACHERS.map((name, idx) => ({ label: name, userId: idx + 1 }));
 
   const selectedCategory = CATEGORIES.find((c) => c.id === selectedCategoryId);
 
-  const handleSubmit = () => {
-    const categoryOffsets: Record<string, number> = {
-      environmental: 0,
-      community: 4,
-      innovation: 8,
-      education: 12,
-    };
+  const handleSubmit = async () => {
+    const selectedTeacherOption = teacherOptions.find((t) => t.label === selectedTeacher);
+    const supervisorId = selectedTeacherOption?.userId;
 
-    const categoryId = CATEGORIES.findIndex((c) => c.id === selectedCategoryId) + 1;
-    const subcategoryIndex = selectedCategory?.subcategories.indexOf(selectedSubcategory) ?? 0;
-    const subcategoryId = 1 + categoryOffsets[selectedCategoryId] + subcategoryIndex;
+    if (!supervisorId) {
+      toast.error("Could not resolve selected teacher. Please select again.");
+      return;
+    }
 
-    // ✅ احسب supervisorId من اسم المعلمة
-    const supervisorId = TEACHERS.indexOf(selectedTeacher) + 1;
+    if (!dbCategory) {
+      toast.error("Category not found in database. Please try again.");
+      return;
+    }
 
+    const dbSubcat = (dbSubcategories as any[]).find((s) => s.name === selectedSubcategory);
+    if (!dbSubcat) {
+      toast.error("Subcategory not found in database. Please try again.");
+      return;
+    }
+
+    try {
+      await createAssignmentMutation.mutateAsync({
+        teacherName: selectedTeacher,
+        mainCategoryId: dbCategory.id as number,
+        subcategoryId: dbSubcat.id as number,
+      });
+    } catch (err: any) {
+      // "Assignment already locked" means a locked assignment exists — that's fine,
+      // we still navigate so the student can access the form with the existing assignment.
+      if (!err?.message?.includes("locked")) {
+        toast.error(err?.message ?? "Failed to save assignment.");
+        return;
+      }
+    }
+
+    // Write to localStorage as a cache for ProjectForm (which reads from it)
     localStorage.setItem(
       "project-setup",
       JSON.stringify({
         teacher: selectedTeacher,
-        categoryId,
+        categoryId: dbCategory.id,
         categoryName: selectedCategory?.name,
         subcategory: selectedSubcategory,
-        subcategoryId: subcategoryId,
-        supervisorId: supervisorId,  // ✅ رقم صحيح
+        subcategoryId: dbSubcat.id,
+        supervisorId,
       })
     );
     setLocation("/project-submission");
@@ -204,9 +251,9 @@ export function AssignmentWizard() {
                 <SelectValue placeholder="Select a teacher..." />
               </SelectTrigger>
               <SelectContent className="max-h-[280px]">
-                {TEACHERS.map((t) => (
-                  <SelectItem key={t} value={t} className="cursor-pointer font-medium py-2.5">
-                    {t}
+                {teacherOptions.map((t) => (
+                  <SelectItem key={`${t.userId}-${t.label}`} value={t.label} className="cursor-pointer font-medium py-2.5">
+                    {t.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -356,12 +403,12 @@ export function AssignmentWizard() {
                 Back
               </Button>
               <Button
-                disabled={!selectedSubcategory}
+                disabled={!selectedSubcategory || createAssignmentMutation.isPending}
                 className="flex-1 h-12 font-bold premium-gradient text-white border-none gap-2 rounded-xl hover:scale-[1.01] active:scale-[0.99] transition-transform disabled:opacity-40 disabled:scale-100"
                 onClick={handleSubmit}
               >
-                Submit Project
-                <Play size={15} className="fill-current" />
+                {createAssignmentMutation.isPending ? "Saving…" : "Submit Project"}
+                {!createAssignmentMutation.isPending && <Play size={15} className="fill-current" />}
               </Button>
             </div>
           </div>

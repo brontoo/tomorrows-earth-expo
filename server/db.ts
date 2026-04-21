@@ -1,4 +1,4 @@
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { 
@@ -20,8 +20,9 @@ import {
   messages, InsertMessage,
   teacherAnalytics, InsertTeacherAnalytics,
   submissionHistory, InsertSubmissionHistory
-} from "../drizzle/schema";
-import { ENV } from './_core/env';
+} from "../drizzle/schema.js";
+import { ENV } from './_core/env.js';
+import { getStaffRegistryEntryByEmail } from "./staffRegistry.js";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 let _client: postgres.Sql | null = null;
@@ -59,6 +60,9 @@ export async function upsertUser(user: InsertUser) {
     throw new Error("User email is required for upsert");
   }
 
+  const normalizedEmail = user.email.toLowerCase();
+  const canonicalStaff = getStaffRegistryEntryByEmail(normalizedEmail);
+
   const db = await getDb();
   if (!db) {
     console.warn("[Database] Cannot upsert user: database not available");
@@ -67,7 +71,7 @@ export async function upsertUser(user: InsertUser) {
 
   try {
     const values: InsertUser = {
-      email: user.email,
+      email: normalizedEmail,
       openId: user.openId ?? undefined,
     };
     const updateSet: Record<string, any> = {};
@@ -91,7 +95,17 @@ export async function upsertUser(user: InsertUser) {
       values.lastSignedIn = user.lastSignedIn;
       updateSet.lastSignedIn = user.lastSignedIn;
     }
-    if (user.role !== undefined) {
+    if (canonicalStaff) {
+      const canonicalRole = canonicalStaff.role === "admin"
+        ? "admin"
+        : canonicalStaff.role === "teacher"
+          ? "teacher"
+          : "public";
+      values.role = canonicalRole;
+      updateSet.role = canonicalRole;
+      values.name = canonicalStaff.name;
+      updateSet.name = canonicalStaff.name;
+    } else if (user.role !== undefined) {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
@@ -121,7 +135,7 @@ export async function upsertUser(user: InsertUser) {
     });
 
     // Fetch and return the created/updated user
-    return await getUserByEmail(user.email);
+    return await getUserByEmail(normalizedEmail);
   } catch (error) {
     console.error("[Database] CRITICAL: Failed to upsert user. Error details:", error);
     throw error;
@@ -290,6 +304,33 @@ export async function getTeacherByUserId(userId: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function isProjectReviewer(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  const userResult = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (userResult.length === 0) {
+    return false;
+  }
+
+  if (userResult[0].role === "admin") {
+    return true;
+  }
+
+  const teacherResult = await db
+    .select({ id: teachers.id })
+    .from(teachers)
+    .where(eq(teachers.userId, userId))
+    .limit(1);
+
+  return teacherResult.length > 0;
+}
+
 // ============ NOTIFICATIONS ============
 export async function getNotificationsByUser(userId: number) {
   const db = await getDb();
@@ -405,6 +446,15 @@ export async function createVote(data: InsertVote) {
   return db.insert(votes).values(data);
 }
 
+export async function getVotesByVoter(voterIdentifier: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ projectId: votes.projectId })
+    .from(votes)
+    .where(eq(votes.voterIdentifier, voterIdentifier));
+}
+
 export async function updateJourneyPost(id: number, data: Partial<InsertJourneyPost>) {
   const db = await getDb();
   if (!db) return;
@@ -426,13 +476,56 @@ export async function getCommentsByProject(projectId: number) {
 export async function getJourneyPostsByProject(projectId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(journeyPosts).where(eq(journeyPosts.projectId, projectId));
+  return db
+    .select({
+      id: journeyPosts.id,
+      projectId: journeyPosts.projectId,
+      title: journeyPosts.title,
+      content: journeyPosts.content,
+      imageUrls: journeyPosts.imageUrls,
+      videoUrl: journeyPosts.videoUrl,
+      weekNumber: journeyPosts.weekNumber,
+      createdBy: journeyPosts.createdBy,
+      createdAt: journeyPosts.createdAt,
+      updatedAt: journeyPosts.updatedAt,
+      studentName: users.name,
+      studentEmail: users.email,
+      projectTitle: projects.title,
+      teamName: projects.teamName,
+      projectGrade: projects.grade,
+      projectCategoryId: projects.categoryId,
+    })
+    .from(journeyPosts)
+    .leftJoin(users, eq(journeyPosts.createdBy, users.id))
+    .leftJoin(projects, eq(journeyPosts.projectId, projects.id))
+    .where(eq(journeyPosts.projectId, projectId));
 }
 
 export async function getAllJourneyPosts() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(journeyPosts);
+  return db
+    .select({
+      id: journeyPosts.id,
+      projectId: journeyPosts.projectId,
+      title: journeyPosts.title,
+      content: journeyPosts.content,
+      imageUrls: journeyPosts.imageUrls,
+      videoUrl: journeyPosts.videoUrl,
+      weekNumber: journeyPosts.weekNumber,
+      createdBy: journeyPosts.createdBy,
+      createdAt: journeyPosts.createdAt,
+      updatedAt: journeyPosts.updatedAt,
+      studentName: users.name,
+      studentEmail: users.email,
+      projectTitle: projects.title,
+      teamName: projects.teamName,
+      projectGrade: projects.grade,
+      projectCategoryId: projects.categoryId,
+    })
+    .from(journeyPosts)
+    .leftJoin(users, eq(journeyPosts.createdBy, users.id))
+    .leftJoin(projects, eq(journeyPosts.projectId, projects.id));
 }
 
 export async function createJourneyPost(data: InsertJourneyPost) {
@@ -501,6 +594,25 @@ export async function getAllProjects() {
   return db.select().from(projects);
 }
 
+export async function getPublicProjects() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: projects.id,
+      title: projects.title,
+      teamName: projects.teamName,
+      grade: projects.grade,
+      status: projects.status,
+      thumbnailUrl: projects.thumbnailUrl,
+      abstract: projects.abstract,
+      categoryId: projects.categoryId,
+      subcategoryId: projects.subcategoryId,
+    })
+    .from(projects)
+    .where(inArray(projects.status, ["approved", "finalist"]));
+}
+
 export async function getProjectsByCategory(categoryId: number) {
   const db = await getDb();
   if (!db) return [];
@@ -516,7 +628,22 @@ export async function updateSubcategory(id: number, data: Partial<InsertSubcateg
 export async function getAllTeachersWithInfo() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(teachers);
+  return db
+    .select({
+      id: teachers.id,
+      userId: teachers.userId,
+      department: teachers.department,
+      expertise: teachers.expertise,
+      maxStudents: teachers.maxStudents,
+      currentStudents: teachers.currentStudents,
+      createdAt: teachers.createdAt,
+      updatedAt: teachers.updatedAt,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+    })
+    .from(teachers)
+    .innerJoin(users, eq(teachers.userId, users.id));
 }
 
 export async function createTeacher(data: InsertTeacher) {
@@ -585,6 +712,19 @@ export async function createAssignment(data: InsertAssignment): Promise<Assignme
   return getAssignmentByStudentId(data.studentId);
 }
 
+export async function updateAssignment(
+  studentId: number,
+  data: Pick<InsertAssignment, "teacherName" | "mainCategoryId" | "subcategoryId">
+): Promise<Assignment | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  await db
+    .update(assignments)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(assignments.studentId, studentId));
+  return getAssignmentByStudentId(studentId);
+}
+
 export async function updateAssignmentStatus(studentId: number, status: "assigned" | "unlocked" | "reset"): Promise<void> {
   const db = await getDb();
   if (!db) return;
@@ -601,6 +741,30 @@ export async function getAllAssignments(): Promise<Assignment[]> {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(assignments);
+}
+
+export async function getAssignmentsByTeacherName(teacherName: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: assignments.id,
+      studentId: assignments.studentId,
+      studentName: users.name,
+      studentEmail: users.email,
+      teacherName: assignments.teacherName,
+      mainCategoryId: assignments.mainCategoryId,
+      categoryName: categories.name,
+      subcategoryId: assignments.subcategoryId,
+      subcategoryName: subcategories.name,
+      status: assignments.status,
+      assignedAt: assignments.assignedAt,
+    })
+    .from(assignments)
+    .innerJoin(users, eq(assignments.studentId, users.id))
+    .leftJoin(categories, eq(assignments.mainCategoryId, categories.id))
+    .leftJoin(subcategories, eq(assignments.subcategoryId, subcategories.id))
+    .where(eq(assignments.teacherName, teacherName));
 }
 
 export async function getAssignmentsByStatus(status: "assigned" | "unlocked" | "reset"): Promise<Assignment[]> {
@@ -752,15 +916,19 @@ export async function getProjectHistory(projectId: number): Promise<any[]> {
 export async function getTeacherStudentSubmissions(teacherId: number): Promise<any[]> {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(projects).where(eq(projects.supervisorId, teacherId));
+
+  const scopedTeacherIds = await getTeacherScopeUserIds(teacherId);
+  return db.select().from(projects).where(inArray(projects.supervisorId, scopedTeacherIds));
 }
 
 export async function getProjectsAwaitingReview(teacherId: number): Promise<any[]> {
   const db = await getDb();
   if (!db) return [];
+
+  const scopedTeacherIds = await getTeacherScopeUserIds(teacherId);
   return db.select().from(projects).where(
     and(
-      eq(projects.supervisorId, teacherId),
+      inArray(projects.supervisorId, scopedTeacherIds),
       eq(projects.status, "submitted")
     )
   );
@@ -774,8 +942,10 @@ export async function getTeacherStats(teacherId: number): Promise<{
 }> {
   const db = await getDb();
   if (!db) return { totalStudents: 0, totalSubmissions: 0, pendingReviews: 0, completedReviews: 0 };
+
+  const scopedTeacherIds = await getTeacherScopeUserIds(teacherId);
   
-  const submissionList = await db.select().from(projects).where(eq(projects.supervisorId, teacherId));
+  const submissionList = await db.select().from(projects).where(inArray(projects.supervisorId, scopedTeacherIds));
   const pending = submissionList.filter(p => p.status === "submitted").length;
   const completed = submissionList.filter(p => p.status === "approved" || p.status === "rejected").length;
   
@@ -785,4 +955,42 @@ export async function getTeacherStats(teacherId: number): Promise<{
     pendingReviews: pending,
     completedReviews: completed,
   };
+}
+
+async function getTeacherScopeUserIds(teacherId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [teacherId];
+
+  const current = await db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, teacherId))
+    .limit(1);
+
+  if (current.length === 0) {
+    return [teacherId];
+  }
+
+  const ids = new Set<number>([teacherId]);
+  const user = current[0];
+
+  if (user.email) {
+    const sameEmail = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, "teacher"), eq(users.email, user.email)));
+
+    sameEmail.forEach((row) => ids.add(row.id));
+  }
+
+  if (user.name) {
+    const sameName = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, "teacher"), eq(users.name, user.name)));
+
+    sameName.forEach((row) => ids.add(row.id));
+  }
+
+  return Array.from(ids);
 }

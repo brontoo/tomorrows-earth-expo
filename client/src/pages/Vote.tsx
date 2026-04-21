@@ -2,15 +2,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import Navigation from "@/components/Navigation";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
-import { Heart, Check } from "lucide-react";
+import { Heart, Check, AlertCircle } from "lucide-react";
 
 export default function Vote() {
-  const [votedProjects, setVotedProjects] = useState<Set<number>>(new Set());
   const [voterIdentifier] = useState(() => {
-    // Use a combination of browser fingerprint and session
     const stored = localStorage.getItem("voter_id");
     if (stored) return stored;
     const newId = `voter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -18,32 +17,28 @@ export default function Vote() {
     return newId;
   });
 
-  const { data: projects } = trpc.projects.getAll.useQuery();
+  const { data: projects } = trpc.projects.getPublic.useQuery();
   const { data: categories } = trpc.categories.getAll.useQuery();
+  const { data: votingConfig } = trpc.config.get.useQuery({ key: "votingOpen" });
+  const { data: priorVotes } = trpc.voting.getUserVotes.useQuery({ voterIdentifier });
   const utils = trpc.useUtils();
 
   const voteMutation = trpc.voting.vote.useMutation({
-    onSuccess: (_, variables) => {
-      setVotedProjects((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(variables.projectId);
-        return newSet;
-      });
-      toast.success("Vote submitted! Thank you for participating!");
+    onSuccess: () => {
+      utils.voting.getUserVotes.invalidate({ voterIdentifier });
       utils.voting.getLeaderboard.invalidate();
+      toast.success("Vote submitted! Thank you for participating!");
     },
     onError: (error) => {
       toast.error(error.message);
     },
   });
 
-  const approvedProjects = projects?.filter((p) => p.status === "approved" || p.status === "finalist") || [];
+  const isVotingOpen = votingConfig?.value === "true";
+  const votedProjectIds = new Set(priorVotes ?? []);
 
-  const handleVote = async (projectId: number) => {
-    await voteMutation.mutateAsync({
-      projectId,
-      voterIdentifier,
-    });
+  const handleVote = (projectId: number) => {
+    voteMutation.mutate({ projectId, voterIdentifier });
   };
 
   const getCategoryClass = (colorTheme: string) => {
@@ -71,12 +66,22 @@ export default function Vote() {
           </p>
         </div>
 
+        {/* Voting closed banner */}
+        {!isVotingOpen && (
+          <Alert className="mb-8 border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              Voting is currently closed. Check back during the voting period to cast your vote!
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Projects Grid */}
-        {approvedProjects.length > 0 ? (
+        {(projects ?? []).length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {approvedProjects.map((project) => {
+            {(projects ?? []).map((project) => {
               const category = categories?.find((c) => c.id === project.categoryId);
-              const hasVoted = votedProjects.has(project.id);
+              const hasVoted = votedProjectIds.has(project.id);
 
               return (
                 <Card key={project.id} className="overflow-hidden hover:shadow-lg transition-shadow">
@@ -131,7 +136,7 @@ export default function Vote() {
                     <Button
                       className="w-full"
                       onClick={() => handleVote(project.id)}
-                      disabled={hasVoted || voteMutation.isPending}
+                      disabled={!isVotingOpen || hasVoted || voteMutation.isPending}
                       variant={hasVoted ? "secondary" : "default"}
                     >
                       {hasVoted ? (
