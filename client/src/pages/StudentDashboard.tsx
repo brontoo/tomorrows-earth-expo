@@ -331,6 +331,12 @@ export default function StudentDashboard() {
     enabled: isAuthenticated && user?.role === "student",
   });
 
+  const { data: unreadNotifData } = trpc.notifications.getUnreadCount.useQuery(undefined, {
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    enabled: isAuthenticated && user?.role === "student",
+  });
+
   useEffect(() => {
     if (projectsData) setMyProjects(projectsData);
   }, [projectsData]);
@@ -386,11 +392,6 @@ export default function StudentDashboard() {
   // Stats
   const submittedCount = myProjects?.filter((p: any) => p.status !== "draft").length ?? 0;
   const votesCount = myProjects?.reduce((acc: number, p: any) => acc + (p.votesCount ?? 0), 0) ?? 0;
-  const { data: unreadNotifData } = trpc.notifications.getUnreadCount.useQuery(undefined, { 
-    staleTime: 60_000, 
-    refetchInterval: 60_000,
-    enabled: isAuthenticated && user?.role === "student"
-  });
   const feedbackCount = unreadNotifData?.unreadCount ?? myProjects?.filter((p: any) => p.status === "rejected").length ?? 0;
   const deadline = new Date("2026-05-05");
   const daysLeft = Math.max(0, Math.ceil((deadline.getTime() - Date.now()) / 86400000));

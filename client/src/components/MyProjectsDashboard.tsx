@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Loader2, Plus, Eye, Edit2, Trash2,
@@ -12,7 +11,6 @@ import {
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { AssignmentWizard } from "@/components/AssignmentWizard";
-import { supabase } from "@/lib/supabase";
 
 // ─── Wizard Modal ─────────────────────────────────────────────────────────────
 function WizardModal({ onClose }: { onClose: () => void }) {
@@ -138,97 +136,96 @@ function ProjectCard({
   );
 }
 
+// ─── helpers ──────────────────────────────────────────────────────────────────
+function readLocalProjects(): any[] {
+  try { return JSON.parse(localStorage.getItem("local-projects") || "[]"); }
+  catch { return []; }
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function MyProjectsDashboard() {
   const [, navigate] = useLocation();
   const { isAuthenticated } = useAuth();
   const [showWizard, setShowWizard] = useState(false);
+  // Track local-only drafts so we can merge them with server results
+  const [localDrafts, setLocalDrafts] = useState<any[]>(() => readLocalProjects());
 
-  // Fetch projects using TRPC
-  const [projects, setProjects] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { data: projectsData, isLoading: trpcLoading, refetch: trpcRefetch } = trpc.projects.getMyProjects.useQuery(undefined, {
-    enabled: isAuthenticated
-  });
+  // ── All hook declarations unconditionally at the top ──────────────────────
+  const {
+    data: serverProjects,
+    isLoading: trpcLoading,
+    refetch: trpcRefetch,
+  } = trpc.projects.getMyProjects.useQuery(undefined, { enabled: isAuthenticated });
 
   const submitLocalProjectMutation = trpc.projects.submitProject.useMutation({
-    onError: (error) => console.warn("[MyProjects] Local sync failed:", error),
+    onError: (err) => console.warn("[MyProjects] Local sync failed:", err),
   });
-
-  useEffect(() => {
-    if (projectsData) {
-      const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
-      setProjects([...localProjects, ...projectsData]);
-    } else {
-      // Fallback: show local projects
-      const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
-      setProjects(local);
-    }
-    setIsLoading(false);
-  }, [projectsData]);
-
-  const refetch = async () => {
-    await trpcRefetch();
-    // Try to sync local projects
-    await syncLocalProjects();
-  };
-
-  const syncLocalProjects = async () => {
-    const localProjects = JSON.parse(localStorage.getItem("local-projects") || "[]");
-    if (localProjects.length === 0) return;
-
-    let syncedAny = false;
-    for (const local of localProjects) {
-      try {
-        await submitLocalProjectMutation.mutateAsync({
-          title: local.title,
-          teamName: local.teamName,
-          description: local.description,
-          grade: local.grade,
-          subcategoryId: Number(local.subcategoryId) || 0,
-          supervisorId: Number(local.supervisorId) || 0,
-          documentUrls: local.documentUrls ? JSON.parse(local.documentUrls) : [],
-          categoryId: 0
-        });
-
-        syncedAny = true;
-        const updated = localProjects.filter((p: any) => p.id !== local.id);
-        localStorage.setItem("local-projects", JSON.stringify(updated));
-        toast.success("Local project synced to server!");
-      } catch (err) {
-        console.warn("[MyProjects] Failed to sync local project:", err);
-      }
-    }
-    if (syncedAny) {
-      await refetch();
-    }
-  };
-
-  useEffect(() => { refetch(); }, []);
 
   const deleteProjectMutation = trpc.projects.deleteProject.useMutation({
     onSuccess: () => {
       toast.success("Project deleted");
-      refetch();
+      trpcRefetch();
     },
-    onError: (error: any) => {
-      console.warn("[MyProjects] Delete failed:", error);
+    onError: (err: any) => {
+      console.warn("[MyProjects] Delete failed:", err);
       toast.error("Failed to delete project");
     },
   });
 
+  // One-time sync of offline drafts → server; no circular refetch.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const pending = readLocalProjects();
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      const synced: string[] = [];
+      for (const local of pending) {
+        try {
+          await submitLocalProjectMutation.mutateAsync({
+            title: local.title,
+            teamName: local.teamName,
+            description: local.description,
+            grade: local.grade,
+            subcategoryId: Number(local.subcategoryId) || 0,
+            supervisorId: Number(local.supervisorId) || 0,
+            documentUrls: Array.isArray(local.documentUrls)
+              ? local.documentUrls
+              : (() => { try { return JSON.parse(local.documentUrls || "[]"); } catch { return []; } })(),
+            categoryId: 0,
+          });
+          synced.push(local.id);
+          toast.success("Local project synced to server!");
+        } catch (err) {
+          console.warn("[MyProjects] Failed to sync local project:", err);
+        }
+      }
+      if (synced.length > 0 && !cancelled) {
+        const remaining = pending.filter((p: any) => !synced.includes(p.id));
+        localStorage.setItem("local-projects", JSON.stringify(remaining));
+        setLocalDrafts(remaining);
+        trpcRefetch();
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // Run whenever the user becomes authenticated; submitLocalProjectMutation
+  // and trpcRefetch are stable references from react-query.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
+  // ── Derived data (no hooks below this line) ───────────────────────────────
+  const projects: any[] = [...localDrafts, ...(serverProjects ?? [])];
+
   const handleDelete = async (id: string | number) => {
     if (!confirm("Delete this project?")) return;
-
-    // Check if it's a local project (string id) or database project (number id)
     if (typeof id === "string") {
-      // Local project
-      const local = JSON.parse(localStorage.getItem("local-projects") || "[]");
-      localStorage.setItem("local-projects", JSON.stringify(local.filter((p: any) => p.id !== id)));
+      const remaining = readLocalProjects().filter((p: any) => p.id !== id);
+      localStorage.setItem("local-projects", JSON.stringify(remaining));
+      setLocalDrafts(remaining);
       toast.success("Project deleted");
-      refetch();
     } else {
-      // Database project
       await deleteProjectMutation.mutateAsync({ id });
     }
   };
@@ -239,18 +236,18 @@ export default function MyProjectsDashboard() {
     setShowWizard(true);
   };
 
-  const draft = projects?.filter((p: any) => p.status === "draft") || [];
-  const submitted = projects?.filter((p: any) => p.status === "submitted") || [];
-  const approved = projects?.filter((p: any) => p.status === "approved") || [];
-  const rejected = projects?.filter((p: any) => p.status === "rejected") || [];
-
-  if (isLoading) {
+  if (trpcLoading) {
     return (
       <div className="flex justify-center items-center py-20">
         <Loader2 className="animate-spin w-8 h-8 text-primary" />
       </div>
     );
   }
+
+  const draft = projects.filter((p: any) => p.status === "draft");
+  const submitted = projects.filter((p: any) => p.status === "submitted");
+  const approved = projects.filter((p: any) => p.status === "approved");
+  const rejected = projects.filter((p: any) => p.status === "rejected");
 
   return (
     <>
@@ -278,7 +275,7 @@ export default function MyProjectsDashboard() {
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: "Total", value: projects?.length ?? 0, color: "text-slate-700 dark:text-slate-200" },
+            { label: "Total", value: projects.length, color: "text-slate-700 dark:text-slate-200" },
             { label: "Drafts", value: draft.length, color: "text-amber-500" },
             { label: "Under Review", value: submitted.length, color: "text-blue-600" },
             { label: "Approved", value: approved.length, color: "text-green-600" },
@@ -291,7 +288,7 @@ export default function MyProjectsDashboard() {
         </div>
 
         {/* Projects list or empty state */}
-        {projects && projects.length > 0 ? (
+        {projects.length > 0 ? (
           <Tabs defaultValue="all" className="space-y-4">
             <TabsList className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
               {[
