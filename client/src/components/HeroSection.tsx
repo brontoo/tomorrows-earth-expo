@@ -6,7 +6,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import PremiumCountdown from "@/components/PremiumCountdown";
 
 // SVG viewBox is 0 0 500 500; overlay renders at OVERLAY_PX × OVERLAY_PX
-const OVERLAY_PX = 300;
+const OVERLAY_PX = 2;
 const S = OVERLAY_PX / 500; // 0.3 — converts SVG units to rendered px
 
 // Hub centres derived from the bearing-circle paths in widmill.svg

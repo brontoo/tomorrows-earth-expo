@@ -20,11 +20,21 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    proxy: {              // ← أضف هذا
+    // Used only when running `pnpm dev:frontend` (standalone Vite).
+    // When running `pnpm dev` the Express server handles /api/trpc directly.
+    proxy: {
       '/api/trpc': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-      }
-    }
-  }
+        configure: (proxy) => {
+          proxy.on('error', (_err, _req, res) => {
+            (res as import('node:http').ServerResponse).writeHead(503, { 'Content-Type': 'application/json' });
+            (res as import('node:http').ServerResponse).end(
+              JSON.stringify([{ error: { json: { message: 'API server not running. Use: pnpm dev', code: -32600 } } }])
+            );
+          });
+        },
+      },
+    },
+  },
 })

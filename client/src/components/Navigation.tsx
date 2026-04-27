@@ -10,8 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Bell } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { trpc } from "@/lib/trpc";
 
 interface NavigationProps {
   reserveSpace?: boolean;
@@ -78,6 +79,13 @@ export default function Navigation({ reserveSpace = true }: NavigationProps) {
   const dashboardLinks = getDashboardLink();
   const primaryDashboardLink = dashboardLinks?.[0];
 
+  const { data: notifData } = trpc.notifications.getUnreadCount.useQuery(undefined, {
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+  const unreadCount = notifData?.unreadCount ?? 0;
+
   return (
     <>
       {reserveSpace && <div aria-hidden="true" className="h-24" />}
@@ -129,6 +137,18 @@ export default function Navigation({ reserveSpace = true }: NavigationProps) {
 
           {/* Auth Section */}
           <div className="hidden md:flex items-center space-x-4">
+            {isAuthenticated && user && (
+              <Link href={`/${user.role}/dashboard`}>
+                <button className="relative p-2 rounded-full hover:bg-accent/10 transition-colors">
+                  <Bell size={18} className="text-muted-foreground" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white leading-none">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </button>
+              </Link>
+            )}
             {isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

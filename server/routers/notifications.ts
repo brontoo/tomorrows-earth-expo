@@ -79,11 +79,8 @@ export const notificationsRouter = router({
         throw new Error("Notification not found or unauthorized");
       }
 
-      // Note: In a real implementation, you would delete the notification
-      // For now, we'll just mark it as read to indicate it's been handled
       await (db as any)
-        .update(notifications)
-        .set({ read: true })
+        .delete(notifications)
         .where(eq(notifications.id, input.notificationId));
 
       return { success: true };

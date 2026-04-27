@@ -172,6 +172,8 @@ export function useAuth(options?: any) {
   }, []);
 
   useEffect(() => {
+    let subscription: any = null;
+
     const init = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -229,7 +231,7 @@ export function useAuth(options?: any) {
 
     init();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const authStateChangeResult = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === "SIGNED_IN" && session) {
           const authUser = await buildUser(session);
@@ -261,7 +263,15 @@ export function useAuth(options?: any) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Handle both direct unsubscriber and { data: { subscription } } formats
+    subscription =
+      authStateChangeResult?.data?.subscription || authStateChangeResult;
+
+    return () => {
+      if (subscription && typeof subscription.unsubscribe === "function") {
+        subscription.unsubscribe();
+      }
+    };
   }, [buildUser]);
 
   useEffect(() => {

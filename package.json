@@ -4,7 +4,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx watch server/_core/index.ts",
+    "dev:frontend": "vite",
     "build": "vite build",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",

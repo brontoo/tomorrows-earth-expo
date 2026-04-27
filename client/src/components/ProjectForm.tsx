@@ -275,6 +275,9 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
     defaultValues: initialData || { title: "", teamName: "", description: "", grade: "" },
   });
 
+  const IMAGE_SIZE_LIMIT = 10 * 1024 * 1024;   // 10 MB
+  const VIDEO_SIZE_LIMIT = 500 * 1024 * 1024;  // 500 MB
+
   // ── Add files helper ──
   const addFiles = useCallback(
     (
@@ -282,6 +285,21 @@ export default function ProjectForm({ onSuccess, initialData }: ProjectFormProps
       setter: React.Dispatch<React.SetStateAction<UploadedFile[]>>,
       folder: "images" | "videos" | "documents"
     ) => {
+      const oversized = newFiles.filter((file) => {
+        if (file.type.startsWith("image/")) return file.size > IMAGE_SIZE_LIMIT;
+        if (file.type.startsWith("video/")) return file.size > VIDEO_SIZE_LIMIT;
+        return false;
+      });
+      if (oversized.length > 0) {
+        const names = oversized.map((f) => {
+          const limitMB = f.type.startsWith("video/") ? "500 MB" : "10 MB";
+          return `${f.name} (limit: ${limitMB})`;
+        });
+        alert(`The following files exceed the size limit and were not added:\n\n${names.join("\n")}`);
+        newFiles = newFiles.filter((f) => !oversized.includes(f));
+        if (newFiles.length === 0) return;
+      }
+
       const wrapped: UploadedFile[] = newFiles.map((file) => ({
         file,
         url: null,

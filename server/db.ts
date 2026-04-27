@@ -911,6 +911,19 @@ export async function getProjectHistory(projectId: number): Promise<any[]> {
   return db.select().from(submissionHistory).where(eq(submissionHistory.projectId, projectId));
 }
 
+export async function updateProjectStatusWithHistory(
+  projectId: number,
+  updates: Partial<InsertProject>,
+  history: Omit<InsertSubmissionHistory, "projectId">,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.transaction(async (tx) => {
+    await tx.update(projects).set(updates).where(eq(projects.id, projectId));
+    await tx.insert(submissionHistory).values({ ...history, projectId });
+  });
+}
+
 // ============ TEACHER DASHBOARD - STUDENT SUBMISSIONS ============
 
 export async function getTeacherStudentSubmissions(teacherId: number): Promise<any[]> {

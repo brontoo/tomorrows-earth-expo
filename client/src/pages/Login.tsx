@@ -58,7 +58,9 @@ export default function Login() {
         setLocation(dashboardMap[resolvedRole] || "/");
       }
     } catch (err: any) {
-      setError(err.message || "Login failed. Please check your credentials.");
+      const raw: string = err?.message ?? "";
+      const isParseError = raw.includes("Unexpected end of JSON") || raw.includes("JSON input");
+      setError(isParseError ? "Server is unavailable. Please try again." : raw || "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }

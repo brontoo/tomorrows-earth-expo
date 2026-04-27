@@ -7,6 +7,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc.js";
 import { adminRouter } from "./routers/admin.js";
 import { authRouter } from "./routers/auth.js";
 import { projectsRouter } from "./routers/projects.js";  // ← مرة واحدة فقط
+import { notificationsRouter } from "./routers/notifications.js";
 import * as db from "./db.js";
 import { storagePut } from "./storage.js";
 import { nanoid } from "nanoid";
@@ -57,7 +58,8 @@ export const appRouter = router({
   system: systemRouter,
   admin: adminRouter,
   auth: authRouter,
-  projects: projectsRouter,  // ← بدون notifications
+  projects: projectsRouter,
+  notifications: notificationsRouter,
 
   users: router({
     getAll: adminProcedure.query(async () => {
@@ -501,6 +503,28 @@ export const appRouter = router({
         contentType: z.string(),
       }))
       .mutation(async ({ ctx, input }) => {
+        const ALLOWED_MIME_TYPES = new Set([
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+          "video/mp4",
+          "video/webm",
+          "video/quicktime",
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-powerpoint",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ]);
+
+        if (!ALLOWED_MIME_TYPES.has(input.contentType)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `File type "${input.contentType}" is not allowed. Accepted types: images (JPEG, PNG, WebP), videos (MP4, WebM), and documents (PDF, Word, PowerPoint).`,
+          });
+        }
+
         const fileKey = `uploads/${ctx.user.id}/${nanoid()}-${input.filename}`;
         return { fileKey, uploadUrl: `/api/upload/${fileKey}` };
       }),
@@ -665,11 +689,21 @@ export const appRouter = router({
             throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
           }
 
-          await db.updateProject(input.id, {
-            status: "approved",
-            approvedBy: ctx.user.id,
-            approvedAt: new Date(),
-          });
+          await db.updateProjectStatusWithHistory(
+            input.id,
+            { status: "approved", approvedBy: ctx.user.id, approvedAt: new Date() },
+            { action: "approved", changedBy: ctx.user.id, previousStatus: project.status, newStatus: "approved" },
+          );
+
+          if (project.createdBy) {
+            await db.createNotification({
+              userId: project.createdBy,
+              type: "project_approved",
+              title: "Project Approved",
+              message: `Your project "${project.title}" has been approved!`,
+              relatedProjectId: project.id,
+            });
+          }
 
           return { success: true };
         } catch (error) {
@@ -694,10 +728,21 @@ export const appRouter = router({
             throw new TRPCError({ code: "NOT_FOUND", message: "Project not found" });
           }
 
-          await db.updateProject(input.id, {
-            status: "rejected",
-            rejectionReason: input.reason,
-          });
+          await db.updateProjectStatusWithHistory(
+            input.id,
+            { status: "rejected", rejectionReason: input.reason },
+            { action: "rejected", changedBy: ctx.user.id, notes: input.reason, previousStatus: project.status, newStatus: "rejected" },
+          );
+
+          if (project.createdBy) {
+            await db.createNotification({
+              userId: project.createdBy,
+              type: "project_rejected",
+              title: "Project Needs Revision",
+              message: `Your project "${project.title}" has been returned for revision. Reason: ${input.reason}`,
+              relatedProjectId: project.id,
+            });
+          }
 
           return { success: true };
         } catch (error) {
