@@ -147,7 +147,9 @@ export default function MyProjectsDashboard() {
   // Fetch projects using TRPC
   const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { data: projectsData, isLoading: trpcLoading, refetch: trpcRefetch } = trpc.projects.getMyProjects.useQuery();
+  const { data: projectsData, isLoading: trpcLoading, refetch: trpcRefetch } = trpc.projects.getMyProjects.useQuery(undefined, {
+    enabled: isAuthenticated
+  });
 
   const submitLocalProjectMutation = trpc.projects.submitProject.useMutation({
     onError: (error) => console.warn("[MyProjects] Local sync failed:", error),
