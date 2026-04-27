@@ -72,22 +72,33 @@ export const projectsRouter = router({
         };
 
         const result = await db.insertProject(projectData);
-        await db.createSubmissionHistory({
-          projectId: result.id,
-          action: "submitted",
-          changedBy: ctx.user.id,
-          previousStatus: null,
-          newStatus: "submitted",
-        });
+
+        // Keep the student submission path available even if optional audit/notification
+        // tables are unavailable in a partially migrated environment.
+        try {
+          await db.createSubmissionHistory({
+            projectId: result.id,
+            action: "submitted",
+            changedBy: ctx.user.id,
+            previousStatus: null,
+            newStatus: "submitted",
+          });
+        } catch (historyError) {
+          console.warn("[TRPC] Project submitted but failed to write submission history:", historyError);
+        }
 
         if (supervisorId) {
-          await db.createNotification({
-            userId: supervisorId,
-            type: "project_submitted",
-            title: "New Project Submitted",
-            message: `${ctx.user.name || "A student"} submitted a new project: "${input.title}"`,
-            relatedProjectId: result.id,
-          });
+          try {
+            await db.createNotification({
+              userId: supervisorId,
+              type: "project_submitted",
+              title: "New Project Submitted",
+              message: `${ctx.user.name || "A student"} submitted a new project: "${input.title}"`,
+              relatedProjectId: result.id,
+            });
+          } catch (notificationError) {
+            console.warn("[TRPC] Project submitted but failed to create supervisor notification:", notificationError);
+          }
         }
 
         return { success: true, projectId: result.id };

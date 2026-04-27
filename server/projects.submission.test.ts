@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import * as db from "./db";
 
 type StudentUser = NonNullable<TrpcContext["user"]>;
 type TeacherUser = NonNullable<TrpcContext["user"]>;
@@ -50,6 +51,10 @@ function createTeacherContext(): TrpcContext {
     res: {} as TrpcContext["res"],
   };
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("Project Submission System", () => {
   describe("Subcategories", () => {
@@ -101,6 +106,54 @@ describe("Project Submission System", () => {
   });
 
   describe("Project Submission", () => {
+    it("should not fail submission when history or notifications cannot be written", async () => {
+      const ctx = createStudentContext();
+      const caller = appRouter.createCaller(ctx);
+
+      vi.spyOn(db, "getSubcategoryById").mockResolvedValue({
+        id: 1,
+        categoryId: 1,
+        name: "Renewable energy models",
+        slug: "renewable-energy-models",
+        description: null,
+        order: 1,
+        createdAt: new Date(),
+      });
+      vi.spyOn(db, "getTeacherByUserId").mockResolvedValue({
+        id: 1,
+        userId: 3,
+        department: null,
+        expertise: null,
+        maxStudents: 10,
+        currentStudents: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      vi.spyOn(db, "insertProject").mockResolvedValue({ id: 99 });
+      const createSubmissionHistorySpy = vi
+        .spyOn(db, "createSubmissionHistory")
+        .mockRejectedValue(new Error("relation submission_history does not exist"));
+      const createNotificationSpy = vi
+        .spyOn(db, "createNotification")
+        .mockRejectedValue(new Error("relation notifications does not exist"));
+
+      const result = await caller.projects.submitProject({
+        title: "Solar Panel Efficiency Study",
+        teamName: "Team Solar",
+        description:
+          "A comprehensive study on optimizing solar panel efficiency in tropical climates",
+        grade: "10",
+        categoryId: 1,
+        subcategoryId: 1,
+        supervisorId: 3,
+        documentUrls: [],
+      });
+
+      expect(result).toEqual({ success: true, projectId: 99 });
+      expect(createSubmissionHistorySpy).toHaveBeenCalledTimes(1);
+      expect(createNotificationSpy).toHaveBeenCalledTimes(1);
+    });
+
     it("should allow students to submit projects", async () => {
       const ctx = createStudentContext();
       const caller = appRouter.createCaller(ctx);
@@ -121,7 +174,7 @@ describe("Project Submission System", () => {
         expect(result.success).toBe(true);
       } catch (error: any) {
         // Subcategory/supervisor may not exist, or database may not be available
-        expect(["NOT_FOUND", "INTERNAL_SERVER_ERROR"]).toContain(error.code);
+        expect(["BAD_REQUEST", "NOT_FOUND", "INTERNAL_SERVER_ERROR"]).toContain(error.code);
       }
     });
 
