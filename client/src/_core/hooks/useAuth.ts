@@ -173,17 +173,23 @@ export function useAuth(options?: any) {
 
   useEffect(() => {
     let subscription: any = null;
+    let isMounted = true;
 
     const init = async () => {
+      if (!isMounted) return;
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
+        if (!isMounted) return;
+
         if (session) {
           const authUser = await buildUser(session);
+          if (!isMounted) return;
+
           let finalUser = authUser;
           try {
             const synced = await syncBackendSession(authUser);
-            if (synced) {
+            if (synced && isMounted) {
               finalUser = {
                 ...authUser,
                 email: synced.email,
@@ -194,11 +200,15 @@ export function useAuth(options?: any) {
           } catch (syncErr) {
             console.warn("[Auth] Failed to sync backend session on init:", syncErr);
           }
-          localStorage.setItem("mock-user", JSON.stringify(finalUser));
-          setUser(finalUser);
+          if (isMounted) {
+            localStorage.setItem("mock-user", JSON.stringify(finalUser));
+            setUser(finalUser);
+          }
         } else {
           // No Supabase session — check the JWT cookie set by loginWithEmail/syncUser
           const serverUser = await getServerSessionUser();
+          if (!isMounted) return;
+
           if (serverUser) {
             localStorage.setItem("mock-user", JSON.stringify(serverUser));
             setUser(serverUser);
@@ -209,67 +219,86 @@ export function useAuth(options?: any) {
         }
       } catch (err) {
         console.warn("[Auth] Init error:", err);
+        if (!isMounted) return;
+
         // On error, fall back to server session before giving up
         try {
           const serverUser = await getServerSessionUser();
-          if (serverUser) {
+          if (serverUser && isMounted) {
             localStorage.setItem("mock-user", JSON.stringify(serverUser));
             setUser(serverUser);
             return;
           }
         } catch { /* ignore */ }
-        if (!import.meta.env.PROD) {
+        if (!import.meta.env.PROD && isMounted) {
           const cached = localStorage.getItem("mock-user");
           if (cached) {
             try { setUser(JSON.parse(cached)); } catch { }
           }
         }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     init();
 
-    const authStateChangeResult = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === "SIGNED_IN" && session) {
-          const authUser = await buildUser(session);
-          let finalUser = authUser;
-          try {
-            const synced = await syncBackendSession(authUser);
-            if (synced) {
-              finalUser = {
-                ...authUser,
-                email: synced.email,
-                name: synced.name,
-                role: synced.role,
-              };
-            }
-          } catch (syncErr) {
-            console.warn("[Auth] Failed to sync backend session on sign-in:", syncErr);
-          }
-          localStorage.setItem("mock-user", JSON.stringify(finalUser));
-          setUser(finalUser);
-          setLoading(false);
-          // Don't auto-redirect to choose-role on auth state change
-          // Let the dashboard handle role validation
-        } else if (event === "SIGNED_OUT") {
-          localStorage.removeItem("mock-user");
-          localStorage.removeItem("requestedRole");
-          setUser(null);
-          setLoading(false);
-        }
-      }
-    );
+    try {
+      const authStateChangeResult = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (!isMounted) return;
 
-    // Handle both direct unsubscriber and { data: { subscription } } formats
-    subscription =
-      authStateChangeResult?.data?.subscription || authStateChangeResult;
+          if (event === "SIGNED_IN" && session) {
+            const authUser = await buildUser(session);
+            if (!isMounted) return;
+
+            let finalUser = authUser;
+            try {
+              const synced = await syncBackendSession(authUser);
+              if (synced && isMounted) {
+                finalUser = {
+                  ...authUser,
+                  email: synced.email,
+                  name: synced.name,
+                  role: synced.role,
+                };
+              }
+            } catch (syncErr) {
+              console.warn("[Auth] Failed to sync backend session on sign-in:", syncErr);
+            }
+            if (isMounted) {
+              localStorage.setItem("mock-user", JSON.stringify(finalUser));
+              setUser(finalUser);
+              setLoading(false);
+            }
+          } else if (event === "SIGNED_OUT") {
+            if (isMounted) {
+              localStorage.removeItem("mock-user");
+              localStorage.removeItem("requestedRole");
+              setUser(null);
+              setLoading(false);
+            }
+          }
+        }
+      );
+
+      // Handle both direct unsubscriber and { data: { subscription } } formats
+      subscription =
+        authStateChangeResult?.data?.subscription || authStateChangeResult;
+    } catch (err) {
+      console.warn("[Auth] Error setting up auth state change listener:", err);
+    }
 
     return () => {
-      if (subscription && typeof subscription.unsubscribe === "function") {
-        subscription.unsubscribe();
+      isMounted = false;
+      try {
+        if (subscription && typeof subscription.unsubscribe === "function") {
+          subscription.unsubscribe();
+        }
+      } catch (err) {
+        console.warn("[Auth] Error unsubscribing from auth state change:", err);
       }
     };
   }, [buildUser]);
