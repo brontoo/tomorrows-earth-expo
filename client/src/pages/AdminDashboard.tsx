@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
 import { Link } from "wouter";
-import { Users, BarChart3, Settings, ToggleRight, AlertCircle, Loader2, Calendar, Lock, Unlock, Trash2, Eye, EyeOff, Video } from "lucide-react";
+import { Users, BarChart3, Settings, ToggleRight, AlertCircle, Loader2, Calendar, Lock, Unlock, Trash2, Eye, EyeOff, Video, X, FileText } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
@@ -83,6 +84,7 @@ export default function AdminDashboard() {
 function AdminDashboardContent() {
   const [activeTab, setActiveTab] = useState("overview");
   const [userSubTab, setUserSubTab] = useState("teachers");
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   // Queries
   const statsQuery = trpc.admin.getPlatformStats.useQuery();
@@ -93,6 +95,10 @@ function AdminDashboardContent() {
   const activityQuery = trpc.admin.getActivityLogs.useQuery({ limit: 50 });
   const journeyPostsQuery = trpc.admin.getJourneyPosts.useQuery();
   const projectsQuery = trpc.admin.getAllProjects.useQuery();
+  const selectedProjectQuery = trpc.projects.getProjectById.useQuery(
+    { id: selectedProjectId || 0 },
+    { enabled: !!selectedProjectId }
+  );
 
   // Mutations
   const updateEventSettingsMutation = trpc.admin.updateEventSettings.useMutation();
@@ -707,15 +713,26 @@ function AdminDashboardContent() {
                                 </Badge>
                               </td>
                               <td className="py-3 px-4">
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => handleDeleteProject(project.id)}
-                                  disabled={deleteProjectMutation.isPending}
-                                  className="font-bold h-8"
-                                >
-                                  <Trash2 className="h-3 w-3 mr-1" /> Delete
-                                </Button>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setSelectedProjectId(project.id)}
+                                    disabled={deleteProjectMutation.isPending}
+                                    className="font-bold h-8"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" /> View
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleDeleteProject(project.id)}
+                                    disabled={deleteProjectMutation.isPending}
+                                    className="font-bold h-8"
+                                  >
+                                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -781,7 +798,215 @@ function AdminDashboardContent() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Project Detail Modal */}
+        <ProjectDetailsDialog 
+          projectId={selectedProjectId} 
+          isOpen={!!selectedProjectId}
+          onOpenChange={(open) => !open && setSelectedProjectId(null)}
+          projectData={selectedProjectQuery.data}
+          isLoading={selectedProjectQuery.isLoading}
+        />
       </div>
     </div>
+  );
+}
+
+function ProjectDetailsDialog({
+  projectId,
+  isOpen,
+  onOpenChange,
+  projectData,
+  isLoading,
+}: {
+  projectId: number | null;
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  projectData: any;
+  isLoading: boolean;
+}) {
+  if (!projectData && !isLoading) {
+    return null;
+  }
+
+  const imageUrls: string[] = projectData?.imageUrls ? JSON.parse(projectData.imageUrls) : [];
+  const documentUrls: string[] = projectData?.documentUrls ? JSON.parse(projectData.documentUrls) : [];
+  const sdgAlignment = projectData?.sdgAlignment ? JSON.parse(projectData.sdgAlignment) : [];
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-2xl">{projectData?.title || "Project Details"}</DialogTitle>
+          <DialogClose className="absolute right-4 top-4" />
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Project Header Info */}
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Team Name</p>
+                <p className="text-sm font-bold text-foreground">{projectData?.teamName || "—"}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Grade</p>
+                  <p className="text-sm font-bold text-foreground">{projectData?.grade || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Status</p>
+                  <Badge className={
+                    projectData?.status === "approved"
+                      ? "bg-leaf-green/20 text-leaf-green border-none font-bold"
+                      : projectData?.status === "submitted"
+                        ? "bg-amber-500/20 text-amber-600 border-none font-bold"
+                        : projectData?.status === "rejected"
+                          ? "bg-rose-500/20 text-rose-600 border-none font-bold"
+                          : projectData?.status === "finalist"
+                            ? "bg-indigo-500/20 text-indigo-600 border-none font-bold"
+                            : "glass-card border-white/20 font-bold"
+                  }>
+                    {projectData?.status}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Description</p>
+              <p className="text-sm text-foreground bg-white/5 p-3 rounded-lg">{projectData?.description || "—"}</p>
+            </div>
+
+            {/* Abstract */}
+            {projectData?.abstract && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Abstract</p>
+                <p className="text-sm text-foreground bg-white/5 p-3 rounded-lg">{projectData.abstract}</p>
+              </div>
+            )}
+
+            {/* Images */}
+            {imageUrls.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Images</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {imageUrls.map((url: string, idx: number) => (
+                    <a 
+                      key={idx} 
+                      href={url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="relative group"
+                    >
+                      <img 
+                        src={url} 
+                        alt={`Project image ${idx + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border border-white/10 hover:border-primary/50 transition-colors"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-lg transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <span className="text-white text-xs font-bold">View Full</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Video */}
+            {projectData?.videoUrl && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Video</p>
+                <a 
+                  href={projectData.videoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg transition-colors font-medium text-sm"
+                >
+                  <Video className="h-4 w-4" />
+                  Watch Video
+                </a>
+              </div>
+            )}
+
+            {/* Documents */}
+            {documentUrls.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Documents</p>
+                <ul className="space-y-2">
+                  {documentUrls.map((url: string, idx: number) => (
+                    <li key={idx}>
+                      <a 
+                        href={url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors text-foreground text-sm font-medium"
+                      >
+                        <FileText className="h-4 w-4" />
+                        Document {idx + 1}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* SDG Alignment */}
+            {sdgAlignment.length > 0 && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">SDG Alignment</p>
+                <div className="flex flex-wrap gap-2">
+                  {sdgAlignment.map((sdg: number) => (
+                    <Badge key={sdg} variant="outline" className="font-bold">
+                      SDG {sdg}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Research Method */}
+            {projectData?.researchMethod && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Research Method</p>
+                <p className="text-sm text-foreground bg-white/5 p-3 rounded-lg">{projectData.researchMethod}</p>
+              </div>
+            )}
+
+            {/* Experiment Details */}
+            {projectData?.experimentDetails && (
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Experiment Details</p>
+                <p className="text-sm text-foreground bg-white/5 p-3 rounded-lg">{projectData.experimentDetails}</p>
+              </div>
+            )}
+
+            {/* Metadata */}
+            <div className="pt-4 border-t border-white/10">
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div>
+                  <p className="text-muted-foreground font-bold mb-1">Submitted</p>
+                  <p className="text-foreground">
+                    {projectData?.submittedAt ? new Date(projectData.submittedAt).toLocaleDateString() : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground font-bold mb-1">Created</p>
+                  <p className="text-foreground">
+                    {projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
