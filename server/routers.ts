@@ -8,6 +8,13 @@ import { adminRouter } from "./routers/admin.js";
 import { authRouter } from "./routers/auth.js";
 import { projectsRouter } from "./routers/projects.js";  // ← مرة واحدة فقط
 import { notificationsRouter } from "./routers/notifications.js";
+// Sustainability missions & gamification sub-routers (additive)
+import { missionsRouter } from "./routers/missions.js";
+import { academicYearsRouter } from "./routers/academicYears.js";
+import { missionCompletionsRouter } from "./routers/missionCompletions.js";
+import { passportRouter } from "./routers/passport.js";
+import { impactRouter } from "./routers/impact.js";
+import { zonesRouter } from "./routers/zones.js";
 import * as db from "./db.js";
 import { storagePut } from "./storage.js";
 import { nanoid } from "nanoid";
@@ -60,6 +67,13 @@ export const appRouter = router({
   auth: authRouter,
   projects: projectsRouter,
   notifications: notificationsRouter,
+  // Sustainability missions & gamification (additive — no existing key changed)
+  missions: missionsRouter,
+  academicYears: academicYearsRouter,
+  missionCompletions: missionCompletionsRouter,
+  passport: passportRouter,
+  impact: impactRouter,
+  zones: zonesRouter,
 
   users: router({
     getAll: adminProcedure.query(async () => {
@@ -200,6 +214,42 @@ export const appRouter = router({
           expertise: expertise ? JSON.stringify(expertise) : undefined,
         });
         return { success: true };
+      }),
+
+    // ---- Sustainability mission verification (additive) ----
+
+    /** Submissions waiting for teacher review (used by the Mission Verification page). */
+    getMissionVerificationQueue: teacherProcedure.query(async () => {
+      return db.getMissionVerificationQueue();
+    }),
+
+    /**
+     * Approve / request revision / reject a submitted mission.
+     * Approval awards the mission points and any newly earned badges
+     * (all in one database transaction inside db.reviewMissionCompletion).
+     */
+    reviewMissionCompletion: teacherProcedure
+      .input(z.object({
+        completionId: z.number().int().positive(),
+        decision: z.enum(["approve", "request_revision", "reject"]),
+        feedback: z.string().optional(),
+        score: z.number().min(0).max(100).optional(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        try {
+          return await db.reviewMissionCompletion({
+            completionId: input.completionId,
+            decision: input.decision,
+            reviewerId: ctx.user.id,
+            feedback: input.feedback ?? null,
+            score: input.score ?? null,
+          });
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: error instanceof Error ? error.message : "Could not review this mission completion.",
+          });
+        }
       }),
   }),
 

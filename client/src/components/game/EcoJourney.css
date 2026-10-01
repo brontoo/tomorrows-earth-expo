@@ -473,3 +473,20 @@ body, html {
   margin-top: -1px;
   filter: drop-shadow(0 5px 5px rgba(0, 255, 136, 0.5));
 }
+
+/* عُقد المهام المكتملة (إضافة جديدة — لا تُعدّل أي قاعدة سابقة) */
+.node-completed circle {
+  fill: rgba(0, 255, 136, 0.22);
+  stroke: #00ff88;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.55));
+}
+
+.node-completed text {
+  fill: #e6fffa;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 15px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}

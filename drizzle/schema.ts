@@ -1,4 +1,4 @@
-import { integer, pgEnum, pgTable, text, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
+import { integer, pgEnum, pgTable, text, timestamp, varchar, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
  * Core user table backing auth flow.
@@ -368,3 +368,235 @@ export const submissionHistory = pgTable("submission_history", {
 
 export type SubmissionHistory = typeof submissionHistory.$inferSelect;
 export type InsertSubmissionHistory = typeof submissionHistory.$inferInsert;
+
+/* ============================================================
+ * Sustainability Missions & Gamification
+ * ------------------------------------------------------------
+ * ADDITIVE ONLY: these definitions mirror migrations 0002..0008
+ * exactly as they were already written in drizzle/*.sql.
+ * No existing table, enum, or export above was modified.
+ * ============================================================ */
+
+/**
+ * Academic years — the scoring window for missions and points.
+ */
+export const academicYears = pgTable("academic_years", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  label: varchar("label", { length: 20 }).notNull().unique(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  pointsStartDate: timestamp("points_start_date").notNull(),
+  pointsEndDate: timestamp("points_end_date").notNull(),
+  expoStartDate: timestamp("expo_start_date"),
+  expoEndDate: timestamp("expo_end_date"),
+  isCurrent: boolean("is_current").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AcademicYear = typeof academicYears.$inferSelect;
+export type InsertAcademicYear = typeof academicYears.$inferInsert;
+
+/**
+ * Sustainability zones — thematic groupings of missions.
+ */
+export const sustainabilityZones = pgTable("sustainability_zones", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  slug: varchar("slug", { length: 120 }).notNull().unique(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  icon: varchar("icon", { length: 100 }),
+  coverImage: varchar("cover_image", { length: 1000 }),
+  theme: varchar("theme", { length: 100 }),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type SustainabilityZone = typeof sustainabilityZones.$inferSelect;
+export type InsertSustainabilityZone = typeof sustainabilityZones.$inferInsert;
+
+export const missionTypeEnum = pgEnum("mission_type", ["learn", "investigate", "act", "experience", "collaborate", "create"]);
+export const missionDifficultyEnum = pgEnum("mission_difficulty", ["easy", "medium", "hard"]);
+export const missionVerificationEnum = pgEnum("mission_verification", ["automatic", "teacher_review", "experience_result", "admin_review"]);
+export const missionRepeatPolicyEnum = pgEnum("mission_repeat_policy", ["once", "once_per_term", "repeatable_capped", "teacher_assigned"]);
+
+/**
+ * Missions — one sustainability activity a student can complete and submit.
+ */
+export const missions = pgTable("missions", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  academicYearId: integer("academic_year_id").notNull(),
+  zoneId: integer("zone_id").notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 160 }).notNull().unique(),
+  description: text("description").notNull(),
+  missionType: missionTypeEnum("mission_type").notNull(),
+  difficulty: missionDifficultyEnum("difficulty").default("easy").notNull(),
+  instructions: text("instructions").notNull(),
+  estimatedMinutes: integer("estimated_minutes").notNull(),
+  pointsAvailable: integer("points_available").default(0).notNull(),
+  evidenceRequired: boolean("evidence_required").default(false).notNull(),
+  verificationMethod: missionVerificationEnum("verification_method").default("teacher_review").notNull(),
+  repeatPolicy: missionRepeatPolicyEnum("repeat_policy").default("once").notNull(),
+  sdgIds: text("sdg_ids"), // JSON array of SDG numbers
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  isPublished: boolean("is_published").default(false).notNull(),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Mission = typeof missions.$inferSelect;
+export type InsertMission = typeof missions.$inferInsert;
+
+export const missionCompletionStatusEnum = pgEnum("mission_completion_status", ["in_progress", "submitted", "verification_required", "verified", "revision_requested", "completed", "rejected"]);
+
+/**
+ * Mission completions — one row per student / mission / academic year.
+ */
+export const missionCompletions = pgTable(
+  "mission_completions",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    missionId: integer("mission_id").notNull(),
+    studentId: integer("student_id").notNull(),
+    academicYearId: integer("academic_year_id").notNull(),
+    status: missionCompletionStatusEnum("status").default("in_progress").notNull(),
+    evidence: text("evidence"),
+    submittedAt: timestamp("submitted_at"),
+    completedAt: timestamp("completed_at"),
+    score: integer("score"),
+    reflection: text("reflection"),
+    teacherFeedback: text("teacher_feedback"),
+    verifiedBy: integer("verified_by"),
+    verifiedAt: timestamp("verified_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("mission_completions_mission_student_year_idx").on(table.missionId, table.studentId, table.academicYearId)],
+);
+
+export type MissionCompletion = typeof missionCompletions.$inferSelect;
+export type InsertMissionCompletion = typeof missionCompletions.$inferInsert;
+
+export const pointEventSourceEnum = pgEnum("point_event_source", ["mission", "challenge", "badge", "community_action", "experience", "teacher_award", "impact_action", "special_event"]);
+export const pointVerificationStatusEnum = pgEnum("point_verification_status", ["pending", "verified", "reversed", "rejected"]);
+
+/**
+ * Sustainability point events — append-only ledger.
+ * The unique index guarantees a source can only be awarded once per student per year.
+ */
+export const sustainabilityPointEvents = pgTable(
+  "sustainability_point_events",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    studentId: integer("student_id").notNull(),
+    academicYearId: integer("academic_year_id").notNull(),
+    sourceType: pointEventSourceEnum("source_type").notNull(),
+    sourceId: integer("source_id").notNull(),
+    points: integer("points").notNull(),
+    reason: text("reason").notNull(),
+    verificationStatus: pointVerificationStatusEnum("verification_status").default("pending").notNull(),
+    verifiedBy: integer("verified_by"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    reversedAt: timestamp("reversed_at"),
+    metadata: text("metadata"),
+  },
+  (table) => [uniqueIndex("point_events_source_student_year_idx").on(table.studentId, table.academicYearId, table.sourceType, table.sourceId)],
+);
+
+export type SustainabilityPointEvent = typeof sustainabilityPointEvents.$inferSelect;
+export type InsertSustainabilityPointEvent = typeof sustainabilityPointEvents.$inferInsert;
+
+export const badgeCriteriaTypeEnum = pgEnum("badge_criteria_type", ["mission_count", "points_threshold", "zone_count", "sdg_count", "verified_actions", "manual"]);
+
+/**
+ * Badges — definable achievements with a JSON criteria_config.
+ */
+export const badges = pgTable("badges", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar("name", { length: 160 }).notNull(),
+  slug: varchar("slug", { length: 160 }).notNull().unique(),
+  description: text("description").notNull(),
+  icon: varchar("icon", { length: 20 }),
+  criteriaType: badgeCriteriaTypeEnum("criteria_type").notNull(),
+  criteriaConfig: text("criteria_config").notNull(), // JSON
+  pointsReward: integer("points_reward").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Badge = typeof badges.$inferSelect;
+export type InsertBadge = typeof badges.$inferInsert;
+
+/**
+ * Student badges — awarded badges per student per academic year.
+ */
+export const studentBadges = pgTable(
+  "student_badges",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    badgeId: integer("badge_id").notNull(),
+    studentId: integer("student_id").notNull(),
+    academicYearId: integer("academic_year_id").notNull(),
+    earnedAt: timestamp("earned_at").defaultNow().notNull(),
+    evidence: text("evidence"),
+  },
+  (table) => [uniqueIndex("student_badges_badge_student_year_idx").on(table.badgeId, table.studentId, table.academicYearId)],
+);
+
+export type StudentBadge = typeof studentBadges.$inferSelect;
+export type InsertStudentBadge = typeof studentBadges.$inferInsert;
+
+/**
+ * Sustainability levels — point thresholds that map to a level name.
+ */
+export const sustainabilityLevels = pgTable("sustainability_levels", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  name: varchar("name", { length: 120 }).notNull().unique(),
+  slug: varchar("slug", { length: 120 }).notNull().unique(),
+  minPoints: integer("min_points").notNull(),
+  icon: varchar("icon", { length: 20 }),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type SustainabilityLevel = typeof sustainabilityLevels.$inferSelect;
+export type InsertSustainabilityLevel = typeof sustainabilityLevels.$inferInsert;
+
+export const impactMetricTypeEnum = pgEnum("impact_metric_type", ["water_liters", "electricity_kwh", "waste_kg", "recycling_kg", "plastic_items", "plants_added", "trees_added", "food_waste_kg", "transport_km", "custom"]);
+export const impactVerificationStatusEnum = pgEnum("impact_verification_status", ["pending", "verified", "rejected"]);
+
+/**
+ * Impact entries — measured, teacher-verified sustainability results.
+ */
+export const impactEntries = pgTable("impact_entries", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  academicYearId: integer("academic_year_id").notNull(),
+  studentId: integer("student_id"),
+  teamId: integer("team_id"),
+  classId: integer("class_id"),
+  missionId: integer("mission_id"),
+  metricType: impactMetricTypeEnum("metric_type").notNull(),
+  metricLabel: varchar("metric_label", { length: 160 }),
+  quantity: integer("quantity").notNull(),
+  unit: varchar("unit", { length: 40 }).notNull(),
+  baseline: integer("baseline"),
+  result: integer("result"),
+  evidenceUrl: varchar("evidence_url", { length: 1000 }),
+  verificationStatus: impactVerificationStatusEnum("verification_status").default("pending").notNull(),
+  verifiedBy: integer("verified_by"),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ImpactEntry = typeof impactEntries.$inferSelect;
+export type InsertImpactEntry = typeof impactEntries.$inferInsert;

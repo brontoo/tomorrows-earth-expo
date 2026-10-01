@@ -1,9 +1,12 @@
 // src/components/game/EcoJourney.tsx
 // النسخة الكاملة (نفس نسختك المحلية vanilla) بعد نقلها إلى React بشكل سليم.
 import { useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 import gsap from "gsap";
 import { initFloatingParallax, initConstellationCanvas } from "./animations";
 import { init3DPod, characterModel } from "./threeScene";
+import { trpc } from "@/lib/trpc";
+import { useAuthContext } from "@/contexts/AuthContext";
 import "./EcoJourney.css";
 
 // استيراد الصور
@@ -16,6 +19,29 @@ import p6 from "../../assets/illustrations/p6.png";
 
 export default function EcoJourney() {
   const containerRef = useRef<HTMLElement>(null);
+  const [, navigate] = useLocation();
+  const { isAuthenticated, user } = useAuthContext();
+  const isStudent = isAuthenticated && user?.role === "student";
+
+  // مسار المهام يقرأ المهام الحقيقية من قاعدة البيانات.
+  // للزائر غير المسجّل يبقى الشكل الافتراضي كما هو (لا يتغير شيء).
+  const missionsQuery = trpc.missions.getAll.useQuery(undefined, { staleTime: 60_000 });
+  const passportQuery = trpc.passport.getMine.useQuery(undefined, {
+    enabled: isStudent,
+    staleTime: 30_000,
+  });
+
+  // نحتفظ بأحدث بيانات في ref لأن منطق اللعبة يعمل داخل useEffect مرة واحدة.
+  const progressRef = useRef<{ missions: any[]; states: Map<number, string> }>({
+    missions: [],
+    states: new Map(),
+  });
+  progressRef.current = {
+    missions: Array.isArray(missionsQuery.data) ? (missionsQuery.data as any[]).slice(0, 7) : [],
+    states: new Map<number, string>(
+      ((passportQuery.data?.missionStates ?? []) as any[]).map((row) => [row.missionId, row.status]),
+    ),
+  };
 
   useEffect(() => {
     // 1. تهيئة مشهد Three.js (نمرر العنصر نفسه وليس نصاً)
@@ -290,15 +316,57 @@ export default function EcoJourney() {
         const height = container.clientHeight;
         svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-        const nodes = [
-          { id: 1, x: width * 0.15, y: height * 0.8, status: "active", mission: "Waste Audit" },
-          { id: 2, x: width * 0.3, y: height * 0.65, status: "locked", mission: "Water Conservation" },
-          { id: 3, x: width * 0.25, y: height * 0.4, status: "locked", mission: "Renewable Energy" },
-          { id: 4, x: width * 0.45, y: height * 0.25, status: "locked", mission: "Forest Biodiversity" },
-          { id: 5, x: width * 0.65, y: height * 0.45, status: "locked", mission: "Ocean Protection" },
-          { id: 6, x: width * 0.8, y: height * 0.3, status: "locked", mission: "Sustainable Food" },
-          { id: 7, x: width * 0.9, y: height * 0.6, status: "locked", mission: "Climate Innovation" },
+        // مواضع العُقد السبع على المسار (كما في النسخة المحلية)
+        const nodePositions = [
+          { x: 0.15, y: 0.8 },
+          { x: 0.3, y: 0.65 },
+          { x: 0.25, y: 0.4 },
+          { x: 0.45, y: 0.25 },
+          { x: 0.65, y: 0.45 },
+          { x: 0.8, y: 0.3 },
+          { x: 0.9, y: 0.6 },
         ];
+
+        const fallbackTitles = [
+          "Waste Audit",
+          "Water Conservation",
+          "Renewable Energy",
+          "Forest Biodiversity",
+          "Ocean Protection",
+          "Sustainable Food",
+          "Climate Innovation",
+        ];
+
+        const progress = progressRef.current;
+        const doneStatuses = new Set(["completed", "verified"]);
+        const realMissions = progress.missions;
+        const firstOpenIndex = realMissions.findIndex(
+          (mission: any) => !doneStatuses.has(progress.states.get(mission.id) ?? ""),
+        );
+
+        const nodes = nodePositions.map((position, index) => {
+          const mission = realMissions[index];
+          let status: string;
+          if (!mission || firstOpenIndex === -1) {
+            // إما لا توجد بيانات حقيقية، أو أنجز الطالب كل المهام
+            status = mission ? "completed" : index === 0 ? "active" : "locked";
+          } else if (index < firstOpenIndex) {
+            status = "completed";
+          } else if (index === firstOpenIndex) {
+            status = "active";
+          } else {
+            status = "locked";
+          }
+
+          return {
+            id: index + 1,
+            x: width * position.x,
+            y: height * position.y,
+            status,
+            mission: mission?.title ?? fallbackTitles[index],
+            slug: mission?.slug ?? null,
+          };
+        });
 
         const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
         let dStr = `M ${nodes[0].x} ${nodes[0].y}`;
@@ -331,6 +399,14 @@ export default function EcoJourney() {
           group.appendChild(circle);
           group.appendChild(text);
           svg.appendChild(group);
+
+          // النقر على عقدة غير مقفلة يفتح صفحة المهمة الحقيقية
+          if (node.slug) {
+            group.style.cursor = node.status === "locked" ? "not-allowed" : "pointer";
+            group.addEventListener("click", () => {
+              if (node.status !== "locked") navigate(`/missions/${node.slug}`);
+            });
+          }
 
           nodeElements.push(group);
 

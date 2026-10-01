@@ -30,6 +30,14 @@ const SubcategoryDetailPage   = lazy(() => import("./pages/SubcategoryDetailPage
 const ChooseRole              = lazy(() => import("./pages/ChooseRole"));
 // تمت إضافة مسار اللعبة كتحميل متأخر (Lazy-load)
 const EcoJourneyPage          = lazy(() => import("./pages/EcoJourneyPage"));
+// Sustainability missions & gamification (additive)
+const Missions                = lazy(() => import("./pages/Missions"));
+const MissionDetail           = lazy(() => import("./pages/MissionDetail"));
+const MissionVerification     = lazy(() => import("./pages/MissionVerification"));
+const MyJourney               = lazy(() => import("./pages/MyJourney"));
+const Impact                  = lazy(() => import("./pages/Impact"));
+const Explore                 = lazy(() => import("./pages/Explore"));
+const ZoneDetail              = lazy(() => import("./pages/ZoneDetail"));
 
 const PageFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -65,6 +73,15 @@ function Router() {
         <Route path="/my-projects/:projectId" component={ProjectDetail} />
         {/* تمت إضافة مسار اللعبة هنا */}
         <Route path="/eco-journey" component={EcoJourneyPage} />
+        {/* مسارات المهام والتلعيب (إضافية) */}
+        <Route path="/missions" component={Missions} />
+        <Route path="/missions/:id" component={MissionDetail} />
+        <Route path="/impact" component={Impact} />
+        {/* MyJourney يقبل خاصية embedded لذلك نمرّره كدالة عرض */}
+        <Route path="/my-journey">{() => <MyJourney />}</Route>
+        <Route path="/explore" component={Explore} />
+        <Route path="/explore/:categorySlug" component={ZoneDetail} />
+        <Route path="/teacher/mission-verification" component={MissionVerification} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

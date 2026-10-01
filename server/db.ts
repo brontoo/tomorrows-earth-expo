@@ -1,4 +1,4 @@
-import { eq, and, count, inArray } from "drizzle-orm";
+import { eq, and, count, inArray, asc, desc, sum } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { 
@@ -19,7 +19,16 @@ import {
   rubricScores, InsertRubricScore,
   messages, InsertMessage,
   teacherAnalytics, InsertTeacherAnalytics,
-  submissionHistory, InsertSubmissionHistory
+  submissionHistory, InsertSubmissionHistory,
+  academicYears, AcademicYear,
+  sustainabilityZones, SustainabilityZone,
+  missions, Mission,
+  missionCompletions, MissionCompletion,
+  sustainabilityPointEvents,
+  badges, Badge,
+  studentBadges,
+  sustainabilityLevels, SustainabilityLevel,
+  impactEntries, InsertImpactEntry,
 } from "../drizzle/schema.js";
 import { ENV } from './_core/env.js';
 import { getStaffRegistryEntryByEmail } from "./staffRegistry.js";
@@ -1006,4 +1015,762 @@ async function getTeacherScopeUserIds(teacherId: number): Promise<number[]> {
   }
 
   return Array.from(ids);
+}
+
+/* ============================================================
+ * SUSTAINABILITY MISSIONS & GAMIFICATION
+ * ------------------------------------------------------------
+ * ADDITIVE ONLY. Nothing above this line was modified.
+ * These helpers power the missions / points / badges / passport /
+ * impact routers that the mission pages already expect.
+ * ============================================================ */
+
+// ---------- Academic years ----------
+
+export async function getAllAcademicYears(): Promise<AcademicYear[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(academicYears).orderBy(desc(academicYears.startDate));
+}
+
+export async function getAcademicYearById(id: number): Promise<AcademicYear | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(academicYears).where(eq(academicYears.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function getCurrentAcademicYear(): Promise<AcademicYear | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const current = await db
+    .select()
+    .from(academicYears)
+    .where(eq(academicYears.isCurrent, true))
+    .orderBy(desc(academicYears.startDate))
+    .limit(1);
+
+  if (current.length > 0) return current[0];
+
+  const latest = await db
+    .select()
+    .from(academicYears)
+    .orderBy(desc(academicYears.startDate))
+    .limit(1);
+
+  return latest[0];
+}
+
+// ---------- Zones & missions ----------
+
+const missionCardColumns = {
+  id: missions.id,
+  academicYearId: missions.academicYearId,
+  zoneId: missions.zoneId,
+  title: missions.title,
+  slug: missions.slug,
+  description: missions.description,
+  missionType: missions.missionType,
+  difficulty: missions.difficulty,
+  instructions: missions.instructions,
+  estimatedMinutes: missions.estimatedMinutes,
+  pointsAvailable: missions.pointsAvailable,
+  evidenceRequired: missions.evidenceRequired,
+  verificationMethod: missions.verificationMethod,
+  repeatPolicy: missions.repeatPolicy,
+  sdgIds: missions.sdgIds,
+  zoneName: sustainabilityZones.name,
+  zoneSlug: sustainabilityZones.slug,
+  zoneIcon: sustainabilityZones.icon,
+  zoneSortOrder: sustainabilityZones.sortOrder,
+};
+
+export async function getPublishedMissions(zoneSlug?: string): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select(missionCardColumns)
+    .from(missions)
+    .leftJoin(sustainabilityZones, eq(missions.zoneId, sustainabilityZones.id))
+    .where(eq(missions.isPublished, true))
+    .orderBy(asc(sustainabilityZones.sortOrder), asc(missions.id));
+
+  if (!zoneSlug) return rows;
+  return rows.filter((row) => row.zoneSlug === zoneSlug);
+}
+
+export async function getMissionBySlug(slug: string): Promise<any | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const rows = await db
+    .select(missionCardColumns)
+    .from(missions)
+    .leftJoin(sustainabilityZones, eq(missions.zoneId, sustainabilityZones.id))
+    .where(and(eq(missions.slug, slug), eq(missions.isPublished, true)))
+    .limit(1);
+
+  return rows[0];
+}
+
+export async function getMissionById(id: number): Promise<Mission | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(missions).where(eq(missions.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function getSustainabilityZones(): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(sustainabilityZones)
+    .where(eq(sustainabilityZones.isActive, true))
+    .orderBy(asc(sustainabilityZones.sortOrder));
+}
+
+export async function getSustainabilityZoneBySlug(
+  slug: string,
+): Promise<SustainabilityZone | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const rows = await db
+    .select()
+    .from(sustainabilityZones)
+    .where(eq(sustainabilityZones.slug, slug))
+    .limit(1);
+
+  return rows[0];
+}
+
+// ---------- Mission completions ----------
+
+export async function getMissionCompletion(
+  missionId: number,
+  studentId: number,
+  academicYearId: number,
+): Promise<MissionCompletion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const rows = await db
+    .select()
+    .from(missionCompletions)
+    .where(
+      and(
+        eq(missionCompletions.missionId, missionId),
+        eq(missionCompletions.studentId, studentId),
+        eq(missionCompletions.academicYearId, academicYearId),
+      ),
+    )
+    .limit(1);
+
+  return rows[0];
+}
+
+export async function getMissionCompletionById(
+  id: number,
+): Promise<MissionCompletion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const rows = await db
+    .select()
+    .from(missionCompletions)
+    .where(eq(missionCompletions.id, id))
+    .limit(1);
+
+  return rows[0];
+}
+
+export async function getStudentMissionCompletions(
+  studentId: number,
+  academicYearId: number,
+): Promise<MissionCompletion[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(missionCompletions)
+    .where(
+      and(
+        eq(missionCompletions.studentId, studentId),
+        eq(missionCompletions.academicYearId, academicYearId),
+      ),
+    )
+    .orderBy(asc(missionCompletions.id));
+}
+
+/**
+ * Starts a mission for a student. Idempotent: a second call returns the
+ * existing row instead of failing on the unique index.
+ */
+export async function startMissionCompletion(input: {
+  missionId: number;
+  studentId: number;
+  academicYearId: number;
+}): Promise<MissionCompletion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  await db
+    .insert(missionCompletions)
+    .values({
+      missionId: input.missionId,
+      studentId: input.studentId,
+      academicYearId: input.academicYearId,
+      status: "in_progress",
+    })
+    .onConflictDoNothing();
+
+  return getMissionCompletion(input.missionId, input.studentId, input.academicYearId);
+}
+
+export async function submitMissionCompletion(input: {
+  completionId: number;
+  studentId: number;
+  evidence?: string | null;
+  reflection?: string | null;
+}): Promise<MissionCompletion | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const now = new Date();
+  const rows = await db
+    .update(missionCompletions)
+    .set({
+      status: "submitted",
+      evidence: input.evidence ?? null,
+      reflection: input.reflection ?? null,
+      submittedAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(missionCompletions.id, input.completionId),
+        eq(missionCompletions.studentId, input.studentId),
+      ),
+    )
+    .returning();
+
+  return rows[0];
+}
+
+export async function getMissionVerificationQueue(): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      completion: {
+        id: missionCompletions.id,
+        missionId: missionCompletions.missionId,
+        studentId: missionCompletions.studentId,
+        academicYearId: missionCompletions.academicYearId,
+        status: missionCompletions.status,
+        evidence: missionCompletions.evidence,
+        reflection: missionCompletions.reflection,
+        submittedAt: missionCompletions.submittedAt,
+      },
+      missionTitle: missions.title,
+      missionSlug: missions.slug,
+      missionPoints: missions.pointsAvailable,
+      studentName: users.name,
+      studentEmail: users.email,
+    })
+    .from(missionCompletions)
+    .innerJoin(missions, eq(missionCompletions.missionId, missions.id))
+    .leftJoin(users, eq(missionCompletions.studentId, users.id))
+    .where(inArray(missionCompletions.status, ["submitted", "verification_required"]))
+    .orderBy(asc(missionCompletions.submittedAt));
+}
+
+/**
+ * Teacher decision on a submitted mission.
+ *
+ * On approval, in ONE transaction:
+ *   1. marks the completion as completed / verified,
+ *   2. writes a verified point event for the mission (idempotent),
+ *   3. evaluates every active badge and awards the newly earned ones
+ *      (each with its bonus point event).
+ */
+export async function reviewMissionCompletion(input: {
+  completionId: number;
+  decision: "approve" | "request_revision" | "reject";
+  reviewerId: number;
+  feedback?: string | null;
+  score?: number | null;
+}): Promise<{ status: string; awardedPoints: number; awardedBadges: string[] }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.transaction(async (tx) => {
+    const completionRows = await tx
+      .select()
+      .from(missionCompletions)
+      .where(eq(missionCompletions.id, input.completionId))
+      .limit(1);
+
+    const completion = completionRows[0];
+    if (!completion) throw new Error("Mission completion not found");
+
+    const approved = input.decision === "approve";
+    const nextStatus =
+      input.decision === "approve"
+        ? "completed"
+        : input.decision === "request_revision"
+          ? "revision_requested"
+          : "rejected";
+
+    const now = new Date();
+    await tx
+      .update(missionCompletions)
+      .set({
+        status: nextStatus,
+        score: input.score ?? completion.score ?? null,
+        teacherFeedback: input.feedback ?? completion.teacherFeedback ?? null,
+        verifiedBy: approved ? input.reviewerId : null,
+        verifiedAt: approved ? now : null,
+        completedAt: approved ? now : null,
+        updatedAt: now,
+      })
+      .where(eq(missionCompletions.id, input.completionId));
+
+    if (!approved) {
+      return { status: nextStatus, awardedPoints: 0, awardedBadges: [] };
+    }
+
+    const missionRows = await tx
+      .select({ id: missions.id, title: missions.title, pointsAvailable: missions.pointsAvailable })
+      .from(missions)
+      .where(eq(missions.id, completion.missionId))
+      .limit(1);
+    const mission = missionRows[0];
+
+    let awardedPoints = 0;
+
+    if (mission && mission.pointsAvailable > 0) {
+      // The unique index on (student, year, source_type, source_id) makes this idempotent.
+      await tx
+        .insert(sustainabilityPointEvents)
+        .values({
+          studentId: completion.studentId,
+          academicYearId: completion.academicYearId,
+          sourceType: "mission",
+          sourceId: completion.missionId,
+          points: mission.pointsAvailable,
+          reason: `Mission approved: ${mission.title}`,
+          verificationStatus: "verified",
+          verifiedBy: input.reviewerId,
+        })
+        .onConflictDoNothing();
+      awardedPoints += mission.pointsAvailable;
+    }
+
+    // ---- badge evaluation (same transaction) ----
+    const statsRows = await tx
+      .select({
+        missionId: missions.id,
+        zoneId: missions.zoneId,
+        zoneSlug: sustainabilityZones.slug,
+        missionType: missions.missionType,
+        sdgIds: missions.sdgIds,
+      })
+      .from(missionCompletions)
+      .innerJoin(missions, eq(missionCompletions.missionId, missions.id))
+      .leftJoin(sustainabilityZones, eq(missions.zoneId, sustainabilityZones.id))
+      .where(
+        and(
+          eq(missionCompletions.studentId, completion.studentId),
+          eq(missionCompletions.academicYearId, completion.academicYearId),
+          inArray(missionCompletions.status, ["completed", "verified"]),
+        ),
+      );
+
+    const pointRows = await tx
+      .select({ points: sustainabilityPointEvents.points, status: sustainabilityPointEvents.verificationStatus })
+      .from(sustainabilityPointEvents)
+      .where(
+        and(
+          eq(sustainabilityPointEvents.studentId, completion.studentId),
+          eq(sustainabilityPointEvents.academicYearId, completion.academicYearId),
+        ),
+      );
+
+    const verifiedImpact = await tx
+      .select({ id: impactEntries.id })
+      .from(impactEntries)
+      .where(
+        and(
+          eq(impactEntries.studentId, completion.studentId),
+          eq(impactEntries.verificationStatus, "verified"),
+        ),
+      );
+
+    const sdgNumbers = new Set<number>();
+    for (const row of statsRows) {
+      if (!row.sdgIds) continue;
+      try {
+        const parsed = JSON.parse(row.sdgIds);
+        if (Array.isArray(parsed)) {
+          for (const value of parsed) {
+            const num = Number(value);
+            if (Number.isFinite(num)) sdgNumbers.add(num);
+          }
+        }
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+
+    const stats = {
+      missionCount: statsRows.length,
+      zoneCount: new Set(statsRows.map((row) => row.zoneId)).size,
+      sdgCount: sdgNumbers.size,
+      verifiedActions: verifiedImpact.length,
+      totalPoints: pointRows
+        .filter((row) => row.status === "verified")
+        .reduce((total, row) => total + (row.points ?? 0), 0),
+      countMatching: (config: { zoneSlug?: string; missionType?: string }) =>
+        statsRows.filter((row) => {
+          if (config.zoneSlug && row.zoneSlug !== config.zoneSlug) return false;
+          if (config.missionType && row.missionType !== config.missionType) return false;
+          return true;
+        }).length,
+    };
+
+    const activeBadges = await tx.select().from(badges).where(eq(badges.isActive, true));
+    const alreadyEarned = await tx
+      .select({ badgeId: studentBadges.badgeId })
+      .from(studentBadges)
+      .where(
+        and(
+          eq(studentBadges.studentId, completion.studentId),
+          eq(studentBadges.academicYearId, completion.academicYearId),
+        ),
+      );
+    const earnedIds = new Set(alreadyEarned.map((row) => row.badgeId));
+    const awardedBadges: string[] = [];
+
+    for (const badge of activeBadges) {
+      if (earnedIds.has(badge.id)) continue;
+
+      let config: any = {};
+      try {
+        config = JSON.parse(badge.criteriaConfig ?? "{}");
+      } catch {
+        config = {};
+      }
+
+      const required = Number(config.count ?? config.points ?? 1) || 1;
+      let met = false;
+
+      switch (badge.criteriaType) {
+        case "mission_count":
+          met = stats.countMatching(config) >= required;
+          break;
+        case "points_threshold":
+          met = stats.totalPoints >= Number(config.points ?? config.count ?? 1);
+          break;
+        case "zone_count":
+          met = stats.zoneCount >= required;
+          break;
+        case "sdg_count":
+          met = stats.sdgCount >= required;
+          break;
+        case "verified_actions":
+          met = stats.verifiedActions >= required;
+          break;
+        case "manual":
+        default:
+          met = false;
+      }
+
+      if (!met) continue;
+
+      const insertedBadge = await tx
+        .insert(studentBadges)
+        .values({
+          badgeId: badge.id,
+          studentId: completion.studentId,
+          academicYearId: completion.academicYearId,
+          evidence: badge.description,
+        })
+        .onConflictDoNothing()
+        .returning({ id: studentBadges.id });
+
+      // Another request already awarded it.
+      if (insertedBadge.length === 0) continue;
+
+      awardedBadges.push(badge.name);
+
+      if (badge.pointsReward > 0) {
+        await tx
+          .insert(sustainabilityPointEvents)
+          .values({
+            studentId: completion.studentId,
+            academicYearId: completion.academicYearId,
+            sourceType: "badge",
+            sourceId: badge.id,
+            points: badge.pointsReward,
+            reason: `Badge earned: ${badge.name}`,
+            verificationStatus: "verified",
+            verifiedBy: input.reviewerId,
+          })
+          .onConflictDoNothing();
+        awardedPoints += badge.pointsReward;
+      }
+    }
+
+    return { status: nextStatus, awardedPoints, awardedBadges };
+  });
+}
+
+// ---------- Passport (points, levels, badges) ----------
+
+export async function getSustainabilityLevels(): Promise<SustainabilityLevel[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(sustainabilityLevels)
+    .where(eq(sustainabilityLevels.isActive, true))
+    .orderBy(asc(sustainabilityLevels.minPoints));
+}
+
+export async function getStudentPointsTotal(
+  studentId: number,
+  academicYearId: number,
+): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const rows = await db
+    .select({ points: sustainabilityPointEvents.points, status: sustainabilityPointEvents.verificationStatus })
+    .from(sustainabilityPointEvents)
+    .where(
+      and(
+        eq(sustainabilityPointEvents.studentId, studentId),
+        eq(sustainabilityPointEvents.academicYearId, academicYearId),
+      ),
+    );
+
+  return rows
+    .filter((row) => row.status === "verified")
+    .reduce((total, row) => total + (row.points ?? 0), 0);
+}
+
+/**
+ * The full student passport used by the My Journey page and the game hub.
+ */
+export type StudentPassport = {
+  academicYear: { id: number; label: string } | null;
+  totalPoints: number;
+  completedMissions: number;
+  currentLevel: SustainabilityLevel | null;
+  nextLevel: SustainabilityLevel | null;
+  badges: { badge: Badge; earnedAt: Date | null }[];
+  recentEvents: {
+    id: number;
+    points: number;
+    reason: string;
+    sourceType: string;
+    createdAt: Date;
+  }[];
+  missionStates: { missionId: number; status: string; score: number | null }[];
+};
+
+export async function getStudentPassport(
+  studentId: number,
+  academicYearId?: number,
+): Promise<StudentPassport> {
+  const db = await getDb();
+  if (!db) {
+    return {
+      academicYear: null,
+      totalPoints: 0,
+      completedMissions: 0,
+      currentLevel: null,
+      nextLevel: null,
+      badges: [],
+      recentEvents: [],
+      missionStates: [],
+    };
+  }
+
+  const year = academicYearId
+    ? await getAcademicYearById(academicYearId)
+    : await getCurrentAcademicYear();
+
+  const levels = await getSustainabilityLevels();
+  const activeBadges = await db
+    .select()
+    .from(badges)
+    .where(eq(badges.isActive, true))
+    .orderBy(asc(badges.id));
+
+  if (!year) {
+    return {
+      academicYear: null,
+      totalPoints: 0,
+      completedMissions: 0,
+      currentLevel: levels[0] ?? null,
+      nextLevel: levels[1] ?? null,
+      badges: activeBadges.map((badge) => ({ badge, earnedAt: null })),
+      recentEvents: [],
+      missionStates: [],
+    };
+  }
+
+  const totalPoints = await getStudentPointsTotal(studentId, year.id);
+
+  const completions = await getStudentMissionCompletions(studentId, year.id);
+  const completedStatuses = new Set(["completed", "verified"]);
+  const completedMissions = completions.filter((row) => completedStatuses.has(row.status)).length;
+
+  const earnedRows = await db
+    .select({ badgeId: studentBadges.badgeId, earnedAt: studentBadges.earnedAt })
+    .from(studentBadges)
+    .where(
+      and(eq(studentBadges.studentId, studentId), eq(studentBadges.academicYearId, year.id)),
+    );
+  const earnedMap = new Map(earnedRows.map((row) => [row.badgeId, row.earnedAt]));
+
+  const recentEvents = await db
+    .select({
+      id: sustainabilityPointEvents.id,
+      points: sustainabilityPointEvents.points,
+      reason: sustainabilityPointEvents.reason,
+      sourceType: sustainabilityPointEvents.sourceType,
+      createdAt: sustainabilityPointEvents.createdAt,
+    })
+    .from(sustainabilityPointEvents)
+    .where(
+      and(
+        eq(sustainabilityPointEvents.studentId, studentId),
+        eq(sustainabilityPointEvents.academicYearId, year.id),
+        eq(sustainabilityPointEvents.verificationStatus, "verified"),
+      ),
+    )
+    .orderBy(desc(sustainabilityPointEvents.createdAt))
+    .limit(10);
+
+  const currentLevel =
+    [...levels].reverse().find((level) => totalPoints >= level.minPoints) ?? levels[0] ?? null;
+  const nextLevel = levels.find((level) => totalPoints < level.minPoints) ?? null;
+
+  return {
+    academicYear: { id: year.id, label: year.label },
+    totalPoints,
+    completedMissions,
+    currentLevel,
+    nextLevel,
+    badges: activeBadges.map((badge) => ({
+      badge,
+      earnedAt: earnedMap.get(badge.id) ?? null,
+    })),
+    recentEvents,
+    missionStates: completions.map((row) => ({
+      missionId: row.missionId,
+      status: row.status,
+      score: row.score,
+    })),
+  };
+}
+
+// ---------- Impact entries ----------
+
+export async function getSchoolImpactSummary(): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      metricType: impactEntries.metricType,
+      unit: impactEntries.unit,
+      total: sum(impactEntries.quantity),
+    })
+    .from(impactEntries)
+    .where(eq(impactEntries.verificationStatus, "verified"))
+    .groupBy(impactEntries.metricType, impactEntries.unit);
+
+  return rows.map((row) => ({
+    metricType: row.metricType,
+    metricLabel: null,
+    unit: row.unit,
+    total: Number(row.total ?? 0),
+  }));
+}
+
+export async function getStudentImpactEntries(
+  studentId: number,
+  academicYearId: number,
+): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(impactEntries)
+    .where(
+      and(
+        eq(impactEntries.studentId, studentId),
+        eq(impactEntries.academicYearId, academicYearId),
+      ),
+    )
+    .orderBy(desc(impactEntries.createdAt));
+}
+
+export async function createImpactEntry(
+  entry: InsertImpactEntry,
+): Promise<{ id: number } | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const rows = await db.insert(impactEntries).values(entry).returning({ id: impactEntries.id });
+  return rows[0];
+}
+
+export async function reviewImpactEntry(input: {
+  id: number;
+  decision: "verify" | "reject";
+  reviewerId: number;
+}): Promise<{ status: string }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const now = new Date();
+  const rows = await db
+    .update(impactEntries)
+    .set({
+      verificationStatus: input.decision === "verify" ? "verified" : "rejected",
+      verifiedBy: input.reviewerId,
+      verifiedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(impactEntries.id, input.id))
+    .returning({ status: impactEntries.verificationStatus });
+
+  return { status: rows[0]?.status ?? "unknown" };
+}
+
+export async function getImpactEntriesAwaitingReview(): Promise<any[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      entry: impactEntries,
+      studentName: users.name,
+      studentEmail: users.email,
+    })
+    .from(impactEntries)
+    .leftJoin(users, eq(impactEntries.studentId, users.id))
+    .where(eq(impactEntries.verificationStatus, "pending"))
+    .orderBy(asc(impactEntries.createdAt));
 }
