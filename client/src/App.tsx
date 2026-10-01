@@ -2,11 +2,11 @@ import Gateway from "./pages/Gateway";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
-import { lazy, Suspense } from "react";
+import { Route, Switch, useLocation } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
 import { UserWelcomeToast } from "./components/UserWelcomeToast";
 
 // Eagerly load only the most-visited pages
@@ -45,6 +45,32 @@ const PageFallback = () => (
   </div>
 );
 
+/**
+ * بطاقة الموقع في Gateway تحيل إلى /dashboard، وهذا المسار لم يكن معرّفًا
+ * فيظهر خطأ 404. هنا نوجّه كل دور إلى لوحته الصحيحة.
+ */
+function DashboardRedirect() {
+  const [, setLocation] = useLocation();
+  const { isAuthenticated, user } = useAuthContext();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setLocation("/login?redirectTo=%2Fdashboard");
+      return;
+    }
+    const role = user?.role;
+    setLocation(
+      role === "admin"
+        ? "/admin/dashboard"
+        : role === "teacher"
+          ? "/teacher/dashboard"
+          : "/student/dashboard",
+    );
+  }, [isAuthenticated, user?.role, setLocation]);
+
+  return <PageFallback />;
+}
+
 function Router() {
   return (
     <Suspense fallback={<PageFallback />}>
@@ -82,6 +108,8 @@ function Router() {
         <Route path="/explore" component={Explore} />
         <Route path="/explore/:categorySlug" component={ZoneDetail} />
         <Route path="/teacher/mission-verification" component={MissionVerification} />
+        {/* /dashboard كان مسارًا ميتًا يحيل إليه Gateway */}
+        <Route path="/dashboard" component={DashboardRedirect} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>
