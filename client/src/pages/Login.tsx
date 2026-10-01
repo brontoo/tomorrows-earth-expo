@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,13 @@ import { Loader, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 type LoginRole = "admin" | "teacher" | "student" | "visitor";
 
 export default function Login() {
   const [, setLocation] = useLocation();
+  const { isAuthenticated, loading: authLoading } = useAuthContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,6 +22,13 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const loginMutation = trpc.auth.loginWithEmail.useMutation();
   const syncUserMutation = trpc.auth.syncUser.useMutation();
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || isLoading) return;
+
+    const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
+    setLocation(redirectTo || "/eco-journey");
+  }, [authLoading, isAuthenticated, isLoading, setLocation]);
 
   const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
