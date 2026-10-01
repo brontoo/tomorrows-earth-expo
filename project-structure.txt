@@ -1,0 +1,6 @@
+server
+server/scripts
+server/routers
+server/data
+server/_core
+server/_core/types

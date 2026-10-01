@@ -1,0 +1,475 @@
+/* src/style.css */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #061814; 
+  color: #ffffff;
+}
+
+.hero-section {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #0a2922 0%, #04100d 100%);
+}
+
+#star-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.floating-asteroid {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transition: transform 0.1s ease-out;
+  filter: drop-shadow(0 0 12px rgba(0, 255, 136, 0.25));
+}
+
+.hero-content {
+  position: absolute;
+  z-index: 10;
+  text-align: center;
+  max-width: 900px;
+  padding: 0 20px;
+  pointer-events: auto;
+}
+
+.hero-title {
+  font-size: 3.8rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -1px;
+  margin-bottom: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 28px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #04100d;
+  background: #ffffff;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.25);
+}
+
+.cta-button:hover {
+  transform: scale(1.06);
+  background: #00ff88;
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+}
+
+.cta-button .btn-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #04100d;
+  border-radius: 50%;
+  color: #fff;
+  transition: transform 0.3s ease, background 0.3s ease, color 0.3s ease;
+}
+
+.cta-button:hover .btn-arrow {
+  transform: translateX(5px);
+  background: #04100d;
+  color: #00ff88;
+}
+
+.pod-wrapper {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(0, 255, 136, 0.2) 0%, rgba(6, 24, 20, 0) 70%);
+  border-radius: 50%;
+}
+
+.radar-ring {
+  position: absolute;
+  width: 450px;
+  height: 450px;
+  border: 2px dashed rgba(0, 255, 136, 0.8);
+  border-radius: 50%;
+  z-index: 4;
+  opacity: 0;
+  transform: scale(0.5) rotate(0deg);
+  pointer-events: none;
+  box-shadow: 0 0 35px rgba(0, 255, 136, 0.3), inset 0 0 35px rgba(0, 255, 136, 0.15);
+}
+
+/* حاوية عرض القصة (Stories) */
+/* src/style.css */
+
+#story-container {
+  position: absolute;
+  top: 72%; /* نزول حاوية النصوص لتصبح أسفل الدائرة الخضراء تماماً */
+  left: 50%;
+  transform: translateX(-50%); /* إلغاء التوسيط الرأسي السابق والاعتماد على الـ top المباشر */
+  width: 90%;
+  max-width: 900px;
+  height: auto;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+
+.story-slide-group {
+  position: absolute;
+  width: 100%;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.story-title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 900;
+  color: #00ff88;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 15px;
+  text-shadow: 0 0 25px rgba(0, 255, 136, 0.7);
+  opacity: 0;
+}
+
+.story-desc {
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+  font-weight: 500;
+  color: #e6fffa;
+  text-shadow: 0 4px 15px rgba(0, 0, 0, 0.9);
+  line-height: 1.5;
+  opacity: 0;
+}
+
+/* شريط التقدم */
+.progress-container {
+  position: absolute;
+  bottom: 5%; 
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 400px;
+  display: flex;
+  gap: 10px;
+  z-index: 20;
+  opacity: 0; 
+  pointer-events: none;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  width: 0%;
+  height: 100%;
+  background-color: #00ff88;
+  border-radius: 4px;
+  box-shadow: 0 0 10px #00ff88;
+}
+
+/* الخريطة المجمعة - الهولوغرام */
+#combined-map-container {
+  position: absolute;
+  top: 45%; 
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.5);
+  z-index: 15;
+  width: 100%;
+  max-width: 650px;
+  height: 400px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  filter: drop-shadow(0 0 2px #00ff88) drop-shadow(0 0 5px #00ff88) drop-shadow(0 0 20px rgba(0, 255, 136, 0.8));
+}
+
+.combined-map-hologram {
+  width: 100%;
+  height: 100%;
+  background-color: #00ff88;
+  -webkit-mask-image: url('/new uae.svg');
+  mask-image: url('/new uae.svg');
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  animation: pulseHologram 3s infinite alternate ease-in-out;
+}
+
+@keyframes pulseHologram {
+  0% { transform: translateY(0px) scale(1); filter: drop-shadow(0 0 10px rgba(0, 255, 136, 0.5)); }
+  100% { transform: translateY(-15px) scale(1.02); filter: drop-shadow(0 0 25px rgba(0, 255, 136, 0.9)); }
+}
+
+.split-screen {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 8%;
+  pointer-events: none;
+}
+
+.split-text {
+  font-size: 2.2rem;
+  font-weight: 700;
+  max-width: 380px;
+  line-height: 1.3;
+  opacity: 0;
+  color: #e6fffa;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.split-left { text-align: left; transform: translateX(-50px); }
+.split-right { text-align: right; transform: translateX(50px); }
+
+.lines-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.emirate-group {
+  cursor: pointer;
+  pointer-events: auto;
+  transform-origin: 0px 0px; 
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.emirate-group:hover {
+  transform: translateY(-12px) scale(1.15); 
+}
+
+.node-base {
+  fill: transparent; 
+  stroke: rgba(0, 255, 136, 0.2);
+  stroke-width: 1.5;
+  transition: all 0.4s ease;
+}
+
+.emirate-group:hover .node-base {
+  fill: rgba(0, 255, 136, 0.08); 
+  stroke: rgba(0, 255, 136, 0.9);
+  filter: drop-shadow(0px 0px 12px rgba(0, 255, 136, 0.4));
+}
+
+.emirate-hologram-wrapper {
+  width: 100%;
+  height: 100%;
+  background-color: #00ff88;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  filter: drop-shadow(0px 0px 5px rgba(0, 255, 136, 0.8));
+  transition: all 0.4s ease;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.emirate-group:hover .emirate-hologram-wrapper {
+  background-color: #ffffff;
+  filter: drop-shadow(0px 0px 20px rgba(255, 255, 255, 1)) drop-shadow(0px 0px 10px rgba(0, 255, 136, 1));
+}
+
+.emirate-label {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  fill: #a7f3d0;
+  text-anchor: middle;
+  pointer-events: none;
+  letter-spacing: 1px;
+  filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.9));
+  transition: all 0.4s ease;
+}
+
+.emirate-group:hover .emirate-label {
+  fill: #ffffff;
+  font-size: 17px;
+  filter: drop-shadow(0px 0px 8px rgba(0, 255, 136, 0.9));
+}
+
+/* =========================================
+   مسار المهام التفاعلي (Eco-Journey Map)
+   ========================================= */
+
+#journey-container {
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  width: 90%;
+  height: 60vh; /* يشغل المساحة العلوية التي أفرغناها */
+  z-index: 10;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* مسار الطاقة المتوهج */
+.eco-path-line {
+  fill: none;
+  stroke: rgba(0, 255, 136, 0.3);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10 15;
+  filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.5));
+}
+
+.eco-path-glow {
+  fill: none;
+  stroke: #00ff88;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 136, 0.9));
+}
+
+/* عقد المراحل (Stage Nodes) */
+.stage-node {
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.stage-node:hover {
+  transform: scale(1.2);
+}
+
+/* عقدة مقفلة (زجاجية باهتة) */
+.node-locked circle {
+  fill: rgba(6, 24, 20, 0.8);
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 2;
+  backdrop-filter: blur(4px);
+}
+.node-locked text {
+  fill: rgba(255, 255, 255, 0.5);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* عقدة نشطة (متوهجة) */
+.node-active circle {
+  fill: #00ff88;
+  stroke: #ffffff;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 15px rgba(0, 255, 136, 0.8));
+}
+.node-active text {
+  fill: #04100d;
+  font-family: 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* مؤشر اللاعب (You Are Here) */
+.player-indicator {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translate(-50%, -100%);
+  margin-top: -15px; /* يرتفع قليلاً عن العقدة */
+  pointer-events: none;
+}
+
+.indicator-card {
+  background: rgba(4, 16, 13, 0.9);
+  border: 1px solid #00ff88;
+  padding: 8px 16px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 255, 136, 0.2);
+  backdrop-filter: blur(10px);
+  text-align: center;
+}
+
+.indicator-title {
+  color: #00ff88;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.indicator-mission {
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.indicator-arrow {
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 10px solid #00ff88;
+  margin-top: -1px;
+  filter: drop-shadow(0 5px 5px rgba(0, 255, 136, 0.5));
+}

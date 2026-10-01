@@ -1,3 +1,4 @@
+import Gateway from "./pages/Gateway";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -27,6 +28,8 @@ const ProjectSubmissionPage   = lazy(() => import("./pages/ProjectSubmissionPage
 const SubcategoriesPage       = lazy(() => import("./pages/SubcategoriesPage"));
 const SubcategoryDetailPage   = lazy(() => import("./pages/SubcategoryDetailPage"));
 const ChooseRole              = lazy(() => import("./pages/ChooseRole"));
+// تمت إضافة مسار اللعبة كتحميل متأخر (Lazy-load)
+const EcoJourneyPage          = lazy(() => import("./pages/EcoJourneyPage"));
 
 const PageFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
@@ -38,6 +41,7 @@ function Router() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
+        <Route path="/" component={Gateway} />
         <Route path="/" component={Home} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={SignUp} />
@@ -59,6 +63,8 @@ function Router() {
         <Route path="/category/:categoryId/subcategory/:subcategoryName/submit" component={ProjectSubmissionPage} />
         <Route path="/my-projects" component={StudentDashboard} />
         <Route path="/my-projects/:projectId" component={ProjectDetail} />
+        {/* تمت إضافة مسار اللعبة هنا */}
+        <Route path="/eco-journey" component={EcoJourneyPage} />
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -71,7 +77,7 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider defaultTheme="light">
         <AuthProvider>
-          <TooltipProvider style={{position: 'relative', zIndex: 10}}>
+          <TooltipProvider>
             <Toaster />
             <UserWelcomeToast />
             <Router />
