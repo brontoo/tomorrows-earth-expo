@@ -43,7 +43,14 @@ export default function EcoJourney() {
     ),
   };
 
-  useEffect(() => {
+    useEffect(() => {
+    // اللعبة شاشة كاملة: اقفل تمرير الصفحة أثناءها فقط
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    document.body.style.height = "100%";
+    document.documentElement.style.height = "100%";
+
+    
     // 1. تهيئة مشهد Three.js (نمرر العنصر نفسه وليس نصاً)
     const podElement = document.getElementById("pod-container") as HTMLDivElement | null;
     const disposePod = podElement ? init3DPod(podElement) : undefined;
@@ -564,10 +571,16 @@ export default function EcoJourney() {
       }
     }, containerRef);
 
-    return () => {
+      return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       if (ctx) ctx.revert();
       if (disposePod) disposePod();
+
+      // مغادرة اللعبة: أعد التمرير لبقية صفحات المنصة
+      document.documentElement.style.overflow = "auto";
+      document.body.style.overflow = "auto";
+      document.body.style.height = "auto";
+      document.documentElement.style.height = "auto";
     };
   }, []);
 

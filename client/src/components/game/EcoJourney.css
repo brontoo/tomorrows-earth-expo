@@ -1,17 +1,18 @@
 /* src/style.css */
 
-* {
+/* مهم: هذه القواعد مقيّدة داخل قسم اللعبة فقط.
+   قاعدة `*` غير الموضوعة في @layer تتقدّم على أدوات Tailwind
+   (@layer utilities) فتقتل p-* و m-* و mx-auto في بقية المنصة
+   بعد مجرد زيارة اللعبة. لذلك نحصرها في .hero-section وشجرتها. */
+.hero-section,
+.hero-section * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body, html {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
+.hero-section {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #061814; 
   color: #ffffff;
 }
 
