@@ -1,4 +1,5 @@
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc.js";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
@@ -29,18 +30,24 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
+      const normalizedEmail = input.email.toLowerCase();
+      const existingUser = await db.getUserByEmail(normalizedEmail);
+
+      if (!existingUser?.passwordHash || !(await bcrypt.compare(input.password, existingUser.passwordHash))) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid email or password" });
+      }
 
       const ensuredUser = await db.upsertUser({
-        email: input.email,
-        openId: `email:${input.email.toLowerCase()}`,
-        name: input.email.split("@")[0] ?? "User",
-        role: input.role,
+        email: normalizedEmail,
+        openId: existingUser.openId ?? `email:${normalizedEmail}`,
+        name: existingUser.name ?? normalizedEmail.split("@")[0] ?? "User",
+        role: existingUser.role,
         loginMethod: "email",
         lastSignedIn: new Date(),
       });
 
       if (!ensuredUser) {
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create user session" });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create or fetch user from database" });
       }
 
       let sessionToken: string;
@@ -81,10 +88,50 @@ export const authRouter = router({
         subject: z.string().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      const normalizedEmail = input.email.toLowerCase();
+      const passwordHash = await bcrypt.hash(input.password, 12);
+
+      const newUser = await db.upsertUser({
+        email: normalizedEmail,
+        openId: `email:${normalizedEmail}`,
+        name: input.fullName,
+        role: input.role,
+        passwordHash,
+        loginMethod: "email",
+        lastSignedIn: new Date(),
+      });
+
+      if (!newUser) {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to register user in database" });
+      }
+
+      let sessionToken: string;
+      try {
+        sessionToken = await sdk.createSessionToken(newUser.openId || `email:${input.email.toLowerCase()}`, {
+          name: newUser.name || "User",
+          email: newUser.email,
+          role: newUser.role,
+        });
+      } catch (err) {
+        console.error("[Auth] Failed to sign session token:", err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Session signing failed." });
+      }
+
+      ctx.res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
+
       return {
         success: true,
-        message: `Mock registration successful for ${input.email}`,
+        user: {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name || "User",
+          role: newUser.role as UserRole,
+        },
       };
     }),
 
@@ -125,7 +172,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const normalizedRole: UserRole | undefined =
-        input.role === "visitor" ? "public" : input.role;
+        input.role === "visitor" ? "public" : (input.role as UserRole);
 
       const ensuredUser = await db.upsertUser({
         email: input.email,
@@ -185,7 +232,7 @@ export const authRouter = router({
 
       return {
         success: true,
-        email: "mock@example.com",
+        email: "verified@example.com",
       };
     }),
 });

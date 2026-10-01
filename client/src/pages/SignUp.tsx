@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import Navigation from "@/components/Navigation";
 import { AlertCircle, CheckCircle, Eye, EyeOff, User, Loader } from "lucide-react";
 import { useLocation, Link } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 interface FormData {
   fullName: string;
@@ -37,6 +37,7 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const registerMutation = trpc.auth.registerUser.useMutation();
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -89,28 +90,20 @@ export default function SignUp() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: formData.email,
+      const result = await registerMutation.mutateAsync({
+        fullName: formData.fullName.trim(),
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        options: {
-          data: {
-            full_name: formData.fullName,
-          },
-        },
+        role: "student",
       });
 
-      if (error) throw error;
-
-      const user = data.user;
-      if (user) {
-        localStorage.setItem("mock-user", JSON.stringify({
-          id: user.id,
-          openId: user.id,
-          email: user.email ?? "",
-          name: formData.fullName,
-          role: "visitor",
-        }));
-      }
+      localStorage.setItem("mock-user", JSON.stringify({
+        id: result.user.id,
+        openId: `email:${formData.email.trim().toLowerCase()}`,
+        email: result.user.email,
+        name: result.user.name,
+        role: result.user.role,
+      }));
 
       setSuccessMessage("Account created! Redirecting you to choose your portal...");
       setTimeout(() => setLocation("/choose-role"), 1500);
@@ -181,20 +174,6 @@ export default function SignUp() {
                     />
                     {errors.email && <p className="text-destructive text-[10px] ml-1 font-bold">{errors.email}</p>}
                   </div>
-
-                  {formData.role === "teacher" && (
-                    <div className="space-y-2 animate-fadeIn">
-                      <Input
-                        id="subject"
-                        name="subject"
-                        placeholder="Subject (e.g. Science, Technology)"
-                        value={formData.subject}
-                        onChange={handleInputChange}
-                        className="bg-white/50 border-border h-12"
-                      />
-                      {errors.subject && <p className="text-destructive text-[10px] ml-1 font-bold">{errors.subject}</p>}
-                    </div>
-                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2 relative">

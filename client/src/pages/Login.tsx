@@ -7,6 +7,7 @@ import Navigation from "@/components/Navigation";
 import { Loader, Eye, EyeOff, AlertTriangle } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 
 type LoginRole = "admin" | "teacher" | "student" | "visitor";
 
@@ -18,6 +19,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loginMutation = trpc.auth.loginWithEmail.useMutation();
+  const syncUserMutation = trpc.auth.syncUser.useMutation();
 
   const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -30,37 +32,58 @@ export default function Login() {
 
     setIsLoading(true);
     try {
-      const result = await loginMutation.mutateAsync({
-        email,
-        password,
-      });
+      const normalizedEmail = email.trim().toLowerCase();
+      let authenticatedUser;
 
-      const resolvedRole: LoginRole = (result.user?.role as LoginRole) || "visitor";
+      try {
+        const result = await loginMutation.mutateAsync({
+          email: normalizedEmail,
+          password,
+        });
+        authenticatedUser = result.user;
+      } catch (localLoginError) {
+        // Legacy accounts were created in Supabase before local password hashes existed.
+        const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (supabaseError || !data.user) {
+          throw localLoginError;
+        }
+
+        const synced = await syncUserMutation.mutateAsync({
+          email: normalizedEmail,
+          name: data.user.user_metadata?.full_name ?? normalizedEmail.split("@")[0] ?? "User",
+          openId: data.user.id,
+        });
+        authenticatedUser = synced.user;
+      }
+
+      const storedRole = authenticatedUser?.role as string | undefined;
+      const resolvedRole = (storedRole === "public" ? "visitor" : storedRole) as LoginRole || "student";
+      const userId = String(authenticatedUser?.id ?? "user-id");
 
       const authUser = {
-        id: result.user?.id,
-        openId: `email:${email.toLowerCase()}`,
-        email: result.user?.email ?? email,
-        name: result.user?.name || email.split("@")[0] || "User",
+        id: userId,
+        openId: `email:${normalizedEmail}`,
+        email: normalizedEmail,
+        name: String(email.split("@")[0] || "User"),
         role: resolvedRole,
       };
 
       localStorage.setItem("mock-user", JSON.stringify(authUser));
 
-      if (resolvedRole === "visitor" || !result.user?.role) {
-        setLocation("/choose-role");
+      const params = new URLSearchParams(window.location.search);
+      const redirectTo = params.get("redirectTo");
+
+      if (redirectTo) {
+        setLocation(redirectTo);
       } else {
-        const dashboardMap: Record<string, string> = {
-          student: "/student/dashboard",
-          teacher: "/teacher/dashboard",
-          admin: "/admin/dashboard",
-        };
-        setLocation(dashboardMap[resolvedRole] || "/");
+        setLocation("/eco-journey");
       }
     } catch (err: any) {
-      const raw: string = err?.message ?? "";
-      const isParseError = raw.includes("Unexpected end of JSON") || raw.includes("JSON input");
-      setError(isParseError ? "Server is unavailable. Please try again." : raw || "Login failed. Please check your credentials.");
+      setError(err?.message || "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
