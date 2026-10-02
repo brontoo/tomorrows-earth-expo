@@ -291,6 +291,11 @@
   color: var(--fj-clay) !important;
 }
 
+/* بو غصن أمام الورقة (لا خلفها) */
+#character-group {
+  z-index: 12 !important;
+}
+
 /* الدائرة الخلفية للشخصية: من نيون إلى حلقة حبر متقطّعة */
 .radar-ring {
   border: 2.2px dashed rgba(63, 90, 53, 0.7) !important;
@@ -315,7 +320,8 @@
 #story-container.fj-story-active::before {
   content: "";
   position: absolute;
-  inset: -26px -42px;
+  /* لوح أوسع وأطول ليحتوي العنوان + الاسم العربي + الوصف كاملين */
+  inset: -52px -90px -240px -90px;
   z-index: -1;
   pointer-events: none;
   border-radius: 2px;
@@ -452,7 +458,7 @@
 }
 
 .emirate-group:hover .emirate-hologram-wrapper {
-  background-color: rgba(63, 90, 53, 0.62) !important;
+  background-color: var(--fj-ghaf-dark) !important;
   filter: none !important;
 }
 
@@ -577,23 +583,22 @@
   }
 
   .hero-content {
-    margin-top: 14vh;
     padding: 30px 26px 26px !important;
   }
 
-  /* ملاحظة: أزلنا الحشوة عن الحاوية (كانت ستُزحزح النص) ونظّمنا اللوح بدلًا منها */
   #story-container {
     width: 92% !important;
+    padding: 22px 22px 26px;
   }
 
-  #story-container.fj-story-active::before {
-    inset: -18px -22px;
+  .story-slide-group {
+    padding: 22px 22px;
   }
 
   .fj-colorbar {
     left: 46px;
     right: 24px;
-    bottom: 12px;
+    bottom: 22px;
   }
 
   .fj-sound {

@@ -146,13 +146,30 @@ export default function EcoJourney() {
         const height = window.innerHeight;
         svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-        const startX = width / 2;
-        const startY = height * 0.72;
-        const endY = height * 0.42;
+        // ===== دفتر الميدان: خريطة الإمارات المجمّعة تنزلق إلى أقصى اليسار،
+        //       ثم تتساقط الإمارات السبع من أعلى واحدة تلو الأخرى (أبوظبي أولًا)
+        //       ويرتسم مسار القلم بين كل إمارة والتي تليها. =====
+        gsap.to("#combined-map-container", {
+          // إزاحة محسوبة لتبقى الخريطة ظاهرة في أقصى اليسار
+          // (GSAP يحتفظ بـtranslateX(-50%) كمركّبة xPercent منفصلة)
+          // ملاحظة: لا نلمس scale هنا — يتولّاه تايم‑لاين المرحلة الرابعة
+          x: -window.innerWidth * 0.07,
+          duration: 1.1,
+          ease: "power2.inOut",
+        });
 
-        const startXPercent = 0.1;
-        const endXPercent = 0.9;
-        const stepX = (endXPercent - startXPercent) / 6;
+        const nodeSpots = [
+          { x: 0.4, y: 0.73 },
+          { x: 0.51, y: 0.6 },
+          { x: 0.62, y: 0.45 },
+          { x: 0.72, y: 0.33 },
+          { x: 0.81, y: 0.36 },
+          { x: 0.89, y: 0.46 },
+          { x: 0.94, y: 0.62 },
+        ];
+        const mapX = width * 0.19;
+        const mapY = height * 0.5;
+        const fallFrom = height * 0.78;
 
         const emiratesData = [
           { name: "Abu Dhabi", file: "/AD.svg", size: 100 },
@@ -165,18 +182,23 @@ export default function EcoJourney() {
         ];
 
         svg.innerHTML = "";
-        const lineItems: { path: SVGPathElement; group: SVGGElement; length: number }[] = [];
+        const lineItems: { path: SVGPathElement; group: SVGGElement; length: number; y: number }[] = [];
         const ringElements: SVGCircleElement[] = [];
 
         for (let i = 0; i < 7; i++) {
-          const endX = width * (startXPercent + i * stepX);
+          const spot = nodeSpots[i];
+          const endX = width * spot.x;
+          const endY = height * spot.y;
           const emirate = emiratesData[i];
 
-          const controlX = startX + (endX - startX) * 0.5;
-          const controlY = startY - (startY - endY) * 0.45;
+          // المسار: من الخريطة المجمّعة إلى أبوظبي، ثم بين كل إمارة والتي تليها
+          const fromX = i === 0 ? mapX : width * nodeSpots[i - 1].x;
+          const fromY = i === 0 ? mapY : height * nodeSpots[i - 1].y;
+          const controlX = (fromX + endX) / 2;
+          const controlY = Math.min(fromY, endY) - Math.abs(endY - fromY) * 0.3 - 40;
 
           const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          const dStr = `M ${startX} ${startY} Q ${controlX} ${controlY} ${endX} ${endY}`;
+          const dStr = `M ${fromX} ${fromY} Q ${controlX} ${controlY} ${endX} ${endY}`;
           path.setAttribute("d", dStr);
           path.setAttribute("stroke", "rgba(0, 255, 136, 0.6)");
           path.setAttribute("stroke-width", "2.5");
@@ -188,8 +210,9 @@ export default function EcoJourney() {
           const positionWrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
           gsap.set(positionWrapper, {
             x: endX,
-            y: endY,
-            scale: 0,
+            // تبدأ عالية فوق الشاشة ثم تتساقط إلى موضعها (أثر «السقوط على الخريطة»)
+            y: endY - fallFrom,
+            scale: 0.7,
             opacity: 0,
             transformOrigin: "center center",
           });
@@ -237,6 +260,8 @@ export default function EcoJourney() {
           let angle = Math.atan2(dy, dx) * (180 / Math.PI);
           if (angle > 90 || angle < -90) angle += 180;
           angle = angle * 0.7;
+          // ميل خفيف فقط حتى تبقى أسماء الإمارات مقروءة
+          angle = Math.max(-14, Math.min(14, angle));
 
           const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
           label.setAttribute("x", "0");
@@ -258,7 +283,7 @@ export default function EcoJourney() {
           path.style.strokeDasharray = `8 8`;
           path.style.strokeDashoffset = length.toString();
 
-          lineItems.push({ path, group: positionWrapper, length });
+          lineItems.push({ path, group: positionWrapper, length, y: endY });
         }
 
         const linesTl = gsap.timeline();
@@ -267,13 +292,13 @@ export default function EcoJourney() {
           linesTl
             .to(
               item.path,
-              { strokeDashoffset: 0, duration: 1.2, ease: "power2.out" },
-              index * 0.25
+              { strokeDashoffset: 0, duration: 0.7, ease: "power2.out" },
+              index * 0.2
             )
             .to(
               item.group,
-              { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(1.5)" },
-              "-=0.6"
+              { opacity: 1, scale: 1, y: item.y, duration: 0.72, ease: "back.out(1.35)" },
+              "-=0.5"
             );
 
           gsap.to(item.path, {
@@ -281,7 +306,7 @@ export default function EcoJourney() {
             duration: 8,
             repeat: -1,
             ease: "none",
-            delay: 2.5 + index * 0.25,
+            delay: 2.5 + index * 0.2,
           });
         });
 
@@ -466,7 +491,8 @@ export default function EcoJourney() {
 
         tl.to(
           "#combined-map-container",
-          { opacity: 0, scale: 1.2, filter: "blur(10px)", duration: 0.8, ease: "power2.inOut" },
+          // كانت تتلاشى وتُطمس — الآن تبقى ظاهرة وتستقر كخريطة ميدانية على اليسار
+          { opacity: 1, scale: 0.66, filter: "none", duration: 0.8, ease: "power2.inOut" },
           0
         ).to(
           ["#split-left", "#split-right"],
