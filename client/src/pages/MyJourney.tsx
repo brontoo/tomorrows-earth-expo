@@ -1,6 +1,8 @@
 import Navigation from "@/components/Navigation";
+import { useEffect } from "react";
 import { trpc } from "@/lib/trpc";
-import { ArrowUpRight, Award, CheckCircle2, Leaf, LockKeyhole, Target } from "lucide-react";
+import "@/lib/journalTheme.css";
+import { journalSfx, stampIn, inkRing } from "@/lib/journalMotion";
 
 export default function MyJourney({ embedded = false }: { embedded?: boolean }) {
   const passportQuery = trpc.passport.getMine.useQuery();
@@ -9,25 +11,205 @@ export default function MyJourney({ embedded = false }: { embedded?: boolean }) 
   const nextLevel = passport?.nextLevel;
   const currentStart = currentLevel?.minPoints ?? 0;
   const nextTarget = nextLevel?.minPoints ?? Math.max(currentStart + 1, (passport?.totalPoints ?? 0) + 1);
-  const progress = Math.min(100, Math.max(0, (((passport?.totalPoints ?? 0) - currentStart) / Math.max(1, nextTarget - currentStart)) * 100));
+  const progress = Math.min(
+    100,
+    Math.max(0, (((passport?.totalPoints ?? 0) - currentStart) / Math.max(1, nextTarget - currentStart)) * 100),
+  );
+  const earnedBadges = passport?.badges.filter((item) => item.earnedAt) ?? [];
+
+  // كاسكيد ختم الأختام المكتسبة + طرقة لكل ختم (نفس محرّك اللعبة)
+  useEffect(() => {
+    if (!earnedBadges.length) return;
+    const timers: number[] = [];
+    const stamps = Array.from(document.querySelectorAll<HTMLElement>(".fj-passport-stamp[data-earned='1']"));
+    stamps.forEach((stamp, index) => {
+      const timer = window.setTimeout(() => {
+        if (!stamp.isConnected) return;
+        journalSfx.stamp();
+        stampIn(stamp, { intensity: 0.6 });
+      }, 200 + index * 160);
+      timers.push(timer);
+    });
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [earnedBadges.length]);
 
   return (
-    <div className={embedded ? "bg-transparent" : "min-h-screen bg-background"}>
+    <div
+      className={embedded ? "fj" : "fj min-h-screen"}
+      style={{
+        backgroundColor: "var(--fj-paper)",
+        backgroundImage:
+          "linear-gradient(rgba(58,92,120,.13) 1px, transparent 1px), linear-gradient(90deg, rgba(58,92,120,.13) 1px, transparent 1px), radial-gradient(120% 120% at 15% 5%, var(--fj-paper-light) 0%, var(--fj-paper) 55%, var(--fj-paper-2) 100%)",
+        backgroundSize: "24px 24px, 24px 24px, auto",
+        color: "var(--fj-ink)",
+        fontFamily: "var(--fj-font)",
+      }}
+    >
       {!embedded && <Navigation />}
-      <main className={embedded ? "w-full" : "container px-6 pb-20 pt-12 md:pt-20"}>
-        <section className="rounded-3xl bg-gradient-to-br from-emerald-950 via-teal-900 to-cyan-950 p-8 text-white shadow-xl md:p-12">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">Your sustainability journey</p>
-          <div className="mt-5 flex flex-col justify-between gap-8 md:flex-row md:items-end">
-            <div><h1 className="text-4xl font-black tracking-tight md:text-6xl">My Journey</h1><p className="mt-4 text-emerald-50/80">Learn. Explore. Act. Create Impact.</p></div>
-            {passport?.academicYear && <div className="rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-sm"><p className="text-cyan-100/70">Academic year</p><p className="mt-1 font-bold">{passport.academicYear.label}</p></div>}
+
+      <main className={embedded ? "w-full" : "mx-auto w-full max-w-5xl px-6 py-10 sm:px-10 sm:py-14"}>
+        {/* الغلاف */}
+        <section
+          style={{
+            background: "linear-gradient(150deg, #3f5a35 0%, #2b4530 55%, #22302a 100%)",
+            border: "1px solid rgba(34,48,42,.4)",
+            borderRadius: 2,
+            boxShadow: "0 22px 48px rgba(0,0,0,.35)",
+            padding: "34px 32px 30px",
+            color: "var(--fj-paper)",
+          }}
+        >
+          <div className="fj-type-label" style={{ color: "rgba(243,232,212,.75)", fontSize: 10 }}>
+            Tomorrow&rsquo;s Earth Expo · Eco passport
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-[1fr_280px] md:items-end"><div><p className="text-sm font-semibold uppercase tracking-wide text-cyan-100/70">Sustainability points</p><p className="mt-1 text-6xl font-black">{passport?.totalPoints ?? 0}</p><div className="mt-6 h-3 overflow-hidden rounded-full bg-white/15"><div className="h-full rounded-full bg-cyan-300 transition-all" style={{ width: `${progress}%` }} /></div><p className="mt-3 text-sm text-emerald-50/75">{nextLevel ? `${nextLevel.minPoints - (passport?.totalPoints ?? 0)} points until ${nextLevel.name}` : "You have reached the highest configured level."}</p></div><div className="rounded-2xl bg-white/10 p-5"><p className="text-sm text-cyan-100/70">Current level</p><p className="mt-2 text-2xl font-black">{currentLevel?.icon || "🌱"} {currentLevel?.name || "Seed"}</p><p className="mt-2 text-sm text-emerald-50/75">{currentLevel?.description || "Your journey starts with one meaningful step."}</p></div></div>
+
+          <h1
+            style={{
+              fontFamily: "var(--fj-display)",
+              fontWeight: 900,
+              fontSize: "clamp(2.2rem, 6vw, 3.6rem)",
+              lineHeight: 1.02,
+              marginTop: 10,
+              color: "#fdf7ea",
+            }}
+          >
+            My Journey
+          </h1>
+
+          <div className="mt-5 flex flex-wrap items-end gap-8">
+            <div>
+              <div className="fj-type-label" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
+                Sustainability points
+              </div>
+              <div style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 58, lineHeight: 1, color: "#fdf7ea" }}>
+                {passport?.totalPoints ?? 0}
+              </div>
+            </div>
+            <div>
+              <div className="fj-type-label" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
+                Current level
+              </div>
+              <div style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 24 }}>
+                {currentLevel?.name || "Seed"}
+              </div>
+              {passport?.academicYear && (
+                <div className="fj-type-label mt-1" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
+                  {passport.academicYear.label}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* خط التقدّم كخدش قلم */}
+          <div className="mt-7" style={{ height: 10, border: "1.6px solid rgba(243,232,212,.55)", background: "rgba(253,247,234,.18)" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${progress}%`,
+                backgroundImage:
+                  "repeating-linear-gradient(105deg, rgba(253,247,234,.75) 0 3px, rgba(253,247,234,.45) 3px 6px)",
+                transition: "width .4s ease",
+              }}
+            />
+          </div>
+          <p className="mt-3 text-sm" style={{ color: "rgba(243,232,212,.8)" }}>
+            {nextLevel
+              ? `${nextLevel.minPoints - (passport?.totalPoints ?? 0)} points until ${nextLevel.name}`
+              : "You have reached the highest configured level."}
+          </p>
         </section>
 
-        {passportQuery.isLoading && <div className="mt-10 grid gap-5 md:grid-cols-3">{Array.from({ length: 3 }).map((_, index) => <div key={index} className="h-48 animate-pulse rounded-2xl bg-muted" />)}</div>}
-        {passportQuery.isError && <div className="mt-10 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-destructive">Your passport could not be loaded. Please sign in as a student.</div>}
+        {passportQuery.isLoading && (
+          <p className="fj-type-label mt-10 text-[11px]">Opening your passport…</p>
+        )}
 
-        {passport && <><section className="mt-12 grid gap-5 md:grid-cols-3"><article className="rounded-2xl border border-border bg-card p-6"><Target className="h-7 w-7 text-primary" /><p className="mt-6 text-sm text-muted-foreground">Missions completed</p><p className="mt-1 text-4xl font-black text-foreground">{passport.completedMissions}</p></article><article className="rounded-2xl border border-border bg-card p-6"><Award className="h-7 w-7 text-primary" /><p className="mt-6 text-sm text-muted-foreground">Badges earned</p><p className="mt-1 text-4xl font-black text-foreground">{passport.badges.filter((item) => item.earnedAt).length}</p></article><article className="rounded-2xl border border-border bg-card p-6"><Leaf className="h-7 w-7 text-primary" /><p className="mt-6 text-sm text-muted-foreground">Recent point events</p><p className="mt-1 text-4xl font-black text-foreground">{passport.recentEvents.length}</p></article></section><section className="mt-12"><div className="flex items-end justify-between"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Achievements</p><h2 className="mt-2 text-3xl font-black">Your badges</h2></div><ArrowUpRight className="h-6 w-6 text-muted-foreground" /></div><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{passport.badges.map((item) => <article key={item.badge.id} className={`rounded-2xl border p-6 ${item.earnedAt ? "border-primary/40 bg-primary/5" : "border-border bg-card opacity-70"}`}><div className="flex items-start justify-between"><span className="text-3xl" aria-hidden="true">{item.badge.icon || "🏅"}</span>{item.earnedAt ? <CheckCircle2 className="h-5 w-5 text-primary" /> : <LockKeyhole className="h-5 w-5 text-muted-foreground" />}</div><h3 className="mt-5 text-lg font-bold">{item.badge.name}</h3><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.badge.description}</p>{item.earnedAt && <p className="mt-4 text-xs font-semibold text-primary">Earned this academic year</p>}</article>)}</div></section></>}
+        {passportQuery.isError && (
+          <p className="mt-10" style={{ fontFamily: "var(--fj-type)", color: "var(--fj-clay)" }}>
+            Your passport could not be loaded. Please sign in as a student.
+          </p>
+        )}
+
+        {passport && (
+          <>
+            {/* أرقام هادئة بخط الآلة الكاتبة */}
+            <div className="mt-8 flex flex-wrap items-end gap-8">
+              {[
+                { label: "missions completed", value: passport.completedMissions },
+                { label: "badges earned", value: earnedBadges.length },
+                { label: "recent point events", value: passport.recentEvents.length },
+              ].map((item) => (
+                <div key={item.label} className="flex items-baseline gap-2">
+                  <span style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 30, color: "var(--fj-ghaf-dark)" }}>
+                    {item.value}
+                  </span>
+                  <span className="fj-type-label" style={{ fontSize: 10 }}>
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* الأختام */}
+            <div className="mt-10" style={{ borderTop: "1px solid var(--fj-line)", paddingTop: 18 }}>
+              <div className="fj-type-label text-[10px]">Passport stamps</div>
+
+              <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                {passport.badges.map((item) => {
+                  const earned = Boolean(item.earnedAt);
+                  return (
+                    <div
+                      key={item.badge.id}
+                      className="fj-passport-stamp"
+                      data-earned={earned ? "1" : "0"}
+                      onMouseEnter={(event) => {
+                        if (earned) inkRing(event.currentTarget, true);
+                      }}
+                      style={{ textAlign: "center", cursor: earned ? "pointer" : "default" }}
+                    >
+                      <div
+                        style={{
+                          width: 132,
+                          height: 132,
+                          margin: "0 auto",
+                          borderRadius: "50%",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          textAlign: "center",
+                          padding: 12,
+                          border: earned ? "3px double var(--fj-clay)" : "1.6px dashed rgba(34,48,42,.35)",
+                          color: earned ? "var(--fj-clay)" : "var(--fj-pencil)",
+                          background: earned ? "rgba(171,74,38,.06)" : "transparent",
+                          transform: earned ? "rotate(-4deg)" : "none",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontFamily: "var(--fj-type)",
+                            fontSize: 11,
+                            letterSpacing: ".08em",
+                            textTransform: "uppercase",
+                            lineHeight: 1.3,
+                          }}
+                        >
+                          {item.badge.name}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--fj-ink-soft)", maxWidth: 220, margin: "10px auto 0" }}>
+                        {item.badge.description}
+                      </p>
+
+                      <span className="fj-type-label" style={{ fontSize: 9.5, color: earned ? "var(--fj-clay)" : "var(--fj-pencil)" }}>
+                        {earned ? "earned this academic year" : "not stamped yet"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
