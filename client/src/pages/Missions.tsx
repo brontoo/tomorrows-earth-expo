@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-// نظام تصميم «دفتر الميدان» (لا بد من استيراده في كل صفحة تستخدمه — Vite يقسّم CSS لكل حزمة)
 import "@/lib/journalTheme.css";
-import { journalSfx, stampIn, puffAt } from "@/lib/journalMotion";
+import { journalSfx } from "@/lib/journalMotion";
 
 const TYPE_LABELS: Record<string, string> = {
   learn: "Learn",
@@ -16,17 +15,17 @@ const TYPE_LABELS: Record<string, string> = {
 
 const DIFFICULTY_STARS: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
 
-/** نجوم الصعوبة مرسومة بالحبر (بدل الأيقونات النيونية) */
-function InkStars({ difficulty }: { difficulty?: string }) {
+/** نجوم الصعوبة بالحبر */
+function InkStars({ difficulty, size = 12 }: { difficulty?: string; size?: number }) {
   const value = DIFFICULTY_STARS[String(difficulty ?? "easy")] ?? 1;
   return (
-    <span title={`Difficulty: ${difficulty ?? "easy"}`} style={{ display: "inline-flex", gap: 2, color: "var(--fj-ghaf-dark)" }}>
+    <span style={{ display: "inline-flex", gap: 2, color: "var(--fj-ghaf-dark)" }}>
       {[1, 2, 3].map((step) => (
         <svg
           key={step}
           viewBox="0 0 24 24"
-          width="13"
-          height="13"
+          width={size}
+          height={size}
           aria-hidden="true"
           fill={step <= value ? "currentColor" : "none"}
           stroke="currentColor"
@@ -43,255 +42,190 @@ function InkStars({ difficulty }: { difficulty?: string }) {
 export default function Missions() {
   const missionsQuery = trpc.missions.getAll.useQuery();
   const missions: any[] = missionsQuery.data ?? [];
-  const [zone, setZone] = useState<string>("all");
+  const [active, setActive] = useState(0);
 
-  const zones = useMemo(() => {
-    const seen = new Map<string, string>();
+  // ترتيب حسب المنطقة (يُغني عن شريط الفلترة بالكامل)
+  const groups = useMemo(() => {
+    const map = new Map<string, any[]>();
     missions.forEach((mission) => {
-      if (mission.zoneName && !seen.has(mission.zoneName)) {
-        seen.set(mission.zoneName, mission.zoneIcon ?? "");
-      }
+      const key = mission.zoneName ?? "Sustainability";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(mission);
     });
-    return Array.from(seen.entries()).map(([name, icon]) => ({ name, icon }));
+    return Array.from(map.entries());
   }, [missions]);
 
-  const visible = zone === "all" ? missions : missions.filter((mission) => mission.zoneName === zone);
-  const totalPoints = missions.reduce((sum, mission) => sum + (mission.pointsAvailable ?? 0), 0);
-
-  // دفتر الميدان: كاسكيد ختم البطاقات + أصوات (نفس محرّك اللعبة، بلا أي منطق جديد)
-  useEffect(() => {
-    if (!missions.length) return;
-    const timers: number[] = [];
-    const cards = Array.from(document.querySelectorAll<HTMLElement>(".fj-mission-card"));
-    cards.forEach((card, index) => {
-      const timer = window.setTimeout(() => {
-        if (!card.isConnected) return;
-        journalSfx.stamp();
-        stampIn(card, { intensity: 0.7 });
-        puffAt(card, 3);
-      }, 120 + index * 110);
-      timers.push(timer);
-    });
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [missions.length]);
+  const current = missions[active];
+  const select = (index: number) => {
+    if (index === active) return;
+    setActive(index);
+    journalSfx.pencil();
+  };
 
   return (
     <div
       className="fj min-h-screen"
       style={{
-        background: "radial-gradient(120% 90% at 50% 0%, #3a322a 0%, var(--fj-surface) 55%, #171310 100%)",
+        backgroundColor: "var(--fj-paper)",
+        backgroundImage:
+          "linear-gradient(rgba(58,92,120,.13) 1px, transparent 1px), linear-gradient(90deg, rgba(58,92,120,.13) 1px, transparent 1px), radial-gradient(120% 120% at 15% 5%, var(--fj-paper-light) 0%, var(--fj-paper) 55%, var(--fj-paper-2) 100%)",
+        backgroundSize: "24px 24px, 24px 24px, auto",
         color: "var(--fj-ink)",
         fontFamily: "var(--fj-font)",
       }}
     >
-      <header
-        className="sticky top-0 z-20"
-        style={{ borderBottom: "1px solid var(--fj-line)", background: "rgba(36,31,27,.72)", backdropFilter: "blur(6px)" }}
-      >
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link href="/">
-            <span className="fj-type-label cursor-pointer text-xs" style={{ color: "var(--fj-paper)" }}>
-              TEE-2026
-            </span>
+      <div className="mx-auto w-full max-w-6xl px-6 py-10 sm:px-10 sm:py-12">
+        {/* سطر علوي هادئ */}
+        <div className="flex items-center justify-between">
+          <span className="fj-type-label text-[11px]">Tomorrow&rsquo;s Earth Expo · Mission board</span>
+          <Link href="/eco-journey">
+            <span className="fj-type-label cursor-pointer text-[11px]">Eco Journey</span>
           </Link>
-          <div className="flex items-center gap-3 text-xs">
-            <Link href="/eco-journey">
-              <span className="fj-type-label cursor-pointer" style={{ color: "var(--fj-paper)" }}>
-                Eco Journey
-              </span>
-            </Link>
-            <Link href="/my-journey">
-              <span className="fj-rubber-stamp cursor-pointer" style={{ padding: "5px 12px", fontSize: 10 }}>
-                My Journey
-              </span>
-            </Link>
-          </div>
         </div>
-      </header>
 
-      <main className="mx-auto w-full max-w-6xl px-3 py-8 sm:px-6">
-        <div className="fj-paper-sheet relative px-6 py-9 sm:px-12 sm:py-11">
-          {/* خط الهامش الأحمر */}
-          <span
-            aria-hidden="true"
-            style={{ position: "absolute", top: 22, bottom: 22, left: 46, width: 1.5, background: "rgba(171,74,38,.28)" }}
-          />
+        {/* العنوان */}
+        <h1 className="fj-ink-title mt-4 text-4xl sm:text-5xl" style={{ lineHeight: 1.02 }}>
+          Sustainability Missions
+        </h1>
 
-          <div className="fj-type-label text-[11px]">Tomorrow&rsquo;s Earth Expo · Mission board</div>
-          <h1 className="fj-ink-title mt-3 text-4xl sm:text-5xl" style={{ lineHeight: 1.02 }}>
-            Sustainability Missions
-          </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed" style={{ color: "var(--fj-ink-soft)" }}>
-            Pick a mission, do it for real, and bring back your evidence. Every approved mission grows your Eco Journey
-            and unlocks badges.
-          </p>
-
-          <div className="mt-5 flex flex-wrap gap-3">
-            {[
-              { label: "missions", value: missions.length },
-              { label: "zones", value: zones.length },
-              { label: "points", value: totalPoints },
-            ].map((item) => (
-              <span key={item.label} className="fj-specimen-card" style={{ padding: "7px 14px", transform: "rotate(-1deg)" }}>
-                <b style={{ fontFamily: "var(--fj-display)", fontSize: 20 }}>{item.value}</b>{" "}
-                <span className="fj-type-label" style={{ fontSize: 10 }}>
-                  {item.label}
-                </span>
-              </span>
-            ))}
-          </div>
-
-          {zones.length > 0 && (
-            <div className="mt-7 flex flex-wrap items-center gap-2">
-              <span className="fj-type-label mr-1 text-[10px]">Filter zone</span>
-              {[{ name: "all", icon: "" }, ...zones].map((item) => {
-                const active = zone === item.name;
-                return (
-                  <button
-                    key={item.name}
-                    type="button"
-                    onClick={() => setZone(item.name)}
-                    className="fj-type-label"
-                    style={{
-                      fontSize: 11,
-                      cursor: "pointer",
-                      padding: "6px 14px",
-                      border: `1.6px solid ${active ? "var(--fj-clay)" : "var(--fj-line)"}`,
-                      background: active ? "rgba(171,74,38,.10)" : "rgba(253,247,234,.7)",
-                      color: active ? "var(--fj-clay)" : "var(--fj-ink-soft)",
-                      transform: `rotate(${active ? -1.5 : 0.8}deg)`,
-                    }}
-                  >
-                    {item.icon ? `${item.icon} ` : ""}
-                    {item.name === "all" ? "All" : item.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {missionsQuery.isLoading && (
-            <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="fj-specimen-card" style={{ height: 208, opacity: 0.5 }} />
-              ))}
-            </div>
-          )}
-
-          {missionsQuery.isError && (
-            <p className="mt-8" style={{ fontFamily: "var(--fj-type)", color: "var(--fj-clay)" }}>
-              Mission board could not be loaded. Please refresh the page.
-            </p>
-          )}
-
-          <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {visible.map((mission: any) => (
-              <Link key={mission.id} href={`/missions/${mission.slug}`}>
-                <article
-                  className="fj-mission-card fj-specimen-card relative cursor-pointer"
+        {/* شارة المسار: سلسلة حبر واحدة */}
+        <div className="mt-7 flex items-center" style={{ gap: 6 }}>
+          {missions.map((mission: any, index: number) => {
+            const on = index === active;
+            return (
+              <div key={mission.id} className="flex flex-1 items-center" style={{ gap: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => select(index)}
+                  title={mission.title}
                   style={{
-                    padding: "26px 22px 18px",
-                    transform: "rotate(-.6deg)",
-                    transition: "transform .25s ease, box-shadow .25s ease",
-                  }}
-                  onMouseEnter={(event) => {
-                    event.currentTarget.style.transform = "translateY(-6px) rotate(.4deg)";
-                    event.currentTarget.style.boxShadow = "0 18px 34px rgba(0,0,0,.28)";
-                  }}
-                  onMouseLeave={(event) => {
-                    event.currentTarget.style.transform = "rotate(-.6deg)";
-                    event.currentTarget.style.boxShadow = "var(--fj-shadow-card)";
+                    width: on ? 40 : 32,
+                    height: on ? 40 : 32,
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    border: on ? "2px solid var(--fj-ghaf-dark)" : "1.4px dashed rgba(34,48,42,.45)",
+                    background: on ? "var(--fj-ghaf-light)" : "rgba(253,247,234,.55)",
+                    color: on ? "#fdf7ea" : "var(--fj-ink-soft)",
+                    fontFamily: "var(--fj-type)",
+                    fontSize: 11,
+                    transition: "all .2s ease",
                   }}
                 >
-                  <span
-                    className="fj-tape-strip"
-                    aria-hidden="true"
-                    style={{ position: "absolute", top: -14, left: 24, width: 96, transform: "rotate(-4deg)" }}
-                  />
-
-                  <span
-                    className="fj-type-label"
-                    style={{
-                      position: "absolute",
-                      top: -13,
-                      right: 14,
-                      fontSize: 9.5,
-                      padding: "4px 10px",
-                      background: "var(--fj-ghaf-wash)",
-                      border: "1px solid var(--fj-line)",
-                      color: "var(--fj-ghaf-dark)",
-                      transform: "rotate(1.6deg)",
-                    }}
-                  >
-                    {mission.zoneName ?? "Sustainability"}
-                  </span>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="fj-type-label" style={{ fontSize: 10 }}>
-                      {TYPE_LABELS[mission.missionType] ?? mission.missionType}
-                    </span>
-                    <InkStars difficulty={mission.difficulty} />
-                  </div>
-
-                  <h2
-                    style={{
-                      fontFamily: "var(--fj-display)",
-                      fontWeight: 900,
-                      fontSize: 24,
-                      lineHeight: 1.14,
-                      marginTop: 8,
-                      color: "var(--fj-ink)",
-                    }}
-                  >
-                    {mission.title}
-                  </h2>
-
-                  <p className="mt-2 line-clamp-3 text-sm leading-relaxed" style={{ color: "var(--fj-ink-soft)" }}>
-                    {mission.description}
-                  </p>
-
-                  <div
-                    className="mt-4 flex items-end justify-between"
-                    style={{ borderTop: "1px dashed var(--fj-line)", paddingTop: 12 }}
-                  >
-                    <span className="fj-type-label" style={{ fontSize: 10 }}>
-                      {mission.estimatedMinutes} min
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: "var(--fj-type)",
-                        fontSize: 12,
-                        color: "var(--fj-clay)",
-                        border: "2px solid var(--fj-clay)",
-                        borderRadius: 4,
-                        padding: "3px 9px",
-                        transform: "rotate(-3deg)",
-                        opacity: 0.92,
-                      }}
-                    >
-                      {mission.pointsAvailable} pts
-                    </span>
-                  </div>
-
-                  <span className="fj-hand-note mt-3 inline-block text-lg">open the mission →</span>
-                </article>
-              </Link>
-            ))}
-          </div>
-
-          {!missionsQuery.isLoading && !missionsQuery.isError && missions.length === 0 && (
-            <p className="mt-8" style={{ fontFamily: "var(--fj-hand)", fontSize: 24, color: "var(--fj-pencil)" }}>
-              No missions on the board yet — new ones are on their way.
-            </p>
-          )}
-
-          <div className="mt-10 flex" style={{ height: 12, border: "1px solid var(--fj-line)" }} aria-hidden="true">
-            {["#f3e8d4", "#5d7d4a", "#c2912b", "#ab4a26", "#2b5a55", "#22302a"].map((color) => (
-              <span key={color} style={{ flex: 1, background: color }} />
-            ))}
-          </div>
+                  {String(index + 1).padStart(2, "0")}
+                </button>
+                {index < missions.length - 1 && (
+                  <span style={{ flex: 1, borderTop: "1.6px dashed rgba(34,48,42,.35)" }} />
+                )}
+              </div>
+            );
+          })}
         </div>
-      </main>
+
+        {missionsQuery.isLoading && (
+          <p className="fj-type-label mt-10 text-[11px]">Loading the board…</p>
+        )}
+
+        {/* الدفتر: فهرس يسار + صفحة المهمة يمين */}
+        {current && (
+          <div className="mt-9 grid gap-10 lg:grid-cols-[1fr_1.05fr]">
+            {/* الفهرس */}
+            <div>
+              <div className="fj-type-label text-[10px]">Index</div>
+              <div className="mt-4 space-y-5">
+                {groups.map(([zoneName, zoneMissions]) => (
+                  <div key={zoneName}>
+                    <div className="fj-type-label text-[9.5px]" style={{ color: "var(--fj-pencil)" }}>
+                      {zoneName}
+                    </div>
+                    <div className="mt-2 space-y-2">
+                      {zoneMissions.map((mission: any) => {
+                        const index = missions.indexOf(mission);
+                        const on = index === active;
+                        return (
+                          <button
+                            key={mission.id}
+                            type="button"
+                            onClick={() => select(index)}
+                            className="flex w-full items-baseline text-left"
+                            style={{ gap: 10, cursor: "pointer", background: "none", border: "none", padding: 0 }}
+                          >
+                            <span className="fj-type-label" style={{ fontSize: 10, color: "var(--fj-ink-soft)" }}>
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span
+                              style={{
+                                fontFamily: "var(--fj-display)",
+                                fontWeight: on ? 900 : 600,
+                                fontSize: 17,
+                                color: on ? "var(--fj-clay)" : "var(--fj-ink)",
+                              }}
+                            >
+                              {mission.title}
+                            </span>
+                            <span style={{ flex: 1, borderBottom: "1.5px dotted rgba(34,48,42,.28)", transform: "translateY(-4px)" }} />
+                            <span className="fj-type-label" style={{ fontSize: 10, color: "var(--fj-ink-soft)" }}>
+                              {mission.pointsAvailable} pts
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* صفحة المهمة المختارة */}
+            <div style={{ borderLeft: "1px solid var(--fj-line)", paddingLeft: 30 }}>
+              <div className="fj-type-label text-[10px]">
+                {String(active + 1).padStart(2, "0")} · {current.zoneName ?? "Sustainability"} ·{" "}
+                {TYPE_LABELS[current.missionType] ?? current.missionType}
+              </div>
+
+              <h2
+                style={{
+                  fontFamily: "var(--fj-display)",
+                  fontWeight: 900,
+                  fontSize: 34,
+                  lineHeight: 1.08,
+                  marginTop: 10,
+                  color: "var(--fj-ink)",
+                }}
+              >
+                {current.title}
+              </h2>
+
+              <div className="mt-3 flex items-center gap-4">
+                <InkStars difficulty={current.difficulty} size={13} />
+                <span className="fj-type-label" style={{ fontSize: 10 }}>
+                  {current.estimatedMinutes} min · {current.pointsAvailable} pts
+                </span>
+              </div>
+
+              <p className="mt-5 text-base leading-relaxed" style={{ color: "var(--fj-ink-soft)", maxWidth: 520 }}>
+                {current.description}
+              </p>
+
+              <div className="mt-8 flex items-center gap-6">
+                <Link href={`/missions/${current.slug}`}>
+                  <span className="fj-rubber-stamp cursor-pointer" style={{ fontSize: 12, padding: "12px 24px" }}>
+                    Open the mission →
+                  </span>
+                </Link>
+                <Link href="/my-journey">
+                  <span className="fj-hand-note cursor-pointer text-lg">my journey</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!missionsQuery.isLoading && !missionsQuery.isError && missions.length === 0 && (
+          <p className="mt-10" style={{ fontFamily: "var(--fj-hand)", fontSize: 24, color: "var(--fj-pencil)" }}>
+            No missions on the board yet — new ones are on their way.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
