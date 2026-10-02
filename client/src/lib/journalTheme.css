@@ -1,0 +1,112 @@
+/* ملاحظة: خطوط Google تُحمَّل من ملفات الدخول (fieldJournal.css حاليًا،
+   وستُنقل إلى client/index.html عند تعميم النظام على كل الصفحات). */
+
+/* ==========================================================================
+   journalTheme — نظام تصميم «دفتر الميدان» المشترك
+   الاستخدام: أضف className="fj" على جذر أي صفحة (أو داخل .hero-section).
+   كل ما هنا إضافي: لا يغيّر أي عنصر قائم إلا إذا استُخدم صنفه صراحةً.
+   ========================================================================== */
+
+.fj,
+.hero-section {
+  /* الألوان الأساسية */
+  --fj-paper: #f3e8d4;
+  --fj-paper-2: #ead9bb;
+  --fj-paper-3: #e2cda6;
+  --fj-paper-light: #fdf7ea;
+  --fj-ink: #22302a;
+  --fj-ink-soft: #4b5a50;
+  --fj-pencil: #7a6f60;
+  --fj-ghaf: #5d7d4a;
+  --fj-ghaf-dark: #3f5a35;
+  --fj-ghaf-light: rgba(139, 168, 116, 0.62);
+  --fj-ghaf-wash: rgba(150, 176, 128, 0.32);
+  --fj-ochre: #c2912b;
+  --fj-clay: #ab4a26;
+  --fj-teal: #2b5a55;
+  --fj-surface: #241f1b;
+
+  /* الخطوط */
+  --fj-font: "Karla", system-ui, sans-serif;
+  --fj-display: "Fraunces", Georgia, serif;
+  --fj-hand: "Caveat", cursive;
+  --fj-type: "Special Elite", monospace;
+  --fj-arabic: "Aref Ruqaa", serif;
+
+  /* الظلال والحدود */
+  --fj-line: rgba(34, 48, 42, 0.22);
+  --fj-line-soft: rgba(34, 48, 42, 0.12);
+  --fj-shadow-sheet: 0 22px 48px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --fj-shadow-card: 0 10px 22px rgba(0, 0, 0, 0.2);
+}
+
+/* ---------- قطع جاهزة لإعادة الاستخدام (للخطوات التالية) ---------- */
+
+/* ورقة دفتر (شبكة + تدرّج ورقي) */
+.fj-paper-sheet {
+  background-color: var(--fj-paper);
+  background-image:
+    linear-gradient(rgba(58, 92, 120, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 92, 120, 0.13) 1px, transparent 1px),
+    radial-gradient(120% 120% at 20% 10%, var(--fj-paper-light) 0%, var(--fj-paper) 60%, var(--fj-paper-2) 100%);
+  background-size: 24px 24px, 24px 24px, auto;
+  border: 1px solid var(--fj-line);
+  border-radius: 2px;
+  box-shadow: var(--fj-shadow-sheet);
+}
+
+/* شريط لاصق */
+.fj-tape-strip {
+  display: inline-block;
+  height: 28px;
+  width: 116px;
+  opacity: 0.92;
+  background: linear-gradient(180deg, rgba(246, 232, 190, 0.94), rgba(232, 213, 164, 0.88));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+
+/* ختم مطاطي (زر أو حالة) */
+.fj-rubber-stamp {
+  display: inline-block;
+  border: 2.6px solid var(--fj-clay);
+  border-radius: 5px;
+  color: var(--fj-clay);
+  font-family: var(--fj-type);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  padding: 12px 22px;
+  background: transparent;
+  opacity: 0.94;
+}
+
+/* بطاقة عيّنة */
+.fj-specimen-card {
+  background: linear-gradient(180deg, var(--fj-paper-light), #f0e4cb);
+  border: 1px solid rgba(34, 48, 42, 0.16);
+  box-shadow: var(--fj-shadow-card);
+}
+
+/* نصوص */
+.fj-type-label {
+  font-family: var(--fj-type);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fj-ink-soft);
+}
+
+.fj-ink-title {
+  font-family: var(--fj-display);
+  font-weight: 900;
+  color: var(--fj-ink);
+  letter-spacing: -0.02em;
+}
+
+.fj-hand-note {
+  font-family: var(--fj-hand);
+  color: var(--fj-clay);
+}
+
+.fj-arabic-name {
+  font-family: var(--fj-arabic);
+  color: var(--fj-ghaf-dark);
+}
