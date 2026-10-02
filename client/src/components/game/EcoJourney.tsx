@@ -154,23 +154,23 @@ export default function EcoJourney() {
           // (GSAP يحتفظ بـtranslateX(-50%) كمركّبة xPercent منفصلة)
           // ملاحظة: لا نلمس scale هنا — يتولّاه تايم‑لاين المرحلة الرابعة
           // (GSAP يحتفظ بـtranslateX(-50%) كمركّبة xPercent مقدارها -325px عند عرض 1600)
-          x: -window.innerWidth * 0.28,
+          x: -window.innerWidth * 0.31,
           duration: 1.1,
           ease: "power2.inOut",
         });
 
         const nodeSpots = [
-          // سلسلة أفقية في منتصف الشاشة: أبوظبي ← دبي ← الشارقة ← عجمان ← أم القيوين ← رأس الخيمة ← الفجيرة
-          { x: 0.42, y: 0.62 },
-          { x: 0.55, y: 0.55 },
-          { x: 0.66, y: 0.48 },
-          { x: 0.75, y: 0.42 },
-          { x: 0.83, y: 0.45 },
-          { x: 0.9, y: 0.52 },
-          { x: 0.96, y: 0.6 },
+          // سلسلة أفقية في منتصف الشاشة (مُزاحة قليلًا لليسار): أبوظبي ← … ← الفجيرة
+          { x: 0.39, y: 0.62 },
+          { x: 0.52, y: 0.55 },
+          { x: 0.63, y: 0.48 },
+          { x: 0.72, y: 0.42 },
+          { x: 0.8, y: 0.45 },
+          { x: 0.87, y: 0.52 },
+          { x: 0.93, y: 0.6 },
         ];
         // نقطة الوصل تبدأ من حدّ الخريطة المجمّعة اليمنى (بعد انزلاقها لليسار)
-        const mapX = width * 0.3;
+        const mapX = width * 0.28;
         const mapY = height * 0.56;
         const fallFrom = height * 0.78;
 
@@ -690,6 +690,7 @@ export default function EcoJourney() {
     // 1) زر البدء: ختم مطاطي على الورق
     const startBtn = document.getElementById("start-btn");
     const storyContainer = document.getElementById("story-container");
+    const heroContent = document.getElementById("hero-content");
     // قبل بدء القصة: لا لوح ورقي (كي لا تظهر بطاقة فارغة)
     storyContainer?.classList.remove("fj-story-active");
     const handleStartClick = () => {
@@ -698,6 +699,9 @@ export default function EcoJourney() {
         paperShake(root, 2);
         stampIn(startBtn, { intensity: 0.5 });
       }
+      // مهم: بطاقة البداية تصبح شفافة لكنها تبقى تحجب النقر فوق الإمارات
+      // (كانت تمنع النقر على أبوظبي ودبي والشارقة). نُعطّل تفاعلها فورًا.
+      if (heroContent) heroContent.style.pointerEvents = "none";
       // بعد انزياح شاشة البدء: أظهر لوح الورق خلف نص القصة
       const showPanel = window.setTimeout(() => storyContainer?.classList.add("fj-story-active"), 900);
       // وبعد انتهاء الشريحتين: أخفِه ليظهر مسار الخرائط
@@ -712,6 +716,9 @@ export default function EcoJourney() {
       const groups = Array.from(document.querySelectorAll(".emirate-group"));
       if (!groups.length) return;
       journalSfx.flip();
+      // الحاوية المجمّعة كانت تلتقط النقر فوق العقد (z-index 15): نُعطّلها الآن
+      const mapBox = document.getElementById("combined-map-container");
+      if (mapBox) mapBox.style.pointerEvents = "none";
       groups.forEach((group, index) => {
         const timer = window.setTimeout(() => {
           if (!group.isConnected) return;
@@ -789,6 +796,8 @@ export default function EcoJourney() {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
       cleanups.forEach((fn) => fn());
+      // إعادة تفاعل بطاقة البداية عند مغادرة الصفحة (حتى لا يبقى معطّلًا)
+      if (heroContent) heroContent.style.pointerEvents = "";
     };
   }, []);
 

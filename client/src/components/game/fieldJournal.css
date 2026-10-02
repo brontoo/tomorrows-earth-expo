@@ -421,23 +421,23 @@
 
 /* الخطوط السبعة المنقوطة: قلم رصاص */
 .lines-svg path {
-  stroke: rgba(122, 111, 96, 0.85) !important;
-  stroke-width: 2 !important;
+  stroke: rgba(93, 125, 74, 0.5) !important;
+  stroke-width: 1.8 !important;
 }
 
 /* عقد الإمارات: حبر على ورق */
 .node-base {
-  fill: rgba(243, 232, 212, 0.55) !important;
-  stroke: rgba(34, 48, 42, 0.72) !important;
-  stroke-width: 2.2 !important;
+  fill: rgba(150, 176, 128, 0.32) !important;
+  stroke: rgba(34, 48, 42, 0.42) !important;
+  stroke-width: 1.6 !important;
 }
 
 /* حلقة العقدة الدوّارة: كانت دائرة سوداء ممتلئة → حلقة حبر متقطّعة */
 .emirate-group .node-ring,
 .node-ring {
   fill: none !important;
-  stroke: rgba(34, 48, 42, 0.5) !important;
-  stroke-width: 1.8 !important;
+  stroke: rgba(34, 48, 42, 0.28) !important;
+  stroke-width: 1.3 !important;
   stroke-dasharray: 6 5 !important;
 }
 
@@ -449,7 +449,7 @@
 
 .emirate-hologram-wrapper {
   /* شكل الإمارة كحبر شفّاف على الورق (لا كتلة داكنة) */
-  background-color: rgba(93, 125, 74, 0.45) !important;
+  background-color: rgba(139, 168, 116, 0.62) !important;
   filter: none !important;
   opacity: 1;
 }
