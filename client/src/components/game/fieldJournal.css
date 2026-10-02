@@ -384,16 +384,13 @@
 
 /* ------------------------- مرحلة الخريطة ------------------------- */
 #combined-map-container {
+  /* الخريطة المجمّعة بدون حاوية: طبيعية على ورقة الدفتر الأساسية */
   filter: none !important;
-  background-color: var(--fj-paper);
-  background-image:
-    linear-gradient(rgba(58, 92, 120, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(58, 92, 120, 0.12) 1px, transparent 1px),
-    radial-gradient(120% 120% at 20% 10%, #fdf7ea 0%, var(--fj-paper) 60%, var(--fj-paper-3) 100%);
-  background-size: 26px 26px, 26px 26px, auto;
-  border: 1px solid rgba(34, 48, 42, 0.22);
-  border-radius: 2px;
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45);
+  background: none !important;
+  background-image: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .combined-map-hologram {

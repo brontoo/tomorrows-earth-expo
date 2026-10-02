@@ -153,22 +153,25 @@ export default function EcoJourney() {
           // إزاحة محسوبة لتبقى الخريطة ظاهرة في أقصى اليسار
           // (GSAP يحتفظ بـtranslateX(-50%) كمركّبة xPercent منفصلة)
           // ملاحظة: لا نلمس scale هنا — يتولّاه تايم‑لاين المرحلة الرابعة
-          x: -window.innerWidth * 0.07,
+          // (GSAP يحتفظ بـtranslateX(-50%) كمركّبة xPercent مقدارها -325px عند عرض 1600)
+          x: -window.innerWidth * 0.28,
           duration: 1.1,
           ease: "power2.inOut",
         });
 
         const nodeSpots = [
-          { x: 0.4, y: 0.73 },
-          { x: 0.51, y: 0.6 },
-          { x: 0.62, y: 0.45 },
-          { x: 0.72, y: 0.33 },
-          { x: 0.81, y: 0.36 },
-          { x: 0.89, y: 0.46 },
-          { x: 0.94, y: 0.62 },
+          // سلسلة أفقية في منتصف الشاشة: أبوظبي ← دبي ← الشارقة ← عجمان ← أم القيوين ← رأس الخيمة ← الفجيرة
+          { x: 0.42, y: 0.62 },
+          { x: 0.55, y: 0.55 },
+          { x: 0.66, y: 0.48 },
+          { x: 0.75, y: 0.42 },
+          { x: 0.83, y: 0.45 },
+          { x: 0.9, y: 0.52 },
+          { x: 0.96, y: 0.6 },
         ];
-        const mapX = width * 0.19;
-        const mapY = height * 0.5;
+        // نقطة الوصل تبدأ من حدّ الخريطة المجمّعة اليمنى (بعد انزلاقها لليسار)
+        const mapX = width * 0.3;
+        const mapY = height * 0.56;
         const fallFrom = height * 0.78;
 
         const emiratesData = [
@@ -324,26 +327,45 @@ export default function EcoJourney() {
         linesTl.add(() => {
           const finalTransitionTl = gsap.timeline();
 
-          finalTransitionTl
-            .to(
-              "#lines-svg",
-              {
-                y: "22vh",
-                scale: 0.8,
-                transformOrigin: "center center",
-                duration: 1.4,
-                ease: "power3.inOut",
-              },
-              0
-            )
-            .to(
-              "#character-group",
-              { y: "42vh", scale: 0.38, duration: 1.4, ease: "power3.inOut" },
-              0
-            );
+          finalTransitionTl.to(
+            "#character-group",
+            { y: "38vh", scale: 0.38, duration: 1.4, ease: "power3.inOut" },
+            0
+          );
 
           finalTransitionTl.add(() => {
-            drawJourneyMap();
+            // ===== دفتر الميدان =====
+            // ألغينا مسار المراحل المرقّم: دوائر الإمارات السبع هي المراحل الفعلية.
+            // نُظهر فقط بادج «You Are Here» فوق إمارة أبوظبي (أول عقدة في السلسلة).
+            void drawJourneyMap;
+
+            const container = document.getElementById("journey-container");
+            const indicator = document.getElementById("player-indicator");
+            const indicatorLabel = document.getElementById("current-mission-name");
+            const firstMission = progressRef.current.missions[0];
+
+            if (indicatorLabel && firstMission) {
+              indicatorLabel.textContent = `Mission 1: ${firstMission.title}`;
+            }
+
+            if (container) {
+              container.style.top = "0";
+              container.style.left = "0";
+              container.style.width = "100%";
+              container.style.height = "100%";
+              gsap.to(container, { opacity: 1, duration: 0.8, ease: "power2.out" });
+            }
+
+            if (indicator) {
+              // نفس موضع أبوظبي (أول عنصر في nodeSpots) مع ارتفاع البادج فوق الدائرة
+              gsap.set(indicator, {
+                left: window.innerWidth * 0.42,
+                top: window.innerHeight * 0.62 - 122,
+                opacity: 0,
+              });
+              gsap.to(indicator, { opacity: 1, duration: 0.6, delay: 0.35, ease: "power2.out" });
+              journalSfx.pin();
+            }
           }, "+=0.5");
         }, "+=0.5");
       };
@@ -747,6 +769,22 @@ export default function EcoJourney() {
     };
     root.addEventListener("pointerdown", handleNodePointer, true);
     cleanups.push(() => root.removeEventListener("pointerdown", handleNodePointer, true));
+
+    // 5) دوائر الإمارات = المراحل الفعلية: النقر يفتح مهمة تلك الإمارة
+    const openEmirateMission = (event: Event) => {
+      const target = event.target as Element | null;
+      const node =
+        target && typeof target.closest === "function" ? target.closest(".emirate-group") : null;
+      if (!node) return;
+      const groups = Array.from(document.querySelectorAll(".emirate-group"));
+      const index = groups.indexOf(node);
+      const mission = progressRef.current.missions[index];
+      if (mission && (mission as { slug?: string }).slug) {
+        navigate(`/missions/${(mission as { slug?: string }).slug}`);
+      }
+    };
+    root.addEventListener("click", openEmirateMission);
+    cleanups.push(() => root.removeEventListener("click", openEmirateMission));
 
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
