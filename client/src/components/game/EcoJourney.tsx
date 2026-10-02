@@ -1,6 +1,6 @@
 // src/components/game/EcoJourney.tsx
 // النسخة الكاملة (نفس نسختك المحلية vanilla) بعد نقلها إلى React بشكل سليم.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import gsap from "gsap";
 import { initFloatingParallax, initConstellationCanvas } from "./animations";
@@ -8,6 +8,17 @@ import { init3DPod, characterModel } from "./threeScene";
 import { trpc } from "@/lib/trpc";
 import { useAuthContext } from "@/contexts/AuthContext";
 import "./EcoJourney.css";
+// دفتر الميدان: طبقة تجميلية إضافية (لا تُلغي أي قاعدة سابقة من EcoJourney.css)
+import "./fieldJournal.css";
+import {
+  journalSfx,
+  stampIn,
+  paperShake,
+  puffAt,
+  inkRing,
+  typewriter,
+  prefersReducedMotion,
+} from "@/lib/journalMotion";
 
 // استيراد الصور
 import p1 from "../../assets/illustrations/p1.png";
@@ -22,6 +33,9 @@ export default function EcoJourney() {
   const [, navigate] = useLocation();
   const { isAuthenticated, user } = useAuthContext();
   const isStudent = isAuthenticated && user?.role === "student";
+
+  // دفتر الميدان: حالة كتم الصوت (إضافة مستقلة لا تغيّر أي منطق قائم)
+  const [soundMuted, setSoundMuted] = useState(false);
 
   // مسار المهام يقرأ المهام الحقيقية من قاعدة البيانات.
   // للزائر غير المسجّل يبقى الشكل الافتراضي كما هو (لا يتغير شيء).
@@ -43,14 +57,13 @@ export default function EcoJourney() {
     ),
   };
 
-    useEffect(() => {
+  useEffect(() => {
     // اللعبة شاشة كاملة: اقفل تمرير الصفحة أثناءها فقط
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     document.body.style.height = "100%";
     document.documentElement.style.height = "100%";
 
-    
     // 1. تهيئة مشهد Three.js (نمرر العنصر نفسه وليس نصاً)
     const podElement = document.getElementById("pod-container") as HTMLDivElement | null;
     const disposePod = podElement ? init3DPod(podElement) : undefined;
@@ -537,21 +550,45 @@ export default function EcoJourney() {
 
             storyTl.to(
               fills[index],
-              { width: "100%", duration: slideDuration, ease: "none" },
+              {
+                width: "100%",
+                duration: slideDuration,
+                ease: "none",
+                // دفتر الميدان: صوت قلب صفحة عند بدء الشريحة
+                onStart: () => journalSfx.flip(),
+              },
               "startSlide" + index
             );
 
             storyTl.fromTo(
               titles,
               { opacity: 0, scale: 0.8, y: 20 },
-              { opacity: 1, scale: 1, y: 0, duration: 0.8, stagger: 0.4, ease: "back.out(1.5)" },
+              {
+                opacity: 1,
+                scale: 1,
+                y: 0,
+                duration: 0.8,
+                stagger: 0.4,
+                ease: "back.out(1.5)",
+                // دفتر الميدان: خدش قلم عند ظهور العنوان
+                onStart: () => journalSfx.pencil(),
+              },
               "startSlide" + index
             );
 
             storyTl.fromTo(
               desc,
               { opacity: 0, y: 20 },
-              { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" },
+              {
+                opacity: 1,
+                y: 0,
+                duration: 0.8,
+                ease: "power2.out",
+                // دفتر الميدان: الوصف يُكتب حرفًا بحرف
+                onStart: () => {
+                  void typewriter(desc as HTMLElement | null, 22);
+                },
+              },
               `startSlide${index}+=${0.4 + titles.length * 0.4}`
             );
 
@@ -571,12 +608,13 @@ export default function EcoJourney() {
       }
     }, containerRef);
 
-      return () => {
+    return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       if (ctx) ctx.revert();
       if (disposePod) disposePod();
 
       // مغادرة اللعبة: أعد التمرير لبقية صفحات المنصة
+      // (CSS اللعبة يثبّت body عند overflow:hidden فيبقى مؤثرًا بعد الانتقال)
       document.documentElement.style.overflow = "auto";
       document.body.style.overflow = "auto";
       document.body.style.height = "auto";
@@ -584,8 +622,147 @@ export default function EcoJourney() {
     };
   }, []);
 
+  /**
+   * دفتر الميدان — طبقة الحركة والصوت (إضافية بالكامل).
+   *
+   * تعمل بالمراقبة والاستماع فقط ولا تُعدّل أي منطق قائم:
+   *  - ضغط زر البدء  → طرقة ختم + اهتزاز الورق
+   *  - ظهور عقد الإمارات السبع → تتختم واحدة تلو الأخرى مع غبار وحلقة حبر
+   *  - ظهور عقد المهام → تتختم كذلك
+   *  - النقر على أي عقدة → دبوس + حلقة حبر (السلوك الأصلي للنقر يبقى كما هو)
+   */
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+
+    const timers: number[] = [];
+    const cleanups: Array<() => void> = [];
+    const visual = () => !prefersReducedMotion();
+
+    // 1) زر البدء: ختم مطاطي على الورق
+    const startBtn = document.getElementById("start-btn");
+    const storyContainer = document.getElementById("story-container");
+    // قبل بدء القصة: لا لوح ورقي (كي لا تظهر بطاقة فارغة)
+    storyContainer?.classList.remove("fj-story-active");
+    const handleStartClick = () => {
+      journalSfx.stamp();
+      if (visual()) {
+        paperShake(root, 2);
+        stampIn(startBtn, { intensity: 0.5 });
+      }
+      // بعد انزياح شاشة البدء: أظهر لوح الورق خلف نص القصة
+      const showPanel = window.setTimeout(() => storyContainer?.classList.add("fj-story-active"), 900);
+      // وبعد انتهاء الشريحتين: أخفِه ليظهر مسار الخرائط
+      const hidePanel = window.setTimeout(() => storyContainer?.classList.remove("fj-story-active"), 15000);
+      timers.push(showPanel, hidePanel);
+    };
+    startBtn?.addEventListener("click", handleStartClick);
+    cleanups.push(() => startBtn?.removeEventListener("click", handleStartClick));
+
+    // 2) عقد الإمارات: كاسكيد ختم
+    const stampEmirates = () => {
+      const groups = Array.from(document.querySelectorAll(".emirate-group"));
+      if (!groups.length) return;
+      journalSfx.flip();
+      groups.forEach((group, index) => {
+        const timer = window.setTimeout(() => {
+          if (!group.isConnected) return;
+          journalSfx.stamp();
+          if (visual()) {
+            stampIn(group, { intensity: 0.9 });
+            puffAt(group, 4);
+            inkRing(group);
+          }
+        }, 420 + index * 150);
+        timers.push(timer);
+      });
+    };
+    const linesSvg = document.getElementById("lines-svg");
+    if (linesSvg) {
+      const observer = new MutationObserver(() => {
+        if (document.querySelectorAll(".emirate-group").length) {
+          observer.disconnect();
+          stampEmirates();
+        }
+      });
+      observer.observe(linesSvg, { childList: true, subtree: true });
+      cleanups.push(() => observer.disconnect());
+    }
+
+    // 3) عقد المهام على مسار الرحلات
+    const journeySvg = document.getElementById("journey-svg");
+    if (journeySvg) {
+      const journeyObserver = new MutationObserver(() => {
+        const nodes = Array.from(journeySvg.querySelectorAll(".stage-node"));
+        if (!nodes.length) return;
+        journeyObserver.disconnect();
+        nodes.forEach((node, index) => {
+          const timer = window.setTimeout(() => {
+            if (!node.isConnected) return;
+            journalSfx.pin();
+            if (visual()) stampIn(node, { intensity: 0.6 });
+          }, index * 110);
+          timers.push(timer);
+        });
+      });
+      journeyObserver.observe(journeySvg, { childList: true, subtree: true });
+      cleanups.push(() => journeyObserver.disconnect());
+    }
+
+    // 4) لمس أي عقدة: دبوس + حلقة حبر (capture فقط، لا يمنع النقر الأصلي)
+    const handleNodePointer = (event: Event) => {
+      const target = event.target as Element | null;
+      const node =
+        target && typeof target.closest === "function" ? target.closest(".emirate-group, .stage-node") : null;
+      if (!node) return;
+      journalSfx.pin();
+      if (visual()) inkRing(node, true);
+      if (node.classList.contains("stage-node")) journalSfx.chime();
+    };
+    root.addEventListener("pointerdown", handleNodePointer, true);
+    cleanups.push(() => root.removeEventListener("pointerdown", handleNodePointer, true));
+
+    return () => {
+      timers.forEach((timer) => window.clearTimeout(timer));
+      cleanups.forEach((fn) => fn());
+    };
+  }, []);
+
   return (
     <section ref={containerRef} className="hero-section">
+      {/* ===== دفتر الميدان: طبقة زينة بصرية (لا تتفاعل ولا تؤثر على أي منطق) ===== */}
+      <div className="fj-deco" aria-hidden="true">
+        <span className="fj-grain" />
+        <span className="fj-fibers" />
+        <span className="fj-tape fj-tape-1" />
+        <span className="fj-tape fj-tape-2" />
+        <span className="fj-clip" />
+        <span className="fj-coffee" />
+        <span className="fj-colorbar">
+          <i style={{ background: "#f3e8d4" }} />
+          <i style={{ background: "#5d7d4a" }} />
+          <i style={{ background: "#c2912b" }} />
+          <i style={{ background: "#ab4a26" }} />
+          <i style={{ background: "#2b5a55" }} />
+          <i style={{ background: "#22302a" }} />
+        </span>
+      </div>
+
+      {/* زر كتم الصوت (عنصر جديد مستقل) */}
+      <button
+        type="button"
+        className="fj-sound"
+        data-muted={soundMuted ? "1" : "0"}
+        onClick={() => setSoundMuted(journalSfx.toggle())}
+        aria-label={soundMuted ? "Unmute sound" : "Mute sound"}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9v6h3l5 4V5L7 9H4z" />
+          {soundMuted ? <path d="M16 9l5 6M21 9l-5 6" /> : <path d="M16 8.5a5 5 0 010 7" />}
+        </svg>
+        <span>{soundMuted ? "SOUND OFF" : "SOUND ON"}</span>
+      </button>
+
       <canvas id="star-canvas"></canvas>
 
       <img

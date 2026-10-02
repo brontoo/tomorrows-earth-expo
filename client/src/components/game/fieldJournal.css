@@ -1,0 +1,603 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=Caveat:wght@500;600;700&family=Special+Elite&family=Aref+Ruqaa:wght@400;700&display=swap");
+
+/* ==========================================================================
+   دفتر الميدان (Field Journal) — طبقة تجميلية فوق EcoJourney.css
+   --------------------------------------------------------------------------
+   قواعد صارمة لهذا الملف:
+   1) لا يُلغى أي selector موجود ولا أي منطق JS: نغيّر الألوان/الخطوط/الخلفيات/
+      الحدود/الظلال فقط.
+   2) لا نلمس transform أو opacity لأي عنصر يُحرّكه GSAP (وإلا انكسرت مراحل
+      اللعبة)، لذلك نستخدم اللون والحدود والمرشّحات بدلًا منها.
+   3) كل الألوان معرّفة داخل .hero-section فقط حتى لا تتسرّب لبقية المنصة.
+   4) الحركة والصوت تأتي من client/src/lib/journalMotion.ts
+   ========================================================================== */
+
+.hero-section {
+  --fj-paper: #f3e8d4;
+  --fj-paper-2: #ead9bb;
+  --fj-paper-3: #e2cda6;
+  --fj-ink: #22302a;
+  --fj-ink-soft: #4b5a50;
+  --fj-pencil: #7a6f60;
+  --fj-ghaf: #5d7d4a;
+  --fj-ghaf-dark: #3f5a35;
+  --fj-ochre: #c2912b;
+  --fj-clay: #ab4a26;
+  --fj-teal: #2b5a55;
+
+  background: radial-gradient(120% 90% at 50% 0%, #3a322a 0%, #241f1b 55%, #171310 100%) !important;
+  color: var(--fj-ink);
+  font-family: "Karla", system-ui, sans-serif;
+  filter: none !important;
+}
+
+/* الورقة الكبيرة: سطح اللعب كله ورقة دفتر */
+.hero-section::before {
+  content: "";
+  position: absolute;
+  inset: 20px;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: 3px;
+  background-color: var(--fj-paper);
+  background-image:
+    linear-gradient(rgba(58, 92, 120, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 92, 120, 0.15) 1px, transparent 1px),
+    radial-gradient(120% 120% at 12% 8%, #fbf4e6 0%, var(--fj-paper) 45%, var(--fj-paper-2) 100%);
+  background-size: 26px 26px, 26px 26px, auto;
+  box-shadow: 0 26px 60px rgba(0, 0, 0, 0.55), 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* خط الهامش الأحمر */
+.hero-section::after {
+  content: "";
+  position: absolute;
+  top: 20px;
+  bottom: 20px;
+  left: 84px;
+  width: 1.5px;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(171, 74, 38, 0.28);
+}
+
+/* ------------------------- طبقة الزينة (JSX) ------------------------- */
+.fj-deco {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.fj-grain,
+.fj-fibers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fj-grain {
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='220' height='220' filter='url(%23n)' opacity='0.55'/></svg>");
+}
+
+.fj-fibers {
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='420' height='420'><filter id='f'><feTurbulence type='turbulence' baseFrequency='0.012 0.28' numOctaves='2' seed='7'/><feColorMatrix type='saturate' values='0'/></filter><rect width='420' height='420' filter='url(%23f)' opacity='0.35'/></svg>");
+}
+
+.fj-tape {
+  position: absolute;
+  height: 30px;
+  width: 124px;
+  opacity: 0.92;
+  background: linear-gradient(180deg, rgba(246, 232, 190, 0.94), rgba(232, 213, 164, 0.88));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+
+.fj-tape-1 {
+  top: 6px;
+  left: 22%;
+  transform: rotate(-4deg);
+}
+
+.fj-tape-2 {
+  right: 24%;
+  bottom: 8px;
+  transform: rotate(3deg);
+}
+
+.fj-clip {
+  position: absolute;
+  top: 2px;
+  left: 26px;
+  width: 24px;
+  height: 70px;
+  border: 3px solid #8d9299;
+  border-radius: 13px;
+  border-bottom-color: transparent;
+  transform: rotate(13deg);
+  opacity: 0.8;
+}
+
+.fj-coffee {
+  position: absolute;
+  right: 6%;
+  bottom: 12%;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 9px solid rgba(140, 90, 45, 0.13);
+}
+
+.fj-colorbar {
+  position: absolute;
+  left: 84px;
+  right: 44px;
+  bottom: 9px;
+  height: 12px;
+  display: flex;
+  border: 1px solid rgba(34, 48, 42, 0.25);
+}
+
+.fj-colorbar i {
+  flex: 1;
+}
+
+/* ذرات الغبار وحلقات الحبر (تُنشأ من محرّك الحركة) */
+.fj-speck {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(122, 111, 96, 0.75);
+  pointer-events: none;
+  z-index: 30;
+}
+
+.fj-ripple {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2.4px solid rgba(34, 48, 42, 0.5);
+  pointer-events: none;
+  z-index: 30;
+}
+
+.fj-ripple.clay {
+  border-color: rgba(171, 74, 38, 0.85);
+  border-width: 3px;
+}
+
+/* زر كتم الصوت (عنصر جديد، لا يمسّ شيئًا) */
+.fj-sound {
+  position: absolute;
+  top: 34px;
+  right: 40px;
+  z-index: 30;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  background: linear-gradient(180deg, #fdf6e7, #eddfc1);
+  border: 1.6px solid rgba(34, 48, 42, 0.32);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+  font-family: "Special Elite", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--fj-ink-soft);
+  cursor: pointer;
+  transform: rotate(1.2deg);
+}
+
+.fj-sound svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--fj-ink);
+  fill: none;
+  stroke-width: 1.8;
+}
+
+.fj-sound[data-muted="1"] {
+  opacity: 0.55;
+}
+
+/* ------------------------- الخلفية والجسيمات ------------------------- */
+#star-canvas {
+  opacity: 0.16 !important;
+  filter: sepia(0.9) saturate(0.6) !important;
+  mix-blend-mode: multiply;
+}
+
+.floating-asteroid {
+  filter: sepia(0.85) saturate(0.5) brightness(0.95) !important;
+  opacity: 0.3 !important;
+}
+
+/* ------------------------- شاشة البدء ------------------------- */
+.hero-content {
+  /* نزّلنا البطاقة قليلًا ليظهر بو غصن (المجسّم ثلاثي الأبعاد) فوقها،
+     ونستخدم margin لا transform حتى لا نتعارض مع حركة GSAP */
+  margin-top: 20vh;
+  background-color: var(--fj-paper);
+  background-image:
+    linear-gradient(rgba(58, 92, 120, 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 92, 120, 0.13) 1px, transparent 1px),
+    radial-gradient(120% 120% at 20% 10%, #fdf7ea 0%, var(--fj-paper) 60%, var(--fj-paper-2) 100%);
+  background-size: 24px 24px, 24px 24px, auto;
+  border: 1px solid rgba(34, 48, 42, 0.22);
+  border-radius: 2px;
+  padding: 46px 54px 40px !important;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3);
+  text-align: left !important;
+}
+
+.hero-title {
+  font-family: "Fraunces", Georgia, serif !important;
+  font-weight: 900 !important;
+  font-size: clamp(2.4rem, 6vw, 5.2rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--fj-ink) !important;
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: var(--fj-ink) !important;
+  text-shadow: none !important;
+  margin-bottom: 14px !important;
+}
+
+.hero-content > p {
+  font-family: "Special Elite", monospace !important;
+  color: var(--fj-clay) !important;
+  font-size: 0.95rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.06em !important;
+  margin-bottom: 26px !important;
+}
+
+.cta-button {
+  background: transparent !important;
+  color: var(--fj-clay) !important;
+  border: 3px solid var(--fj-clay) !important;
+  border-radius: 5px !important;
+  padding: 15px 30px !important;
+  font-family: "Special Elite", monospace !important;
+  font-weight: 400 !important;
+  font-size: 0.95rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.2em !important;
+  box-shadow: none !important;
+}
+
+.cta-button:hover {
+  background: rgba(171, 74, 38, 0.07) !important;
+  box-shadow: 0 6px 18px rgba(171, 74, 38, 0.22) !important;
+}
+
+.cta-button .btn-arrow {
+  background: transparent !important;
+  color: var(--fj-clay) !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+  font-size: 1.1rem !important;
+}
+
+.cta-button:hover .btn-arrow {
+  background: transparent !important;
+  color: var(--fj-clay) !important;
+}
+
+/* الدائرة الخلفية للشخصية: من نيون إلى حلقة حبر متقطّعة */
+.radar-ring {
+  border: 2.2px dashed rgba(63, 90, 53, 0.7) !important;
+  box-shadow: inset 0 0 24px rgba(93, 125, 74, 0.12) !important;
+}
+
+.pod-wrapper {
+  background: radial-gradient(circle, rgba(93, 125, 74, 0.16) 0%, rgba(243, 232, 212, 0) 70%) !important;
+}
+
+/* ------------------------- شاشات القصة ------------------------- */
+/* الحاوية نفسها شفافة دائمًا (كي لا تظهر بطاقة فارغة قبل بدء القصة)،
+   وتُظهر لوح الورق فقط عند إضافة الصنف fj-story-active من طبقة الحركة. */
+#story-container {
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+#story-container.fj-story-active::before {
+  content: "";
+  position: absolute;
+  inset: -26px -42px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 2px;
+  background-color: rgba(253, 247, 234, 0.95);
+  background-image:
+    linear-gradient(rgba(58, 92, 120, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 92, 120, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  border: 1px solid rgba(34, 48, 42, 0.2);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.4);
+}
+
+.story-title {
+  font-family: "Fraunces", Georgia, serif !important;
+  font-weight: 900 !important;
+  color: var(--fj-ink) !important;
+  text-shadow: none !important;
+  letter-spacing: -0.01em !important;
+  font-size: clamp(1.9rem, 4vw, 3.2rem) !important;
+}
+
+/* الاسم العربي «بو غصن» (ثاني عناوين الشريحة) */
+.story-slide-group .story-title:nth-child(2) {
+  font-family: "Aref Ruqaa", "Fraunces", serif !important;
+  color: var(--fj-ghaf-dark) !important;
+  font-size: clamp(1.7rem, 3.4vw, 2.7rem) !important;
+  letter-spacing: 0 !important;
+}
+
+.story-desc {
+  font-family: "Fraunces", Georgia, serif !important;
+  color: var(--fj-ink-soft) !important;
+  text-shadow: none !important;
+  font-size: clamp(1.05rem, 2vw, 1.5rem) !important;
+  line-height: 1.5 !important;
+}
+
+/* ------------------------- شريط التقدّم: حبر على ورق ------------------------- */
+.progress-container {
+  gap: 14px !important;
+}
+
+.progress-bar {
+  height: 9px !important;
+  background-color: rgba(253, 247, 234, 0.7) !important;
+  border: 1.6px solid rgba(34, 48, 42, 0.5) !important;
+  border-radius: 0 !important;
+}
+
+.progress-fill {
+  background-color: transparent !important;
+  background-image: repeating-linear-gradient(
+    105deg,
+    rgba(63, 90, 53, 0.62) 0 3px,
+    rgba(93, 125, 74, 0.42) 3px 6px
+  ) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ------------------------- مرحلة الخريطة ------------------------- */
+#combined-map-container {
+  filter: none !important;
+  background-color: var(--fj-paper);
+  background-image:
+    linear-gradient(rgba(58, 92, 120, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(58, 92, 120, 0.12) 1px, transparent 1px),
+    radial-gradient(120% 120% at 20% 10%, #fdf7ea 0%, var(--fj-paper) 60%, var(--fj-paper-3) 100%);
+  background-size: 26px 26px, 26px 26px, auto;
+  border: 1px solid rgba(34, 48, 42, 0.22);
+  border-radius: 2px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45);
+}
+
+.combined-map-hologram {
+  /* خريطة الإمارات كحبر شفّاف على الورق */
+  background-color: rgba(93, 125, 74, 0.38) !important;
+  opacity: 1;
+  animation: none !important;
+  filter: none !important;
+}
+
+.split-text {
+  font-family: "Fraunces", Georgia, serif !important;
+  color: var(--fj-ink) !important;
+  text-shadow: none !important;
+  font-weight: 900 !important;
+}
+
+.split-left {
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem) !important;
+}
+
+.split-right {
+  font-family: "Caveat", cursive !important;
+  color: var(--fj-clay) !important;
+  font-weight: 600 !important;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem) !important;
+}
+
+/* الخطوط السبعة المنقوطة: قلم رصاص */
+.lines-svg path {
+  stroke: rgba(122, 111, 96, 0.85) !important;
+  stroke-width: 2 !important;
+}
+
+/* عقد الإمارات: حبر على ورق */
+.node-base {
+  fill: rgba(243, 232, 212, 0.55) !important;
+  stroke: rgba(34, 48, 42, 0.72) !important;
+  stroke-width: 2.2 !important;
+}
+
+/* حلقة العقدة الدوّارة: كانت دائرة سوداء ممتلئة → حلقة حبر متقطّعة */
+.emirate-group .node-ring,
+.node-ring {
+  fill: none !important;
+  stroke: rgba(34, 48, 42, 0.5) !important;
+  stroke-width: 1.8 !important;
+  stroke-dasharray: 6 5 !important;
+}
+
+.emirate-group:hover .node-base {
+  fill: rgba(93, 125, 74, 0.16) !important;
+  stroke: rgba(171, 74, 38, 0.9) !important;
+  filter: none !important;
+}
+
+.emirate-hologram-wrapper {
+  /* شكل الإمارة كحبر شفّاف على الورق (لا كتلة داكنة) */
+  background-color: rgba(93, 125, 74, 0.45) !important;
+  filter: none !important;
+  opacity: 1;
+}
+
+.emirate-group:hover .emirate-hologram-wrapper {
+  background-color: rgba(63, 90, 53, 0.62) !important;
+  filter: none !important;
+}
+
+.emirate-label {
+  font-family: "Special Elite", monospace !important;
+  fill: var(--fj-ink-soft) !important;
+  font-size: 14px !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  filter: none !important;
+  /* هالة ورقية خلف النص ليبقى مقروءًا فوق الدوائر */
+  paint-order: stroke !important;
+  stroke: rgba(243, 232, 212, 0.92) !important;
+  stroke-width: 3.5px !important;
+  stroke-linejoin: round !important;
+}
+
+.emirate-group:hover .emirate-label {
+  fill: var(--fj-clay) !important;
+  font-size: 14px !important;
+  filter: none !important;
+}
+
+/* ------------------------- مسار المهام (My Journey) ------------------------- */
+.eco-path-line {
+  stroke: rgba(122, 111, 96, 0.75) !important;
+  stroke-width: 2.4 !important;
+  stroke-dasharray: 8 7 !important;
+  filter: none !important;
+}
+
+.eco-path-glow {
+  stroke: var(--fj-ochre) !important;
+  stroke-width: 2.6 !important;
+  filter: none !important;
+  opacity: 0.9;
+}
+
+.stage-node:hover {
+  filter: drop-shadow(0 6px 10px rgba(60, 45, 25, 0.25));
+}
+
+.node-locked circle {
+  fill: rgba(253, 247, 234, 0.85) !important;
+  stroke: rgba(34, 48, 42, 0.45) !important;
+  stroke-width: 2 !important;
+  stroke-dasharray: 5 4;
+  backdrop-filter: none !important;
+}
+
+.node-locked text {
+  fill: rgba(75, 90, 80, 0.75) !important;
+  font-family: "Special Elite", monospace !important;
+  font-weight: 400 !important;
+  font-size: 13px !important;
+}
+
+.node-active circle {
+  fill: var(--fj-ghaf) !important;
+  stroke: var(--fj-paper) !important;
+  stroke-width: 3 !important;
+  filter: none !important;
+}
+
+.node-active text {
+  fill: #fdf7ea !important;
+  font-family: "Special Elite", monospace !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+}
+
+.node-completed circle {
+  fill: rgba(194, 145, 43, 0.9) !important;
+  stroke: rgba(63, 90, 53, 0.9) !important;
+  stroke-width: 2.5 !important;
+  filter: none !important;
+}
+
+.node-completed text {
+  fill: #fdf7ea !important;
+  font-family: "Special Elite", monospace !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+}
+
+/* مؤشر «You Are Here»: ملصق ورقي */
+.indicator-card {
+  background: linear-gradient(180deg, #fdf6e7, #eddfc1) !important;
+  border: 1.6px solid var(--fj-clay) !important;
+  border-radius: 2px !important;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28) !important;
+  backdrop-filter: none !important;
+  transform: rotate(1.5deg);
+}
+
+.indicator-title {
+  color: var(--fj-clay) !important;
+  font-family: "Special Elite", monospace !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.2em !important;
+}
+
+.indicator-mission {
+  color: var(--fj-ink) !important;
+  font-family: "Karla", system-ui, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+.indicator-arrow {
+  border-top-color: var(--fj-clay) !important;
+  filter: none !important;
+}
+
+/* ------------------------- استجابة للشاشات الصغيرة ------------------------- */
+@media (max-width: 900px) {
+  .hero-section::before {
+    inset: 10px;
+  }
+
+  .hero-section::after {
+    left: 46px;
+  }
+
+  .hero-content {
+    margin-top: 14vh;
+    padding: 30px 26px 26px !important;
+  }
+
+  /* ملاحظة: أزلنا الحشوة عن الحاوية (كانت ستُزحزح النص) ونظّمنا اللوح بدلًا منها */
+  #story-container {
+    width: 92% !important;
+  }
+
+  #story-container.fj-story-active::before {
+    inset: -18px -22px;
+  }
+
+  .fj-colorbar {
+    left: 46px;
+    right: 24px;
+    bottom: 12px;
+  }
+
+  .fj-sound {
+    top: 20px;
+    right: 20px;
+  }
+}
