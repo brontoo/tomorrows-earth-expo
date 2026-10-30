@@ -61,8 +61,12 @@ export default function MissionDetail() {
     { missionId: mission?.id ?? 0, academicYearId: yearQuery.data?.id ?? 0 },
     { enabled: Boolean(mission?.id && yearQuery.data?.id && isStudent) },
   );
-  const startMutation = trpc.missionCompletions.start.useMutation({ onSuccess: () => completionQuery.refetch() });
-  const submitMutation = trpc.missionCompletions.submit.useMutation({ onSuccess: () => completionQuery.refetch() });
+  const utils = trpc.useUtils();
+  const refreshProgress = async () => {
+    await Promise.all([completionQuery.refetch(), utils.passport.getMine.invalidate(), utils.missionCompletions.getMyList.invalidate()]);
+  };
+  const startMutation = trpc.missionCompletions.start.useMutation({ onSuccess: refreshProgress });
+  const submitMutation = trpc.missionCompletions.submit.useMutation({ onSuccess: refreshProgress });
 
   const [evidence, setEvidence] = useState("");
   const [reflection, setReflection] = useState("");
@@ -110,7 +114,7 @@ export default function MissionDetail() {
             <span>{mission?.zoneName ?? "Zone"}</span>
           </div>
           <Link href="/eco-journey">
-            <span className="fj-type-label cursor-pointer text-[11px]">Eco Journey</span>
+            <span className="fj-type-label cursor-pointer text-[11px]">Return to Eco Train →</span>
           </Link>
         </div>
 
@@ -143,6 +147,11 @@ export default function MissionDetail() {
                 {mission.estimatedMinutes} min · {mission.pointsAvailable} points
               </span>
               {status && <Stamp text={status.label} />}
+              {(completion?.status === "completed" || completion?.status === "verified") && (
+                <Link href="/eco-journey" className="fj-rubber-stamp" style={{ fontSize: 12, padding: "10px 16px" }}>
+                  Return to Eco Train →
+                </Link>
+              )}
             </div>
 
             <div className="mt-8 grid gap-10 lg:grid-cols-[1.25fr_1fr]">

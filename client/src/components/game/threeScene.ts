@@ -10,6 +10,16 @@ let mixer: THREE.AnimationMixer | null = null;
 const clock = new THREE.Clock();
 
 export function init3DPod(container: HTMLDivElement): () => void {
+  let alive = true;
+  const release = (root: THREE.Object3D) => root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    mesh.geometry?.dispose();
+    const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
+    materials.forEach(material => {
+      Object.values(material).forEach(value => { if (value instanceof THREE.Texture) value.dispose(); });
+      material.dispose();
+    });
+  });
   const startWidth = container.clientWidth || 600;
   const startHeight = container.clientHeight || 600;
 
@@ -43,6 +53,7 @@ export function init3DPod(container: HTMLDivElement): () => void {
   loader.load(
     '/character.glb',
     (gltf) => {
+      if (!alive) { release(gltf.scene); return; }
       characterModel = gltf.scene;
 
       // الموضع المبدئي: خلف كلمة UAE تماماً في أعلى يمين النص
@@ -57,7 +68,7 @@ export function init3DPod(container: HTMLDivElement): () => void {
       scene.add(characterModel);
     },
     undefined,
-    (error) => console.error('Error loading character GLB model:', error)
+    (error) => { if (alive) console.error('Error loading character GLB model:', error); }
   );
 
   let rafId = 0;
@@ -86,9 +97,13 @@ export function init3DPod(container: HTMLDivElement): () => void {
   window.addEventListener('resize', handleResize);
 
   return () => {
+    alive = false;
     cancelAnimationFrame(rafId);
+    mixer?.stopAllAction();
+    release(scene);
     window.removeEventListener('resize', handleResize);
     renderer.dispose();
+    renderer.forceContextLoss();
     container.innerHTML = '';
     characterModel = null;
     mixer = null;
