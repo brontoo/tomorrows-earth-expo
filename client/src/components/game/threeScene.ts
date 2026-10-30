@@ -7,10 +7,12 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 export let characterModel: THREE.Group | null = null;
 
 let mixer: THREE.AnimationMixer | null = null;
-const clock = new THREE.Clock();
+
 
 export function init3DPod(container: HTMLDivElement): () => void {
   let alive = true;
+  const clock = new THREE.Clock();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   const release = (root: THREE.Object3D) => root.traverse((object) => {
     const mesh = object as THREE.Mesh;
     mesh.geometry?.dispose();
@@ -72,18 +74,23 @@ export function init3DPod(container: HTMLDivElement): () => void {
   );
 
   let rafId = 0;
+  let idleTime = 0;
   const animate = () => {
     rafId = requestAnimationFrame(animate);
 
     // مهم: لا نكتب على characterModel.position هنا إطلاقاً،
     // لأن GSAP يحرّك الموضع في مرحلة القصة، وأي كتابة لحظية تُلغي حركته.
+    const dt = Math.min(.05, clock.getDelta());
     if (mixer) {
-      mixer.update(clock.getDelta());
-    } else if (characterModel) {
-      characterModel.rotation.y += 0.005;
+      mixer.update(reduced.matches || document.hidden ? 0 : dt);
+    } else if (characterModel && !reduced.matches && !document.hidden) {
+      idleTime += dt;
+      // A companion stays facing the reader; never spin through a full turn.
+      characterModel.rotation.y = Math.sin(idleTime * .65) * .07;
+      characterModel.rotation.z = Math.sin(idleTime * .8) * .012;
     }
 
-    renderer.render(scene, camera);
+    if (!document.hidden) renderer.render(scene, camera);
   };
   animate();
 

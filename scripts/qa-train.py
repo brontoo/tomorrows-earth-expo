@@ -62,7 +62,7 @@ async def main():
   page=await context.new_page();await fixture(page,{})
   await page.goto(BASE+'/eco-journey?trainDebug=1',wait_until='networkidle')
   await page.get_by_role('button',name='Board the Eco Train').click()
-  await page.locator('.boarding-platform').wait_for(timeout=25000)
+  await page.locator('.boarding-platform').wait_for(timeout=40000)
   await page.locator('.boarding-platform').get_by_role('button',name='Board the Eco Train',exact=True).click()
   await page.locator('.train-shell').wait_for(timeout=20000)
   passed('Original opening, guide, mission and travel briefings reach the platform; intentional BOARD NOW enters the cabin')

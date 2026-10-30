@@ -39,13 +39,13 @@ export class PlatformAmbience {
     if (this.disposed) return;
     this.master.gain.setTargetAtTime(muted || this.fading ? 0 : this.entering ? .45 : .3, this.context.currentTime, .12);
   }
-  confirm() {
+  confirm(duration = 1.5) {
     if (this.disposed) return;
     this.entering = true;
     const at = this.context.currentTime;
     this.air.gain.setValueAtTime(0, at);
     this.air.gain.linearRampToValueAtTime(.035, at + .25);
-    this.air.gain.linearRampToValueAtTime(0, at + 1.3);
+    this.air.gain.linearRampToValueAtTime(0, at + duration);
     for (const [frequency, delay] of [[540, 0], [720, .12]]) {
       const tone = this.context.createOscillator(); const gain = this.context.createGain();
       tone.frequency.value = frequency; gain.gain.setValueAtTime(0, at + delay);

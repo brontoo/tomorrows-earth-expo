@@ -10,6 +10,8 @@ import { SceneryRenderer, SceneCache } from './SceneryRenderer';
 import { TrainAudio } from './TrainAudio';
 import { isComplete, PREVIEW_KEY, readJourney, readStorage, saveJourney, writeStorage, type MissionCard, type MissionState } from './persistence';
 import './train.css';
+import { MotionPanel } from '../motion/MotionPanel';
+import { useCabinMotion } from '../motion/useCabinMotion';
 
 export default function LivingTrainCabin({ entryHeld = false, onReady }: { entryHeld?: boolean; onReady?: () => void } = {}) {
   const { user, isAuthenticated, loading } = useAuthContext();
@@ -169,7 +171,10 @@ function TrainCabin({ profile, missions, states, student, error, refresh, entryH
     : view.travelState === 'ARRIVING' || view.travelState === 'BRAKING' ? `Arriving in ${stations[view.destinationStation].name}`
     : preview ? 'A glimpse of the Seven Emirates' : `Next Stop: ${stations[view.destinationStation].name}`;
 
-  return <section className="train-shell" aria-label="The Living Train Cabin" dir="ltr">
+  const shell = useRef<HTMLElement>(null);
+  useCabinMotion(shell, entryHeld, travelling ? travelLabel : stationTitle, completed);
+
+  return <section ref={shell} className="train-shell" aria-label="The Living Train Cabin" dir="ltr">
     <div className="train-view">
     <header className="train-header">
       <Link href="/" className="train-brand"><span className="train-brand-mark" aria-hidden="true">↟</span><span>THE LIVING TRAIN CABIN<small>Eco Train Journey Across the Seven Emirates</small></span></Link>
@@ -178,10 +183,12 @@ function TrainCabin({ profile, missions, states, student, error, refresh, entryH
         <button onClick={toggleSound} aria-pressed={!muted && audioEnabled} aria-label={!audioEnabled ? 'Enable train sound' : muted ? 'Unmute sound' : 'Mute sound'}>{!audioEnabled ? 'Enable sound' : muted ? 'Sound off' : 'Sound on'}</button>
       </div>
     </header>
-      <div className="train-artboard" ref={artwork} data-testid="train-artboard" aria-label={`Train window: ${journeyScenes[view.scene].label}`}>
+      <div className="train-artboard" data-testid="train-artboard" aria-label={`Train window: ${journeyScenes[view.scene].label}`}>
+        <div className="train-physical-cabin" ref={artwork}>
         <canvas ref={canvas} className="train-scenery" aria-hidden="true" />
         <img className="train-foreground" src={CABIN_IMAGE} alt="Illustrated train cabin with purple curtains, warm lamps and coffee on the table" draggable={false} />
         <svg className="train-coffee" viewBox="1576 1307 160 50" aria-hidden="true"><ellipse ref={coffee} cx="1656" cy="1332" rx="47" ry="6" fill="#d7b791" opacity=".14" /></svg>
+        </div>
         <div className="train-window-caption">
           <span className="train-eyebrow">{preview ? 'JOURNEY PREVIEW' : travelling ? 'ON THE RAILS' : 'CURRENT STOP'}</span>
           <h1 tabIndex={-1}>{travelling ? travelLabel : stationTitle}</h1>
@@ -191,8 +198,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh, entryH
       </div>
       {(loading || imageError) && <div className="train-load-status" role="status">{imageError ? <><span>Scenery could not be loaded.</span><button onClick={() => { setImageError(false); setLoading(true); setRetry(value => value + 1); }}>Retry scenery</button></> : 'Preparing the next view…'}</div>}
       {paused && <p className="train-pause-status" role="status">Journey paused</p>}
-      {!travelling && (cardOpen ? <>
-      <div id="train-challenge" className="train-station-panel" aria-live="polite" aria-atomic="true">
+      <MotionPanel show={!travelling && cardOpen}>
         <button className="train-card-close" onClick={() => setCardOpen(false)} aria-label="Hide station challenge">×</button>
         <img src={mascot} alt="Bu Ghosn, your eco guide" />
         <div className="train-guide-copy"><span className="train-eyebrow">بوغصن · YOUR ECO GUIDE</span>
@@ -209,11 +215,11 @@ function TrainCabin({ profile, missions, states, student, error, refresh, entryH
           {!travelling && completed.every(Boolean) && <Link href="/my-journey">Open my passport</Link>}
           {!student && !travelling && <Link href="/login?redirectTo=%2Feco-journey">Sign in to save mission progress</Link>}
         </div>
-      </div>
-      </> : <button className="train-challenge-toggle" onClick={() => setCardOpen(true)} aria-expanded={false} aria-controls="train-challenge">Show station challenge →</button>)}
+      </MotionPanel>
+      {!travelling && !cardOpen && <button className="train-challenge-toggle" onClick={() => setCardOpen(true)} aria-expanded={false} aria-controls="train-challenge">Show station challenge →</button>}
     </div>
     <div className="train-ticket">
-      <div className="train-ticket-heading"><div><span className="train-eyebrow">YOUR TRAVEL TICKET · 7 EMIRATES</span><h2>The Seven Emirates Journey</h2></div><div className="train-ticket-tools"><button className="train-replay" disabled={travelling} onClick={() => { activateAudio(); engine.board(); }}>Replay Journey Preview</button><span className="train-progress">{completed.filter(Boolean).length} / 7 stamps</span></div></div>
+      <div className="train-ticket-heading"><div><span className="train-eyebrow">YOUR TRAVEL TICKET · 7 EMIRATES</span><h2>The Seven Emirates Journey</h2></div><div className="train-ticket-tools"><button className="train-replay" disabled={travelling} onClick={() => { activateAudio(); engine.board(); }}>Replay Journey Preview</button><span className="train-progress"><span key={completed.filter(Boolean).length}>{completed.filter(Boolean).length}</span> / 7 stamps</span></div></div>
       <nav className="train-route" aria-label="Emirate stations">
         {stations.map((station, i) => {
           const status = completed[i] ? 'Completed' : i === view.station ? 'Current Stop' : i <= frontier ? 'Available' : 'Locked';

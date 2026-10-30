@@ -1,0 +1,43 @@
+/* Small interactions share the same arrival/departure curves as the director. */
+.eco-entry-flow { --eco-arrive: cubic-bezier(.16,1,.3,1); --eco-travel: cubic-bezier(.65,0,.35,1); }
+.intro-line { display: block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; }
+.intro-line > span { display: block; transform-origin: 0 100%; }
+.eco-travel-intro .floating-asteroid { transition: none; }
+.eco-travel-intro .cta-button { transition: translate .28s var(--eco-arrive), background-color .28s, box-shadow .28s; }
+.eco-travel-intro .cta-button:hover { transform: none; translate: 0 -3px; }
+.eco-travel-intro .cta-button:active { translate: 0 1px; }
+.intro-track-progress li > span { transition: background-color .35s, box-shadow .35s, scale .5s var(--eco-arrive); }
+.intro-track-progress li[aria-current='step'] > span { scale: 1.2; }
+.intro-track-progress li::after { transform-origin: left center; transition: opacity .4s, scale .65s var(--eco-travel); }
+.intro-track-progress li:not([data-complete='true'])::after { opacity: .3; scale: .65 1; }
+.intro-platform-link { transition: translate .25s var(--eco-arrive), background-color .25s; }
+.intro-platform-link:hover { translate: 0 -2px; background: #a76b490c; }
+.intro-platform-link:active { translate: 0 1px; }
+.boarding-platform { animation: none; }
+.boarding-invitation { transition: none; }
+.boarding-platform:not(.is-waiting) .boarding-invitation { /* GSAP owns the exit. */ pointer-events: none; }
+.boarding-door-glow { transition: opacity .5s var(--eco-arrive); }
+.boarding-status { animation: eco-status-in .35s var(--eco-arrive) both; }
+.train-artboard { animation: none; will-change: auto; }
+.train-physical-cabin { position: absolute; inset: 0; will-change: transform; pointer-events: none; } /* Suspension owns this transform; never stack a second zoom on it. */
+.train-station-panel { animation: none; }
+.train-shell :is(button,a) { transition: translate .23s var(--eco-arrive), background-color .23s, border-color .23s, box-shadow .23s; }
+.train-shell :is(button,a):not(:disabled):hover { translate: 0 -2px; }
+.train-shell :is(button,a):not(:disabled):active { translate: 0 1px; }
+.train-controls button[aria-pressed='true'] { box-shadow: inset 0 -2px 0 #72806455; }
+.train-stop { transition: background-color .4s, border-color .4s, translate .23s var(--eco-arrive); }
+.train-stamp { transform-origin: 50% 65%; }
+.train-stamp b { animation: eco-stamp-mark .55s var(--eco-arrive) both; }
+.train-pause-status { animation: eco-status-in .35s var(--eco-arrive) both; }
+.train-emirate-flash { animation: eco-landmark-label 2.5s both; }
+.train-progress > span { display: inline-block; animation: eco-count-in .5s var(--eco-arrive) both; }
+@keyframes eco-status-in { from { opacity: 0; margin-top: 5px; } to { opacity: 1; margin-top: 0; } }
+@keyframes eco-stamp-mark { from { opacity: 0; scale: 1.65; rotate: -18deg; } to { opacity: 1; scale: 1; rotate: 0deg; } }
+@keyframes eco-count-in { from { opacity: .3; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
+@keyframes eco-landmark-label { 0% { opacity: 0; translate: 0 6px; } 20%,88% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 0 -3px; } }
+@media (prefers-reduced-motion: reduce) {
+  .eco-entry-flow *, .eco-entry-flow *::before, .eco-entry-flow *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .eco-entry-flow :is(button,a):hover, .eco-entry-flow :is(button,a):active { translate: none !important; }
+  .train-physical-cabin { will-change: auto; }
+  .intro-track-progress li[aria-current='step'] > span { scale: 1; }
+}
