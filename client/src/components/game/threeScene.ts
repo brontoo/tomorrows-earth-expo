@@ -1,34 +1,59 @@
-// src/threeScene.ts
-// نسخة مطابقة لملف threeScene.js في المشروع المحلي (نفس الكاميرا والإضاءة والموضع)
-// مع تعديل واحد فقط: استقبال عنصر الحاوية مباشرة + إرجاع دالة تنظيف لبيئة React.
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+// Fit the original guide to a responsive stage and dispose all scene resources.
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 export let characterModel: THREE.Group | null = null;
 
 let mixer: THREE.AnimationMixer | null = null;
 
-
-export function init3DPod(container: HTMLDivElement): () => void {
+export function init3DPod(
+  container: HTMLDivElement,
+  onUnavailable?: () => void
+): () => void {
   let alive = true;
   const clock = new THREE.Clock();
-  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-  const release = (root: THREE.Object3D) => root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    mesh.geometry?.dispose();
-    const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : [];
-    materials.forEach(material => {
-      Object.values(material).forEach(value => { if (value instanceof THREE.Texture) value.dispose(); });
-      material.dispose();
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  const release = (root: THREE.Object3D) =>
+    root.traverse(object => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose();
+      const materials = mesh.material
+        ? Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material]
+        : [];
+      materials.forEach(material => {
+        Object.values(material).forEach(value => {
+          if (value instanceof THREE.Texture) value.dispose();
+        });
+        material.dispose();
+      });
     });
-  });
   const startWidth = container.clientWidth || 600;
   const startHeight = container.clientHeight || 600;
 
   const scene = new THREE.Scene();
 
-  const camera = new THREE.PerspectiveCamera(45, startWidth / startHeight, 0.1, 1000);
+  const camera = new THREE.PerspectiveCamera(
+    45,
+    startWidth / startHeight,
+    0.1,
+    1000
+  );
   camera.position.set(0, 0, 6.0);
+  let fittedSize: THREE.Vector3 | null = null;
+  const frameGuide = () => {
+    if (!fittedSize) return;
+    const tangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    camera.position.z =
+      Math.max(
+        fittedSize.y / (2 * tangent),
+        fittedSize.x / (2 * tangent * camera.aspect)
+      ) *
+        1.2 +
+      fittedSize.z / 2;
+    camera.lookAt(0, 0, 0);
+  };
 
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setSize(startWidth, startHeight);
@@ -36,7 +61,7 @@ export function init3DPod(container: HTMLDivElement): () => void {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.5;
 
-  container.innerHTML = '';
+  container.innerHTML = "";
   container.appendChild(renderer.domElement);
 
   // إضاءة متوازنة ومشرقة للشخصية
@@ -53,14 +78,21 @@ export function init3DPod(container: HTMLDivElement): () => void {
 
   const loader = new GLTFLoader();
   loader.load(
-    '/character.glb',
-    (gltf) => {
-      if (!alive) { release(gltf.scene); return; }
+    "/character.glb",
+    gltf => {
+      if (!alive) {
+        release(gltf.scene);
+        return;
+      }
       characterModel = gltf.scene;
 
-      // الموضع المبدئي: خلف كلمة UAE تماماً في أعلى يمين النص
+      // Centre the existing model without changing its geometry or artwork.
       characterModel.scale.set(1.0, 1.0, 1.0);
-      characterModel.position.set(0.75, 0.75, 0);
+      const bounds = new THREE.Box3().setFromObject(characterModel);
+      const center = bounds.getCenter(new THREE.Vector3());
+      fittedSize = bounds.getSize(new THREE.Vector3());
+      characterModel.position.sub(center);
+      frameGuide();
 
       if (gltf.animations && gltf.animations.length > 0) {
         mixer = new THREE.AnimationMixer(characterModel);
@@ -70,7 +102,12 @@ export function init3DPod(container: HTMLDivElement): () => void {
       scene.add(characterModel);
     },
     undefined,
-    (error) => { if (alive) console.error('Error loading character GLB model:', error); }
+    error => {
+      if (alive) {
+        console.error("Error loading character GLB model:", error);
+        onUnavailable?.();
+      }
+    }
   );
 
   let rafId = 0;
@@ -80,14 +117,14 @@ export function init3DPod(container: HTMLDivElement): () => void {
 
     // مهم: لا نكتب على characterModel.position هنا إطلاقاً،
     // لأن GSAP يحرّك الموضع في مرحلة القصة، وأي كتابة لحظية تُلغي حركته.
-    const dt = Math.min(.05, clock.getDelta());
+    const dt = Math.min(0.05, clock.getDelta());
     if (mixer) {
       mixer.update(reduced.matches || document.hidden ? 0 : dt);
     } else if (characterModel && !reduced.matches && !document.hidden) {
       idleTime += dt;
       // A companion stays facing the reader; never spin through a full turn.
-      characterModel.rotation.y = Math.sin(idleTime * .65) * .07;
-      characterModel.rotation.z = Math.sin(idleTime * .8) * .012;
+      characterModel.rotation.y = Math.sin(idleTime * 0.65) * 0.07;
+      characterModel.rotation.z = Math.sin(idleTime * 0.8) * 0.012;
     }
 
     if (!document.hidden) renderer.render(scene, camera);
@@ -98,20 +135,21 @@ export function init3DPod(container: HTMLDivElement): () => void {
     const width = container.clientWidth || startWidth;
     const height = container.clientHeight || startHeight;
     camera.aspect = width / height;
+    frameGuide();
     camera.updateProjectionMatrix();
     renderer.setSize(width, height);
   };
-  window.addEventListener('resize', handleResize);
+  window.addEventListener("resize", handleResize);
 
   return () => {
     alive = false;
     cancelAnimationFrame(rafId);
     mixer?.stopAllAction();
     release(scene);
-    window.removeEventListener('resize', handleResize);
+    window.removeEventListener("resize", handleResize);
     renderer.dispose();
     renderer.forceContextLoss();
-    container.innerHTML = '';
+    container.innerHTML = "";
     characterModel = null;
     mixer = null;
   };

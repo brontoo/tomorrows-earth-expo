@@ -48,6 +48,11 @@ async def main():
     await page.set_viewport_size({'width':width,'height':height});await page.wait_for_timeout(150)
     await page.screenshot(path=str(OUT/f'platform-{width}x{height}.png'))
     assert await page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    invitation=await page.locator('.boarding-invitation').bounding_box()
+    assert invitation['x']>=-1 and invitation['x']+invitation['width']<=width+1,invitation
+    bounds=await page.locator('.boarding-platform-art img').bounding_box()
+    for focal in [.51,.695]:
+     assert 0<=bounds['x']+bounds['width']*focal<=width,(width,focal,bounds)
    await page.set_viewport_size({'width':1440,'height':900})
    await page.screenshot(path=str(OUT/'canonical-platform.png'))
    results.append('Full introduction reaches the original canonical 2752-pixel-wide platform artwork.')

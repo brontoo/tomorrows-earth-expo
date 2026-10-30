@@ -40,6 +40,8 @@
   gap: 20px;
 }
 .entry-brand {
+  color: #203e32;
+  text-decoration: none;
   display: flex;
   align-items: center;
   gap: 12px;

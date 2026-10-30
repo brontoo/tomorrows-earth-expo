@@ -1,4 +1,4 @@
-# Notebook briefing → platform → Living Train Cabin
+# Journey briefing → platform → Living Train Cabin
 
 ## Original artwork
 
@@ -6,13 +6,13 @@ The supplied RAR contains `Gemini_Generated_Image_43lqmg43lqmg43lq.jpg.jpg` (inc
 
 ## Introduction and boarding flow
 
-The original notebook opening, typography, palette, 3D character and CTA are retained. The opening adds a short journey subtitle and small paper ticket annotation. The guide is introduced as an eco-guide and travel companion; the mission line describes exploring, solving challenges and collecting seven station stamps. Thin railway markers replace the generic story progress bars.
+The opening, guide, mission and travel briefing now share the gateway/login field-station identity: Playfair Display and Inter, forest green, neutral cream, clay accents and sage panels. The yellow notebook grid, tape, clip, coffee stains and floating illustration scraps were removed from this route. The original 3D guide and boarding CTA remain. The guide is an eco-guide and travel companion; the mission describes exploring, solving challenges and collecting seven station stamps. Numbered route markers track the three briefing steps.
 
-A new final paper briefing uses the existing UAE outline and the shared station order: “7 Emirates. 7 Stops. 7 Eco Challenges.” Abu Dhabi is highlighted on a simple seven-stop route. The route is conceptual; it does not invent new geographic boundaries or mission content. The paper interface reveals the platform after the briefing and a soft chime.
+The final travel briefing uses the existing UAE outline and the shared station order: “7 Emirates. 7 Stops. 7 Eco Challenges.” Abu Dhabi is highlighted on a simple seven-stop route. The route is conceptual; it does not invent new geographic boundaries or mission content. The briefing reveals the platform after the briefing and a soft chime.
 
-The platform is an in-route state, not a separate page. Only the supplied JPG is accepted as its canonical art. The `BOARD NOW` button uses a clean platform-floor area; the portrait layout crops around the mascot/door focal zone. The flattened character is static. Button focus/hover adds a restrained doorway light cue.
+The platform is an in-route state, not a separate page. Only the supplied JPG is accepted as its canonical art. The neutral invitation panel and forest-green `BOARD NOW` button use a clean platform-floor area; the portrait layout crops around the mascot/door focal zone. The flattened character is static. Button focus/hover adds a restrained doorway light cue.
 
-On boarding, the camera makes a small push toward the actual door. A warm polygon expands from the projected doorway to cover the viewport. Only then is the existing cabin mounted behind that cover. The cabin's simulation remains held until its artwork, current scenery and real first Canvas frame are ready. The warm cover retracts, the cabin's existing boarding message appears and its unchanged preview engine starts. Reduced motion omits the zoom and uses a brief covered reveal.
+Artwork centring belongs to the outer `.boarding-platform-art` wrapper; the camera tween belongs to its inner `.boarding-platform-camera`. This keeps responsive percentage positioning independent of GSAP's transform normalization. On boarding, the camera makes a small push toward the actual door. A warm polygon expands from the projected doorway to cover the viewport. Only then is the existing cabin mounted behind that cover. The cabin's simulation remains held until its artwork, current scenery and real first Canvas frame are ready. The warm cover retracts, the cabin's existing boarding message appears and its unchanged preview engine starts. Reduced motion omits the zoom and uses a brief covered reveal.
 
 Keyboard focus moves from the platform CTA to the cabin heading after the covered reveal. The profile's `boarded` flag is written only after entry completes. Refreshing before completion does not save a half-boarded state. Existing returning-user tickets go directly to the cabin; the ticket's `Replay Journey Preview` control continues to replay the journey without replaying the introduction.
 
