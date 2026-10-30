@@ -132,6 +132,7 @@ export const journalSfx = {
   setMuted(value: boolean): void {
     muted = value;
     try { window.localStorage.setItem("ecoSoundMuted:v1", String(value)); } catch { /* optional */ }
+    if (hasWindow) window.dispatchEvent(new Event("eco-sound-preference"));
     if (!muted) play(() => undefined);
   },
   toggle(): boolean {

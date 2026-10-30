@@ -6,10 +6,13 @@ import { init3DPod } from "./threeScene";
 import { journalSfx, prefersReducedMotion, unlockJourneyAudio } from "@/lib/journalMotion";
 import mascot from "@/assets/illustrations/tree.svg";
 import LivingTrainCabin from "./train/LivingTrainCabin";
-import { CABIN_IMAGE, journeyScenes } from "./train/journeyScenes";
+import BoardingPlatform from "./intro/BoardingPlatform";
+import JourneyBriefing from "./intro/JourneyBriefing";
+import { preloadBoardingAssets } from "./intro/boardingAssets";
 import { readJourney, saveJourney } from "./train/persistence";
 import "./EcoJourney.css";
 import "./fieldJournal.css";
+import "./intro/boarding.css";
 import p1 from "../../assets/illustrations/p1.png";
 import p2 from "../../assets/illustrations/p2.png";
 import p3 from "../../assets/illustrations/p3.png";
@@ -20,16 +23,32 @@ import p6 from "../../assets/illustrations/p6.png";
 export default function EcoJourney() {
   const { user } = useAuthContext();
   const profile = user?.id ? String(user.id) : "guest";
-  const [cabin, setCabin] = useState(() => readJourney(profile).boarded);
-  useEffect(() => { setCabin(readJourney(profile).boarded); }, [profile]);
-  if (cabin) return <LivingTrainCabin />;
-  return <JourneyOpening onBoard={() => { saveJourney(profile, readJourney(profile).station); setCabin(true); }} />;
+  const [entry, setEntry] = useState<'intro' | 'platform' | 'entering' | 'revealing' | 'cabin'>(() => readJourney(profile).boarded ? 'cabin' : 'intro');
+  const [cabinReady, setCabinReady] = useState(false);
+  const cabinEntry = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (entry === 'cabin') cabinEntry.current?.querySelector<HTMLHeadingElement>('h1')?.focus({ preventScroll: true }); }, [entry]);
+  useEffect(() => {
+    setCabinReady(false);
+    setEntry(current => readJourney(profile).boarded ? 'cabin' : current === 'cabin' ? 'intro' : current);
+  }, [profile]);
+  const cabinMounted = entry === 'entering' || entry === 'revealing' || entry === 'cabin';
+  return <div className="eco-entry-flow">
+    {cabinMounted && <div ref={cabinEntry} className="eco-entry-cabin" aria-hidden={entry !== 'cabin'} inert={entry !== 'cabin'}>
+      <LivingTrainCabin entryHeld={entry === 'entering'} onReady={() => setCabinReady(true)} />
+    </div>}
+    {entry === 'intro' && <JourneyOpening onBoard={() => { journalSfx.chime(); setCabinReady(false); setEntry('platform'); }} />}
+    {(entry === 'platform' || entry === 'entering' || entry === 'revealing') && <BoardingPlatform
+      cabinReady={cabinReady} onPrepareCabin={() => setEntry('entering')} onReveal={() => setEntry('revealing')}
+      onEntered={() => { saveJourney(profile, readJourney(profile).station); setEntry('cabin'); }} />}
+  </div>;
 }
 
 function JourneyOpening({ onBoard }: { onBoard: () => void }) {
   const containerRef = useRef<HTMLElement>(null);
   const [soundMuted, setSoundMuted] = useState(journalSfx.muted);
   const [story, setStory] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
+  const storyTimeline = useRef<gsap.core.Timeline | null>(null);
   const [modelUnavailable, setModelUnavailable] = useState(false);
   const board = useRef(onBoard); board.current = onBoard;
 
@@ -48,16 +67,19 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
     if (!story) return;
     const reduced = prefersReducedMotion();
     const context = gsap.context(() => {
-      const timeline = gsap.timeline();
+      const timeline = gsap.timeline(); storyTimeline.current = timeline;
       timeline.to("#hero-content", { opacity: 0, y: reduced ? 0 : -20, duration: reduced ? .1 : .4 });
       timeline.to("#character-group", { y: "-10vh", scale: 1.1, duration: reduced ? .1 : .7 }, 0);
       timeline.set("#story-container", { pointerEvents: "none" });
       timeline.to("#progress-container", { opacity: 1, duration: .2 });
       const groups = containerRef.current?.querySelectorAll(".story-slide-group") ?? [];
       groups.forEach((group, index) => {
+        timeline.call(() => setActiveSlide(index));
+        if (index === 2) timeline.addLabel("travelBriefing");
+        if (index === 2) timeline.to("#character-group", { opacity: 0, duration: reduced ? .1 : .35 });
         timeline.set(group, { opacity: 1 });
         timeline.fromTo(group.querySelectorAll(".story-title, .story-desc"), { opacity: 0, y: reduced ? 0 : 12 }, { opacity: 1, y: 0, duration: reduced ? .1 : .45, stagger: .15 });
-        timeline.to(`.progress-bar:nth-child(${index + 1}) .progress-fill`, { width: "100%", duration: 3.4, ease: "none" });
+        timeline.to({}, { duration: index === 2 ? 4 : 3.4 });
         timeline.to(group, { opacity: 0, duration: .3 });
       });
       timeline.call(() => board.current());
@@ -69,13 +91,11 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
     if (story) return;
     unlockJourneyAudio(); journalSfx.stamp();
     setStory(true);
-    // Warm only the frame and first two scenery images while the short story plays.
-    for (const src of [CABIN_IMAGE, '/train/window-mask.png', '/train/cabin-mask.png', ...journeyScenes.slice(0, 2).map(scene => scene.image)]) {
-      const image = new Image(); image.src = src;
-    }
+    // Begin staged decoding before the player reaches the final travel briefing.
+    void preloadBoardingAssets().catch(() => undefined);
   };
   return (
-    <section ref={containerRef} className="hero-section">
+    <section ref={containerRef} className="hero-section eco-travel-intro" data-briefing={story && activeSlide === 2}>
       <div className="fj-deco" aria-hidden="true">
         <span className="fj-grain" />
         <span className="fj-fibers" />
@@ -150,12 +170,13 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
         data-speed="0.07"
         alt=""
       />
-      <div className="hero-content" id="hero-content" style={{ pointerEvents: story ? "none" : "auto" }}>
+      <div className="hero-content" id="hero-content" aria-hidden={story} inert={story} style={{ pointerEvents: story ? "none" : "auto" }}>
         <h1 className="hero-title">
           Explore the UAE.
           <br />
           Protect Our Future.
         </h1>
+        <p className="intro-journey-line">A journey across the Seven Emirates begins here.</p>
         <p
           style={{
             color: "#a7f3d0",
@@ -166,9 +187,10 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
         >
           Um Al Emarat School | Teacher: Riham Saleh
         </p>
-        <button className="cta-button" id="start-btn" onClick={startStory}>
+        <div className="intro-ticket-motif" aria-hidden="true"><span>ECO TRAIN · AD → FUJ</span><i>7 stops · one shared future</i></div>
+        <button className="cta-button" id="start-btn" aria-label="Board the Eco Train" onClick={startStory}>
           <span>Board the Eco Train</span>
-          <div className="btn-arrow">→</div>
+          <div className="btn-arrow" aria-hidden="true">→</div>
         </button>
       </div>
       <div
@@ -189,7 +211,7 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
         {modelUnavailable && <img src={mascot} alt="Bu Ghosn, your eco guide" style={{ width: 260, height: 300, objectFit: "contain" }} />}
       </div>
       <div id="story-container">
-        <div className="story-slide-group">
+        <div className="story-slide-group" aria-hidden={!story || activeSlide !== 0} inert={!story || activeSlide !== 0}>
           <div
             className="story-title"
             style={{
@@ -214,11 +236,11 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
             بوغصن
           </div>
           <div className="story-desc" style={{ color: "#ffffff" }}>
-            Your official eco-guide for this adventure.
+            Your eco-guide and travel companion.
           </div>
         </div>
 
-        <div className="story-slide-group">
+        <div className="story-slide-group" aria-hidden={!story || activeSlide !== 1} inert={!story || activeSlide !== 1}>
           <div
             className="story-title"
             style={{
@@ -232,20 +254,19 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
             HELP BU GHOSN SAVE HIS FRIENDS ACROSS THE UAE.
           </div>
           <div className="story-desc" style={{ color: "#ffffff" }}>
-            Board the Eco Train and travel across the Seven Emirates to help protect our environment.
+            Travel, explore, solve challenges, and collect 7 station stamps.
           </div>
         </div>
+      <div id="journey-briefing" className="story-slide-group intro-map-slide" style={{ opacity: 0 }} aria-hidden={!story || activeSlide !== 2} inert={!story || activeSlide !== 2}>
+        <JourneyBriefing onContinue={() => board.current()} />
       </div>
-      <div className="progress-container" id="progress-container">
-        <div className="progress-bar">
-          <div className="progress-fill"></div>
-        </div>
-        <div className="progress-bar">
-          <div className="progress-fill"></div>
-        </div>
       </div>
-
-      {story && <button className="train-take-seat" onClick={() => board.current()}>Take my seat →</button>}
+      <nav className="progress-container intro-track-progress" id="progress-container" aria-label="Introduction progress" aria-hidden={!story}>
+        <ol>{['Meet your guide', 'Mission briefing', 'Travel briefing'].map((label, index) => <li key={label} aria-current={story && activeSlide === index ? 'step' : undefined} data-complete={activeSlide > index}>
+          <span aria-hidden="true" />{label}
+        </li>)}</ol>
+      </nav>
+      {story && activeSlide < 2 && <button className="train-take-seat" onClick={() => { storyTimeline.current?.seek('travelBriefing', false); }}>Travel briefing →</button>}
     </section>
   );
 }

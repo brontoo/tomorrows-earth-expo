@@ -11,7 +11,7 @@ import { TrainAudio } from './TrainAudio';
 import { isComplete, PREVIEW_KEY, readJourney, readStorage, saveJourney, writeStorage, type MissionCard, type MissionState } from './persistence';
 import './train.css';
 
-export default function LivingTrainCabin() {
+export default function LivingTrainCabin({ entryHeld = false, onReady }: { entryHeld?: boolean; onReady?: () => void } = {}) {
   const { user, isAuthenticated, loading } = useAuthContext();
   const student = isAuthenticated && user?.role === 'student';
   const missions = trpc.missions.getAll.useQuery(undefined, { staleTime: 60_000 });
@@ -23,11 +23,11 @@ export default function LivingTrainCabin() {
   if (loading || missions.isLoading || (student && passport.isLoading)) return <div className="train-loading" role="status">Preparing your Eco Train journey…</div>;
   return <TrainCabin key={profile} profile={profile} missions={(missions.data ?? []) as MissionCard[]}
     states={(passport.data?.missionStates ?? []) as MissionState[]} student={student}
-    error={missions.isError || (student && passport.isError)} refresh={refresh} />;
+    error={missions.isError || (student && passport.isError)} refresh={refresh} entryHeld={entryHeld} onReady={onReady} />;
 }
 
-function TrainCabin({ profile, missions, states, student, error, refresh }: {
-  profile: string; missions: MissionCard[]; states: MissionState[]; student: boolean; error: boolean; refresh: () => void;
+function TrainCabin({ profile, missions, states, student, error, refresh, entryHeld, onReady }: {
+  profile: string; missions: MissionCard[]; states: MissionState[]; student: boolean; error: boolean; refresh: () => void; entryHeld: boolean; onReady?: () => void;
 }) {
   const boundMissions = stations.map(station => missions.find(m => m.slug === station.missionSlug));
   const completed = boundMissions.map(m => Boolean(m && isComplete(states.find(s => s.missionId === m.id)?.status)));
@@ -48,7 +48,8 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
   const coffee = useRef<SVGEllipseElement>(null);
   const debug = useRef<HTMLOutputElement>(null);
   const audio = useRef<TrainAudio | null>(null);
-  const controls = useRef({ muted, paused, reduced }); controls.current = { muted, paused, reduced };
+  const readyCallback = useRef(onReady); readyCallback.current = onReady;
+  const controls = useRef({ muted, paused, reduced, entryHeld }); controls.current = { muted, paused, reduced, entryHeld };
   const current = stations[view.station];
   const mission = boundMissions[view.station];
   const missionStatus = states.find(s => s.missionId === mission?.id)?.status;
@@ -57,6 +58,11 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
   const next = stations[view.station + 1];
   const canDepart = !travelling && completed[view.station] && next && view.station + 1 <= frontier && !error;
 
+  useEffect(() => {
+    const sync = () => { setMuted(journalSfx.muted); setAudioEnabled(Boolean(existingJourneyAudio())); };
+    window.addEventListener('eco-sound-preference', sync);
+    return () => window.removeEventListener('eco-sound-preference', sync);
+  }, []);
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     const change = () => { setReduced(media.matches); engine.setReducedMotion(media.matches); };
@@ -74,7 +80,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
     });
     resize.observe(canvas.current); renderer.resize();
     let frame = 0; let previous = 0; let active = true; let lastKey = ''; let renderedScene = -1; let renderedState = ''; let wasLoading = true; let wasError = false;
-    let frameReady = false;
+    let frameReady = false; let announcedReady = false;
     const images = [CABIN_IMAGE, '/train/window-mask.png', '/train/cabin-mask.png'].map(src => {
       const image = new Image(); image.src = src; return image.decode();
     });
@@ -87,7 +93,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
       if (wasError !== failed) { wasError = failed; setImageError(failed); }
       const waiting = !ready;
       if (waiting !== wasLoading) { wasLoading = waiting; setLoading(waiting); }
-      const stop = document.hidden || controls.current.paused || waiting;
+      const stop = document.hidden || controls.current.paused || controls.current.entryHeld || waiting;
       const dt = previous && !stop ? Math.min(0.1, (now - previous) / 1000) : 0; previous = now;
       if (dt) engine.tick(dt);
       const paint = engine.state.travelState !== 'STATION_IDLE' || Math.abs(engine.state.coffee) > 0.0001 || Math.abs(engine.state.cabinX) + Math.abs(engine.state.cabinY) > 0.001
@@ -95,6 +101,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
       if (ready && paint && cache.prepare(engine.state.scene, engine.state.destinationScene)) {
         renderer.draw(engine.state, controls.current.reduced);
         renderedScene = engine.state.scene; renderedState = engine.state.travelState;
+        if (!announcedReady) { announcedReady = true; readyCallback.current?.(); }
       }
       const s = engine.state;
       // Both masks, scenery and foreground share a single artboard transform.
@@ -177,7 +184,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
         <svg className="train-coffee" viewBox="1576 1307 160 50" aria-hidden="true"><ellipse ref={coffee} cx="1656" cy="1332" rx="47" ry="6" fill="#d7b791" opacity=".14" /></svg>
         <div className="train-window-caption">
           <span className="train-eyebrow">{preview ? 'JOURNEY PREVIEW' : travelling ? 'ON THE RAILS' : 'CURRENT STOP'}</span>
-          <h1>{travelling ? travelLabel : stationTitle}</h1>
+          <h1 tabIndex={-1}>{travelling ? travelLabel : stationTitle}</h1>
           {travelling && (!preview || ['landmark', 'outro'].includes(journeyScenes[view.scene].type)) && <p key={`${journeyScenes[view.scene].emirate}:${view.scene}`} className="train-emirate-flash">{stations[journeyScenes[view.scene].emirate].name.toUpperCase()}</p>}
         </div>
         {preview && <button className="train-skip" onClick={() => { engine.skipPreview(); writeStorage(PREVIEW_KEY, 'true'); }} aria-label="Skip journey preview">Skip Preview <span aria-hidden="true">→</span></button>}
