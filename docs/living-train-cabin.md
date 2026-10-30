@@ -1,5 +1,7 @@
 # The Living Train Cabin
 
+The latest viewport, pacing, audio and suspension refinements are documented in [living-train-refinement.md](living-train-refinement.md). That report supersedes the original layout and validation figures below.
+
 ## Repository audit and integration choices
 
 The application is React 19 + Vite, routed by Wouter. `/eco-journey` is a standalone game screen; `/missions/:id` renders the existing mission detail and evidence workflow. GSAP, Three.js and browser Web Audio were already present. No runtime dependency was added.

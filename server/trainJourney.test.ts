@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { motionAt, TrainJourneyEngine } from '../client/src/components/game/train/TrainJourneyEngine';
 import { journeyScenes, stations } from '../client/src/components/game/train/journeyScenes';
+import { makePreviewProfile, previewMotionAt } from '../client/src/components/game/train/previewMotion';
+import { railContactsBetween } from '../client/src/components/game/train/railMotion';
 import { isComplete, readJourney, saveJourney } from '../client/src/components/game/train/persistence';
 
 const run = (engine: TrainJourneyEngine, seconds: number, fps = 60) => {
@@ -79,5 +81,57 @@ describe('Living Train journey physics and progression', () => {
     expect(stations[0].missionSlug).toBe('water-detective');
     expect(new Set(stations.map(s=>s.missionSlug)).size).toBe(7);
     expect(stations.every(s => journeyScenes[s.scene].station)).toBe(true);
+  });
+});
+
+
+describe('Train refinement: pacing and shared suspension contacts', () => {
+  it('keeps every preview landmark readable before the short covered handoff', () => {
+    const engine = new TrainJourneyEngine(0, true);
+    const readable = new Map<number, number>();
+    let seconds = 0;
+    while (seconds < 90 && engine.state.travelState !== 'STATION_IDLE') {
+      const s = engine.tick(1 / 120); seconds += 1 / 120;
+      if (journeyScenes[s.scene].type === 'landmark' && s.sceneProgress < 0.91) {
+        readable.set(s.scene, (readable.get(s.scene) ?? 0) + 1 / 120);
+      }
+    }
+    expect(readable.size).toBe(13);
+    for (const duration of Array.from(readable.values())) expect(duration).toBeGreaterThanOrEqual(2.5);
+    expect(seconds).toBeGreaterThan(60); expect(seconds).toBeLessThan(75);
+  });
+  it('slows through landmark centres while retaining continuous velocity and distance', () => {
+    const profile = makePreviewProfile(journeyScenes.map((_, index) => index));
+    for (const segment of profile.segments.slice(1)) {
+      const before = previewMotionAt(segment.t0 - 1e-7, profile);
+      const after = previewMotionAt(segment.t0 + 1e-7, profile);
+      expect(before.speed).toBeCloseTo(after.speed, 5);
+      expect(before.distance).toBeCloseTo(after.distance, 5);
+    }
+    const landmarkCenter = profile.segments[4];
+    const transitionCenter = profile.segments[7];
+    expect(landmarkCenter.v0).toBeLessThan(transitionCenter.v0);
+    expect(previewMotionAt(0.2, profile).speed).toBeLessThan(0.1);
+  });
+  it('produces spatially paired axle contacts without duplicates across frame boundaries', () => {
+    const together = railContactsBetween(0, 2);
+    const split = [...railContactsBetween(0, 0.5), ...railContactsBetween(0.5, 1.1), ...railContactsBetween(1.1, 2)];
+    expect(split).toEqual(together);
+    expect(together[1].distance - together[0].distance).toBeCloseTo(0.055);
+    expect(together[1].weight).toBeLessThan(together[0].weight);
+    expect(railContactsBetween(2, 2)).toHaveLength(0);
+  });
+  it('drives bounded physical impulses from exactly those audible contacts and settles at rest', () => {
+    const engine = new TrainJourneyEngine(); engine.depart(1);
+    let maximum = 0;
+    for (let frame = 0; frame < 30 * 120; frame++) {
+      const s = engine.tick(1 / 120);
+      maximum = Math.max(maximum, Math.abs(s.cabinX), Math.abs(s.cabinY));
+    }
+    expect(engine.state.railContactCount).toBe(railContactsBetween(0, engine.state.currentDistance).length);
+    expect(maximum).toBeGreaterThan(0.7); expect(maximum).toBeLessThanOrEqual(3);
+    expect(Math.abs(engine.state.cabinX) + Math.abs(engine.state.cabinY)).toBeLessThan(0.001);
+    const quiet = new TrainJourneyEngine(0, true, true); run(quiet, 5);
+    expect(quiet.state).toMatchObject({ cabinX: 0, cabinY: 0, coffee: 0, railImpulse: 0 });
   });
 });

@@ -39,6 +39,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
   const [muted, setMuted] = useState(journalSfx.muted);
   const [audioEnabled, setAudioEnabled] = useState(Boolean(existingJourneyAudio()));
   const [paused, setPaused] = useState(false);
+  const [cardOpen, setCardOpen] = useState(true);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -65,7 +66,12 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
   useEffect(() => {
     if (!canvas.current || !artwork.current) return;
     const cache = new SceneCache(); const renderer = new SceneryRenderer(canvas.current, cache);
-    const resize = new ResizeObserver(() => { renderer.resize(); renderer.draw(engine.state, controls.current.reduced); });
+    let artScale = 1;
+    const resize = new ResizeObserver(() => {
+      renderer.resize();
+      artScale = Math.max(0.4, Math.min(1.2, (artwork.current?.clientWidth ?? 1440) / 1440));
+      renderer.draw(engine.state, controls.current.reduced);
+    });
     resize.observe(canvas.current); renderer.resize();
     let frame = 0; let previous = 0; let active = true; let lastKey = ''; let renderedScene = -1; let renderedState = ''; let wasLoading = true; let wasError = false;
     let frameReady = false;
@@ -76,7 +82,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
     if (existingJourneyAudio()) audio.current = new TrainAudio(existingJourneyAudio()!);
     const animate = (now: number) => {
       if (!active) return;
-      const ready = frameReady && cache.prepare(engine.state.scene, engine.state.destinationScene);
+      const ready = frameReady && renderer.ready && cache.prepare(engine.state.scene, engine.state.destinationScene);
       const failed = cache.failed.size > 0;
       if (wasError !== failed) { wasError = failed; setImageError(failed); }
       const waiting = !ready;
@@ -84,7 +90,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
       const stop = document.hidden || controls.current.paused || waiting;
       const dt = previous && !stop ? Math.min(0.1, (now - previous) / 1000) : 0; previous = now;
       if (dt) engine.tick(dt);
-      const paint = engine.state.travelState !== 'STATION_IDLE' || Math.abs(engine.state.coffee) > 0.0001
+      const paint = engine.state.travelState !== 'STATION_IDLE' || Math.abs(engine.state.coffee) > 0.0001 || Math.abs(engine.state.cabinX) + Math.abs(engine.state.cabinY) > 0.001
         || renderedScene !== engine.state.scene || renderedState !== engine.state.travelState;
       if (ready && paint && cache.prepare(engine.state.scene, engine.state.destinationScene)) {
         renderer.draw(engine.state, controls.current.reduced);
@@ -92,9 +98,9 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
       }
       const s = engine.state;
       // Both masks, scenery and foreground share a single artboard transform.
-      const bob = controls.current.reduced ? 0 : Math.sin(s.currentDistance * 41) * Math.min(0.55, s.speed * 0.45) + s.coffee * 0.8;
-      artwork.current?.style.setProperty('--cabin-bob', `${bob}px`);
-      if (coffee.current) coffee.current.setAttribute('transform', `rotate(${controls.current.reduced ? 0 : s.coffee * 9} 1656 1332)`);
+      if (artwork.current) artwork.current.style.transform = controls.current.reduced ? 'none'
+        : `translate3d(${s.cabinX * artScale}px, ${s.cabinY * artScale}px, 0)`;
+      if (coffee.current) coffee.current.setAttribute('transform', `rotate(${controls.current.reduced ? 0 : s.coffee * 18} 1656 1332)`);
       audio.current?.update(s, controls.current.muted, stop);
       const key = `${s.travelState}:${s.mode}:${s.scene}:${s.station}:${s.previewComplete}`;
       if (lastKey !== key) {
@@ -102,7 +108,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
         if (s.travelState === 'STATION_IDLE') saveJourney(profile, s.station);
         if (s.previewComplete) writeStorage(PREVIEW_KEY, 'true');
       }
-      if (debug.current) debug.current.value = `${s.travelState} · ${s.mode} · scene ${s.scene + 1} · ${s.speed.toFixed(2)} windows/s · a ${s.acceleration.toFixed(2)} · d ${s.currentDistance.toFixed(2)}`;
+      if (debug.current) debug.current.value = `${s.travelState} · ${s.mode} · scene ${s.scene + 1} · ${s.speed.toFixed(2)} windows/s · a ${s.acceleration.toFixed(2)} · d ${s.currentDistance.toFixed(2)} · p ${s.sceneProgress.toFixed(2)} · body ${s.cabinX.toFixed(2)},${s.cabinY.toFixed(2)}`;
       frame = requestAnimationFrame(animate);
     };
     const visibility = () => {
@@ -131,6 +137,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
   }, [engine, profile, retry]);
 
   useEffect(() => {
+    if (!travelling) setCardOpen(true);
     if (!travelling) document.getElementById(`station-${current.id}`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [current.id, travelling]);
 
@@ -146,7 +153,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
     journalSfx.setMuted(value); setMuted(value); setAudioEnabled(Boolean(context));
   };
   const depart = (index: number) => {
-    if (travelling || index > frontier || error) return;
+    if (travelling || index === engine.state.station || index > frontier || error) return;
     activateAudio(); audio.current?.departure(); engine.depart(index);
   };
   const stationTitle = view.station === 0 ? 'First Stop: Abu Dhabi' : view.station === 6 ? 'Final Stop: Fujairah' : `Welcome to ${current.name}`;
@@ -156,6 +163,7 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
     : preview ? 'A glimpse of the Seven Emirates' : `Next Stop: ${stations[view.destinationStation].name}`;
 
   return <section className="train-shell" aria-label="The Living Train Cabin" dir="ltr">
+    <div className="train-view">
     <header className="train-header">
       <Link href="/" className="train-brand"><span className="train-brand-mark" aria-hidden="true">↟</span><span>THE LIVING TRAIN CABIN<small>Eco Train Journey Across the Seven Emirates</small></span></Link>
       <div className="train-controls">
@@ -163,35 +171,22 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
         <button onClick={toggleSound} aria-pressed={!muted && audioEnabled} aria-label={!audioEnabled ? 'Enable train sound' : muted ? 'Unmute sound' : 'Mute sound'}>{!audioEnabled ? 'Enable sound' : muted ? 'Sound off' : 'Sound on'}</button>
       </div>
     </header>
-    <div className="train-view">
       <div className="train-artboard" ref={artwork} data-testid="train-artboard" aria-label={`Train window: ${journeyScenes[view.scene].label}`}>
         <canvas ref={canvas} className="train-scenery" aria-hidden="true" />
         <img className="train-foreground" src={CABIN_IMAGE} alt="Illustrated train cabin with purple curtains, warm lamps and coffee on the table" draggable={false} />
-        <svg className="train-coffee" viewBox="0 0 2752 1536" aria-hidden="true"><ellipse ref={coffee} cx="1656" cy="1332" rx="47" ry="6" fill="#d7b791" opacity=".14" /></svg>
+        <svg className="train-coffee" viewBox="1576 1307 160 50" aria-hidden="true"><ellipse ref={coffee} cx="1656" cy="1332" rx="47" ry="6" fill="#d7b791" opacity=".14" /></svg>
         <div className="train-window-caption">
           <span className="train-eyebrow">{preview ? 'JOURNEY PREVIEW' : travelling ? 'ON THE RAILS' : 'CURRENT STOP'}</span>
           <h1>{travelling ? travelLabel : stationTitle}</h1>
-          {travelling && <p key={journeyScenes[view.scene].emirate} className="train-emirate-flash">{stations[journeyScenes[view.scene].emirate].name.toUpperCase()}</p>}
+          {travelling && (!preview || ['landmark', 'outro'].includes(journeyScenes[view.scene].type)) && <p key={`${journeyScenes[view.scene].emirate}:${view.scene}`} className="train-emirate-flash">{stations[journeyScenes[view.scene].emirate].name.toUpperCase()}</p>}
         </div>
         {preview && <button className="train-skip" onClick={() => { engine.skipPreview(); writeStorage(PREVIEW_KEY, 'true'); }} aria-label="Skip journey preview">Skip Preview <span aria-hidden="true">→</span></button>}
       </div>
       {(loading || imageError) && <div className="train-load-status" role="status">{imageError ? <><span>Scenery could not be loaded.</span><button onClick={() => { setImageError(false); setLoading(true); setRetry(value => value + 1); }}>Retry scenery</button></> : 'Preparing the next view…'}</div>}
       {paused && <p className="train-pause-status" role="status">Journey paused</p>}
-    </div>
-    <div className="train-ticket">
-      <div className="train-ticket-heading"><div><span className="train-eyebrow">YOUR TRAVEL TICKET · 7 EMIRATES</span><h2>The Seven Emirates Journey</h2></div><span className="train-progress">{completed.filter(Boolean).length} / 7 stamps</span></div>
-      <nav className="train-route" aria-label="Emirate stations">
-        {stations.map((station, i) => {
-          const status = completed[i] ? 'Completed' : i === view.station ? 'Current Stop' : i <= frontier ? 'Available' : 'Locked';
-          return <button id={`station-${station.id}`} key={station.id} className={`train-stop ${completed[i] ? 'is-complete' : ''} ${i === view.station ? 'is-current' : ''}`}
-            disabled={travelling || i > frontier || error} aria-current={i === view.station ? 'step' : undefined}
-            aria-label={`${i + 1}. ${station.name}: ${status}`} onClick={() => depart(i)}>
-            <span className="train-stamp"><img src={station.map} alt="" />{completed[i] && <b aria-hidden="true">✓</b>}</span>
-            <span>{station.name}<small>{status}</small></span>
-          </button>;
-        })}
-      </nav>
-      <div className="train-station-panel" aria-live="polite" aria-atomic="true">
+      {!travelling && (cardOpen ? <>
+      <div id="train-challenge" className="train-station-panel" aria-live="polite" aria-atomic="true">
+        <button className="train-card-close" onClick={() => setCardOpen(false)} aria-label="Hide station challenge">×</button>
         <img src={mascot} alt="Bu Ghosn, your eco guide" />
         <div className="train-guide-copy"><span className="train-eyebrow">بوغصن · YOUR ECO GUIDE</span>
           {travelling ? <><h3>{paused ? 'Take a breath. We can wait.' : travelLabel}</h3><p>{preview ? 'Seven Emirates. One shared environment. Your adventure is about to begin.' : 'Enjoy the view. Your next challenge will appear when the train stops.'}</p></>
@@ -208,7 +203,22 @@ function TrainCabin({ profile, missions, states, student, error, refresh }: {
           {!student && !travelling && <Link href="/login?redirectTo=%2Feco-journey">Sign in to save mission progress</Link>}
         </div>
       </div>
-      <footer className="train-footer"><span>Journey Progress · Stamps follow your verified mission passport.</span><button disabled={travelling} onClick={() => { activateAudio(); engine.board(); }}>Replay Journey Preview</button></footer>
+      </> : <button className="train-challenge-toggle" onClick={() => setCardOpen(true)} aria-expanded={false} aria-controls="train-challenge">Show station challenge →</button>)}
+    </div>
+    <div className="train-ticket">
+      <div className="train-ticket-heading"><div><span className="train-eyebrow">YOUR TRAVEL TICKET · 7 EMIRATES</span><h2>The Seven Emirates Journey</h2></div><div className="train-ticket-tools"><button className="train-replay" disabled={travelling} onClick={() => { activateAudio(); engine.board(); }}>Replay Journey Preview</button><span className="train-progress">{completed.filter(Boolean).length} / 7 stamps</span></div></div>
+      <nav className="train-route" aria-label="Emirate stations">
+        {stations.map((station, i) => {
+          const status = completed[i] ? 'Completed' : i === view.station ? 'Current Stop' : i <= frontier ? 'Available' : 'Locked';
+          return <button id={`station-${station.id}`} key={station.id} className={`train-stop ${completed[i] ? 'is-complete' : ''} ${i === view.station ? 'is-current' : ''}`}
+            disabled={travelling || i > frontier || error} aria-current={i === view.station ? 'step' : undefined}
+            aria-label={`${i + 1}. ${station.name}: ${status}`} onClick={() => depart(i)}>
+            <span className="train-stamp"><img src={station.map} alt="" />{completed[i] && <b aria-hidden="true">✓</b>}</span>
+            <span>{station.name}<small>{status}</small></span>
+          </button>;
+        })}
+      </nav>
+
     </div>
     {import.meta.env.DEV && new URLSearchParams(location.search).has('trainDebug') && <details className="train-debug"><summary>Journey diagnostics</summary><output ref={debug} /><button onClick={() => engine.skipPreview()}>End preview</button><span>Station travel uses the real passport unlock rules.</span></details>}
     <span className="train-sr-only" role="status">{travelling ? travelLabel : stationTitle}</span>

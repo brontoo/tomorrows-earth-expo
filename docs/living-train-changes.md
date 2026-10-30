@@ -1,5 +1,7 @@
 # Exact changed-file inventory
 
+This is the initial implementation inventory. See [living-train-refinement.md](living-train-refinement.md#exact-files-in-this-refinement) for the subsequent focused refinement.
+
 No dependency manifest, lockfile, backend router, database schema or mission learning content was changed.
 
 | File | Purpose |

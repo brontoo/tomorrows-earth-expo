@@ -75,7 +75,7 @@ async def main():
   await page.evaluate("Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'))")
   passed('Visibility pause resumes without advancing hidden time')
   seen=set();phases=set();final=False
-  for _ in range(900):
+  for _ in range(1800):
    debug=await page.locator('.train-debug output').text_content();phases.add(debug.split(' · ')[0])
    m=re.search(r'scene (\d+)',debug)
    if m:seen.add(int(m.group(1)))
@@ -138,14 +138,14 @@ async def main():
   await page.get_by_role('heading',name='Final Stop: Fujairah',exact=True).wait_for(timeout=15000)
   assert await page.get_by_role('link',name='Open my passport',exact=True).is_visible()
   passed('Reduced-motion final Fujairah arrival retains all verified stamps')
-  for width,height,label in [(390,844,'mobile'),(768,1024,'tablet-portrait'),(1024,768,'tablet-landscape'),(1440,900,'desktop')]:
+  for width,height,label in [(390,844,'mobile'),(768,1024,'tablet-portrait'),(1024,768,'tablet-landscape'),(1366,768,'laptop'),(1440,900,'desktop'),(1600,900,'desktop-wide'),(1920,1080,'full-hd')]:
    await page.set_viewport_size({'width':width,'height':height});await page.wait_for_timeout(200)
-   bounds=await page.evaluate("""() => {const art=document.querySelector('.train-artboard');const scene=document.querySelector('.train-scenery');const foreground=document.querySelector('.train-foreground');return {art:art.getBoundingClientRect().toJSON(),scene:scene.getBoundingClientRect().toJSON(),foreground:foreground.getBoundingClientRect().toJSON(),body:document.body.scrollWidth,viewport:innerWidth,transform:getComputedStyle(art).transform,mask:getComputedStyle(scene).maskImage}}""")
+   bounds=await page.evaluate("""() => {const art=document.querySelector('.train-artboard');const scene=document.querySelector('.train-scenery');const foreground=document.querySelector('.train-foreground');return {art:art.getBoundingClientRect().toJSON(),scene:scene.getBoundingClientRect().toJSON(),foreground:foreground.getBoundingClientRect().toJSON(),body:document.body.scrollWidth,viewport:innerWidth,transform:getComputedStyle(art).transform,mask:getComputedStyle(foreground).maskImage}}""")
    assert abs(bounds['art']['width']/bounds['art']['height']-2752/1536)<0.005
    assert bounds['scene']==bounds['foreground']
    assert bounds['body']<=bounds['viewport']+1
    assert bounds['transform']=='none'
-   assert 'window-mask.png' in bounds['mask']
+   assert 'cabin-mask.png' in bounds['mask']
    await page.screenshot(path=str(OUT/(label+'.png')),full_page=True)
   passed('Mobile, both tablet orientations and desktop keep matching mask geometry with no horizontal overflow')
   await page.get_by_role('button',name='Replay Journey Preview',exact=True).click()

@@ -7,6 +7,7 @@ export interface JourneyScene {
   type: 'intro' | 'landmark' | 'transition' | 'outro';
   direction: 'left';
   baseDuration: number;
+  previewDuration: number;
   speedMultiplier: number;
   transition: Transition;
   label: string;
@@ -46,6 +47,7 @@ const artwork: [string, number, JourneyScene['type'], string, Transition][] = [
 export const journeyScenes: JourneyScene[] = artwork.map(([file, emirate, type, label, transition], i) => ({
   id: `scene-${i + 1}`, image: `/train/${encodeURIComponent(file)}`, emirate, type,
   direction: 'left', baseDuration: type === 'landmark' || type === 'outro' ? 1.1 : 0.8,
+  previewDuration: type === 'intro' ? 2.6 : type === 'landmark' || type === 'outro' ? 2.8 : 1.6,
   speedMultiplier: type === 'landmark' || type === 'outro' ? 0.88 : 1.12,
   transition, label, station: [1, 6, 10, 14, 18, 22, 28].includes(i),
 }));
