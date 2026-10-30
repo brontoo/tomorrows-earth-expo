@@ -113,3 +113,78 @@
   .train-shell *, .hero-section * { scroll-behavior: auto !important; }
   .hero-section .floating-asteroid { transition: none; }
 }
+
+/* Continue the field-station identity in the cabin HUD; artwork/geometry stay intact. */
+.train-shell {
+  --train-ink: #203e32;
+  --train-paper: #f4f0e5;
+  --train-purple: #203e32;
+}
+.train-window-caption h1,
+.train-ticket-heading h2,
+.train-guide-copy h3,
+.train-progress {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 400;
+}
+.train-brand {
+  background: #203e32e8;
+  border-color: #bcc9ad66;
+}
+.train-controls button,
+.train-load-status,
+.train-skip {
+  background: #f9f5e9f2;
+  color: #203e32;
+  border-color: #c0cbb1;
+}
+.train-window-caption {
+  color: #203e32;
+}
+.train-window-caption .train-eyebrow,
+.train-window-caption p {
+  background: #f4f0e5ed;
+  border-color: #cdd0bd;
+  color: #536c4e;
+}
+.train-eyebrow,
+.train-replay,
+.train-card-close {
+  color: #6f8363;
+}
+.train-stop {
+  color: #7a8870;
+}
+.train-stop.is-current {
+  background: #e3e9d5;
+  border-color: #92a37f;
+  color: #203e32;
+}
+.train-stop.is-complete {
+  color: #4a6c3d;
+}
+.train-station-panel,
+.train-challenge-toggle {
+  background: #f9f5e9f5;
+  border-color: #cdd0bd;
+  color: #203e32;
+  border-radius: 4px;
+}
+.train-guide-copy p {
+  color: #7c896f;
+}
+.train-primary {
+  background: #203e32;
+  color: #f9f5e9;
+  border-color: #203e32;
+  border-radius: 3px;
+}
+.train-primary:hover {
+  background: #36573f;
+}
+.train-actions > a:not(.train-primary) {
+  color: #6e825e;
+}
+.train-shell :is(button, a):focus-visible {
+  outline-color: #ad623d;
+}

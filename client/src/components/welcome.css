@@ -1,0 +1,73 @@
+.field-welcome {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  max-width: min(350px, calc(100vw - 32px));
+  border: 1px solid #c0cbb1;
+  border-radius: 4px;
+  background: #f9f5e9;
+  color: #203e32;
+  box-shadow: 0 8px 25px #203e3212;
+  padding: 16px 9px 16px 18px;
+  animation: welcome-arrive 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.field-welcome > svg {
+  flex: none;
+  color: #8ea47b;
+}
+.field-welcome strong {
+  display: block;
+  font:
+    400 20px/1.2 var(--font-display),
+    Georgia,
+    serif;
+  letter-spacing: -0.4px;
+}
+.field-welcome span {
+  display: block;
+  margin-top: 6px;
+  font:
+    10px/1.4 "Inter",
+    sans-serif;
+  color: #7b8b6e;
+}
+.field-welcome button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 0;
+  background: none;
+  color: #7e8d71;
+  cursor: pointer;
+}
+.field-welcome button:focus-visible {
+  outline: 3px solid #ad623d;
+  outline-offset: 1px;
+}
+@keyframes welcome-arrive {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@media (max-width: 600px) {
+  .field-welcome {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field-welcome {
+    animation: none;
+  }
+}

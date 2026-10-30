@@ -1,216 +1,265 @@
-import Navigation from "@/components/Navigation";
-import { useEffect } from "react";
+import { Link } from "wouter";
+import { ArrowRight, Award, Check, Ticket, Clock3 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import "@/lib/journalTheme.css";
-import { journalSfx, stampIn, inkRing } from "@/lib/journalMotion";
+import { useAuthContext } from "@/contexts/AuthContext";
+import {
+  GameShell,
+  FieldHeading,
+  FieldNotice,
+  missionStatus,
+} from "@/components/field/GameShell";
+import { stations } from "@/components/game/train/journeyScenes";
+import { isComplete } from "@/components/game/train/persistence";
 
-export default function MyJourney({ embedded = false }: { embedded?: boolean }) {
-  const passportQuery = trpc.passport.getMine.useQuery();
-  const passport = passportQuery.data;
-  const currentLevel = passport?.currentLevel;
-  const nextLevel = passport?.nextLevel;
-  const currentStart = currentLevel?.minPoints ?? 0;
-  const nextTarget = nextLevel?.minPoints ?? Math.max(currentStart + 1, (passport?.totalPoints ?? 0) + 1);
-  const progress = Math.min(
-    100,
-    Math.max(0, (((passport?.totalPoints ?? 0) - currentStart) / Math.max(1, nextTarget - currentStart)) * 100),
-  );
-  const earnedBadges = passport?.badges.filter((item) => item.earnedAt) ?? [];
-
-  // كاسكيد ختم الأختام المكتسبة + طرقة لكل ختم (نفس محرّك اللعبة)
-  useEffect(() => {
-    if (!earnedBadges.length) return;
-    const timers: number[] = [];
-    const stamps = Array.from(document.querySelectorAll<HTMLElement>(".fj-passport-stamp[data-earned='1']"));
-    stamps.forEach((stamp, index) => {
-      const timer = window.setTimeout(() => {
-        if (!stamp.isConnected) return;
-        journalSfx.stamp();
-        stampIn(stamp, { intensity: 0.6 });
-      }, 200 + index * 160);
-      timers.push(timer);
-    });
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [earnedBadges.length]);
-
-  return (
-    <div
-      className={embedded ? "fj" : "fj min-h-screen"}
-      style={{
-        backgroundColor: "var(--fj-paper)",
-        backgroundImage:
-          "linear-gradient(rgba(58,92,120,.13) 1px, transparent 1px), linear-gradient(90deg, rgba(58,92,120,.13) 1px, transparent 1px), radial-gradient(120% 120% at 15% 5%, var(--fj-paper-light) 0%, var(--fj-paper) 55%, var(--fj-paper-2) 100%)",
-        backgroundSize: "24px 24px, 24px 24px, auto",
-        color: "var(--fj-ink)",
-        fontFamily: "var(--fj-font)",
-      }}
-    >
-      {!embedded && <Navigation />}
-
-      <main className={embedded ? "w-full" : "mx-auto w-full max-w-5xl px-6 py-10 sm:px-10 sm:py-14"}>
-        {/* الغلاف */}
-        <section
-          style={{
-            background: "linear-gradient(150deg, #3f5a35 0%, #2b4530 55%, #22302a 100%)",
-            border: "1px solid rgba(34,48,42,.4)",
-            borderRadius: 2,
-            boxShadow: "0 22px 48px rgba(0,0,0,.35)",
-            padding: "34px 32px 30px",
-            color: "var(--fj-paper)",
-          }}
-        >
-          <div className="fj-type-label" style={{ color: "rgba(243,232,212,.75)", fontSize: 10 }}>
-            Tomorrow&rsquo;s Earth Expo · Eco passport
-          </div>
-
-          <h1
-            style={{
-              fontFamily: "var(--fj-display)",
-              fontWeight: 900,
-              fontSize: "clamp(2.2rem, 6vw, 3.6rem)",
-              lineHeight: 1.02,
-              marginTop: 10,
-              color: "#fdf7ea",
-            }}
-          >
-            My Journey
-          </h1>
-
-          <div className="mt-5 flex flex-wrap items-end gap-8">
+export default function MyJourney({
+  embedded = false,
+}: {
+  embedded?: boolean;
+}) {
+  const { isAuthenticated, user, loading } = useAuthContext();
+  const student = isAuthenticated && user?.role === "student";
+  const query = trpc.passport.getMine.useQuery(undefined, { enabled: student });
+  const catalogue = trpc.missions.getAll.useQuery(undefined, {
+    enabled: student,
+  });
+  const passport = query.data;
+  const badges = passport?.badges ?? [];
+  const earned = badges.filter(item => item.earnedAt);
+  const total = passport?.totalPoints ?? 0;
+  const start = passport?.currentLevel?.minPoints ?? 0;
+  const next = passport?.nextLevel;
+  const progress = next
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          ((total - start) / Math.max(1, next.minPoints - start)) * 100
+        )
+      )
+    : passport?.currentLevel
+      ? 100
+      : 0;
+  const content = (
+    <>
+      <FieldHeading
+        eyebrow="YOUR ECO PASSPORT"
+        title="Every discovery leaves a mark."
+        description="Your verified challenges, station stamps, and growing collection of achievements."
+      >
+        <Link className="field-button" href="/eco-journey">
+          Continue journey <ArrowRight size={17} />
+        </Link>
+      </FieldHeading>
+      {(loading || (student && query.isLoading)) && (
+        <FieldNotice>Opening your passport…</FieldNotice>
+      )}
+      {!loading && !student && (
+        <div className="field-empty">
+          <Ticket size={32} />
+          <h2>Your passport is waiting.</h2>
+          <p>Sign in with a student account to view your points and stamps.</p>
+          <Link className="field-button" href="/login?redirectTo=%2Fmy-journey">
+            Sign in <ArrowRight size={17} />
+          </Link>
+        </div>
+      )}
+      {query.isError && (
+        <FieldNotice error onRetry={() => void query.refetch()}>
+          Your passport could not be loaded. Your saved progress has not
+          changed.
+        </FieldNotice>
+      )}
+      {student && passport && (
+        <>
+          <section className="field-passport-cover">
             <div>
-              <div className="fj-type-label" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
-                Sustainability points
+              <span className="field-kicker">
+                {passport.academicYear?.label ?? "YOUR CURRENT JOURNEY"}
+              </span>
+              <h2>{user?.name ?? "Explorer"}’s passport</h2>
+              <p>Small steps, thoughtfully taken.</p>
+              <div className="field-level">
+                <span>
+                  {passport.currentLevel?.name ?? "Your journey is beginning"}
+                </span>
+                <span>
+                  {next
+                    ? `${Math.max(0, next.minPoints - total)} points to ${next.name}`
+                    : passport.currentLevel
+                      ? "Highest configured level"
+                      : "Levels are being prepared"}
+                </span>
               </div>
-              <div style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 58, lineHeight: 1, color: "#fdf7ea" }}>
-                {passport?.totalPoints ?? 0}
+              <div
+                className="field-progress-track"
+                role="progressbar"
+                aria-label="Progress to next level"
+                aria-valuenow={Math.round(progress)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <span style={{ width: progress + "%" }} />
               </div>
             </div>
+            <div className="field-passport-score">
+              <Award size={29} />
+              <strong>{total}</strong>
+              <span>VERIFIED POINTS</span>
+            </div>
+          </section>
+          <div className="field-stats">
+            <article>
+              <span>Missions completed</span>
+              <strong>{passport.completedMissions ?? 0}</strong>
+            </article>
+            <article>
+              <span>Badges earned</span>
+              <strong>{earned.length}</strong>
+            </article>
+            <article>
+              <span>Point events</span>
+              <strong>{passport.recentEvents?.length ?? 0}</strong>
+            </article>
+          </div>
+          <div className="field-section-heading">
             <div>
-              <div className="fj-type-label" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
-                Current level
-              </div>
-              <div style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 24 }}>
-                {currentLevel?.name || "Seed"}
-              </div>
-              {passport?.academicYear && (
-                <div className="fj-type-label mt-1" style={{ fontSize: 9.5, color: "rgba(243,232,212,.7)" }}>
-                  {passport.academicYear.label}
-                </div>
-              )}
+              <span className="field-kicker">THE SEVEN EMIRATES</span>
+              <h2>Your station stamps.</h2>
+            </div>
+            <span className="field-muted">
+              Awarded after teacher verification
+            </span>
+          </div>
+          {catalogue.isLoading && (
+            <FieldNotice>Preparing your station stamps…</FieldNotice>
+          )}
+          {catalogue.isError && (
+            <FieldNotice error onRetry={() => void catalogue.refetch()}>
+              Station details could not be loaded.
+            </FieldNotice>
+          )}
+          {catalogue.data && (
+            <div className="field-stamp-grid">
+              {stations.map((station, index) => {
+                const mission = catalogue.data.find(
+                  m => m.slug === station.missionSlug
+                );
+                const state = passport.missionStates?.find(
+                  s => s.missionId === mission?.id
+                )?.status;
+                const complete = isComplete(state);
+                return (
+                  <article
+                    key={station.id}
+                    className={`field-station-stamp ${complete ? "is-earned" : ""}`}
+                  >
+                    <span className="field-kicker">
+                      STATION {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className="field-stamp-mark">
+                      <img src={station.map} alt="" />
+                      {complete && <Check size={17} />}
+                    </div>
+                    <h3>{station.name}</h3>
+                    <p>
+                      {complete
+                        ? "Stamp earned"
+                        : state
+                          ? missionStatus(state)
+                          : "Not stamped yet"}
+                    </p>
+                    {mission ? (
+                      <Link
+                        className="field-text-link"
+                        href={`/missions/${mission.slug}`}
+                      >
+                        {complete ? "Revisit challenge" : "View challenge"}{" "}
+                        <ArrowRight size={14} />
+                      </Link>
+                    ) : (
+                      <span className="field-muted">
+                        Mission being prepared
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+          <div className="field-section-heading">
+            <div>
+              <span className="field-kicker">A GROWING COLLECTION</span>
+              <h2>Badges & achievements.</h2>
             </div>
           </div>
-
-          {/* خط التقدّم كخدش قلم */}
-          <div className="mt-7" style={{ height: 10, border: "1.6px solid rgba(243,232,212,.55)", background: "rgba(253,247,234,.18)" }}>
-            <div
-              style={{
-                height: "100%",
-                width: `${progress}%`,
-                backgroundImage:
-                  "repeating-linear-gradient(105deg, rgba(253,247,234,.75) 0 3px, rgba(253,247,234,.45) 3px 6px)",
-                transition: "width .4s ease",
-              }}
-            />
-          </div>
-          <p className="mt-3 text-sm" style={{ color: "rgba(243,232,212,.8)" }}>
-            {nextLevel
-              ? `${nextLevel.minPoints - (passport?.totalPoints ?? 0)} points until ${nextLevel.name}`
-              : "You have reached the highest configured level."}
-          </p>
-        </section>
-
-        {passportQuery.isLoading && (
-          <p className="fj-type-label mt-10 text-[11px]">Opening your passport…</p>
-        )}
-
-        {passportQuery.isError && (
-          <p className="mt-10" style={{ fontFamily: "var(--fj-type)", color: "var(--fj-clay)" }}>
-            Your passport could not be loaded. Please sign in as a student.
-          </p>
-        )}
-
-        {passport && (
-          <>
-            {/* أرقام هادئة بخط الآلة الكاتبة */}
-            <div className="mt-8 flex flex-wrap items-end gap-8">
-              {[
-                { label: "missions completed", value: passport.completedMissions },
-                { label: "badges earned", value: earnedBadges.length },
-                { label: "recent point events", value: passport.recentEvents.length },
-              ].map((item) => (
-                <div key={item.label} className="flex items-baseline gap-2">
-                  <span style={{ fontFamily: "var(--fj-display)", fontWeight: 900, fontSize: 30, color: "var(--fj-ghaf-dark)" }}>
-                    {item.value}
+          {badges.length === 0 ? (
+            <div className="field-notice">
+              Your teacher’s configured badges will appear here as your journey
+              grows.
+            </div>
+          ) : (
+            <div className="field-badge-grid">
+              {badges.map(item => (
+                <article
+                  key={item.badge.id}
+                  className={`field-badge ${item.earnedAt ? "is-earned" : ""}`}
+                >
+                  <Award size={28} />
+                  <h3>{item.badge.name}</h3>
+                  <p>{item.badge.description}</p>
+                  <span className="field-pill">
+                    {item.earnedAt
+                      ? "Earned this academic year"
+                      : "Not earned yet"}
                   </span>
-                  <span className="fj-type-label" style={{ fontSize: 10 }}>
-                    {item.label}
-                  </span>
-                </div>
+                </article>
               ))}
             </div>
-
-            {/* الأختام */}
-            <div className="mt-10" style={{ borderTop: "1px solid var(--fj-line)", paddingTop: 18 }}>
-              <div className="fj-type-label text-[10px]">Passport stamps</div>
-
-              <div className="mt-6 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-                {passport.badges.map((item) => {
-                  const earned = Boolean(item.earnedAt);
-                  return (
-                    <div
-                      key={item.badge.id}
-                      className="fj-passport-stamp"
-                      data-earned={earned ? "1" : "0"}
-                      onMouseEnter={(event) => {
-                        if (earned) inkRing(event.currentTarget, true);
-                      }}
-                      style={{ textAlign: "center", cursor: earned ? "pointer" : "default" }}
-                    >
-                      <div
-                        style={{
-                          width: 132,
-                          height: 132,
-                          margin: "0 auto",
-                          borderRadius: "50%",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          textAlign: "center",
-                          padding: 12,
-                          border: earned ? "3px double var(--fj-clay)" : "1.6px dashed rgba(34,48,42,.35)",
-                          color: earned ? "var(--fj-clay)" : "var(--fj-pencil)",
-                          background: earned ? "rgba(171,74,38,.06)" : "transparent",
-                          transform: earned ? "rotate(-4deg)" : "none",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontFamily: "var(--fj-type)",
-                            fontSize: 11,
-                            letterSpacing: ".08em",
-                            textTransform: "uppercase",
-                            lineHeight: 1.3,
-                          }}
-                        >
-                          {item.badge.name}
-                        </span>
-                      </div>
-
-                      <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--fj-ink-soft)", maxWidth: 220, margin: "10px auto 0" }}>
-                        {item.badge.description}
-                      </p>
-
-                      <span className="fj-type-label" style={{ fontSize: 9.5, color: earned ? "var(--fj-clay)" : "var(--fj-pencil)" }}>
-                        {earned ? "earned this academic year" : "not stamped yet"}
+          )}
+          <div className="field-section-heading">
+            <div>
+              <span className="field-kicker">YOUR RECENT CHAPTERS</span>
+              <h2>A record of your progress.</h2>
+            </div>
+          </div>
+          <div className="field-panel">
+            {passport.recentEvents?.length ? (
+              <ul className="field-events">
+                {passport.recentEvents.map(event => (
+                  <li key={event.id}>
+                    <Clock3 size={17} />
+                    <div>
+                      <strong>{event.reason}</strong>
+                      <span>
+                        {new Date(event.createdAt).toLocaleDateString("en-GB", {
+                          timeZone: "Asia/Dubai",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </>
-        )}
-      </main>
-    </div>
+                    <b>
+                      {event.points > 0 ? "+" : ""}
+                      {event.points} pts
+                    </b>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="field-muted">
+                Verified point events will appear here when your work is
+                reviewed.
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+  return embedded ? (
+    <div className="field-embedded">{content}</div>
+  ) : (
+    <GameShell>{content}</GameShell>
   );
 }
