@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import Navigation from "@/components/Navigation";
-import { Loader, Eye, EyeOff, AlertTriangle } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ArrowRight,
+  ArrowLeft,
+  LoaderCircle,
+  Ticket,
+} from "lucide-react";
+import {
+  EntryHeader,
+  EntryScene,
+  EntryFooter,
+  ExperienceIcon,
+} from "@/components/entry/EntryScene";
 import { useLocation, Link } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { supabase } from "@/lib/supabase";
@@ -13,6 +22,18 @@ import { useAuthContext } from "@/contexts/AuthContext";
 type LoginRole = "admin" | "teacher" | "student" | "visitor";
 
 export default function Login() {
+  // Keep the chosen experience through authentication, using internal routes only.
+  const requested = new URLSearchParams(window.location.search).get(
+    "redirectTo"
+  );
+  const destination =
+    requested?.startsWith("/") &&
+    !requested.startsWith("//") &&
+    !requested.includes("\\")
+      ? requested
+      : "/eco-journey";
+  const expo =
+    destination === "/dashboard" || destination.startsWith("/innovation-hub");
   const [, setLocation] = useLocation();
   const { isAuthenticated, loading: authLoading } = useAuthContext();
   const [email, setEmail] = useState("");
@@ -26,9 +47,8 @@ export default function Login() {
   useEffect(() => {
     if (authLoading || !isAuthenticated || isLoading) return;
 
-    const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
-    setLocation(redirectTo || "/eco-journey");
-  }, [authLoading, isAuthenticated, isLoading, setLocation]);
+    setLocation(destination);
+  }, [authLoading, isAuthenticated, isLoading, setLocation, destination]);
 
   const handleEmailLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,10 +72,11 @@ export default function Login() {
         authenticatedUser = result.user;
       } catch (localLoginError) {
         // Legacy accounts were created in Supabase before local password hashes existed.
-        const { data, error: supabaseError } = await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
+        const { data, error: supabaseError } =
+          await supabase.auth.signInWithPassword({
+            email: normalizedEmail,
+            password,
+          });
 
         if (supabaseError || !data.user) {
           throw localLoginError;
@@ -63,14 +84,19 @@ export default function Login() {
 
         const synced = await syncUserMutation.mutateAsync({
           email: normalizedEmail,
-          name: data.user.user_metadata?.full_name ?? normalizedEmail.split("@")[0] ?? "User",
+          name:
+            data.user.user_metadata?.full_name ??
+            normalizedEmail.split("@")[0] ??
+            "User",
           openId: data.user.id,
         });
         authenticatedUser = synced.user;
       }
 
       const storedRole = authenticatedUser?.role as string | undefined;
-      const resolvedRole = (storedRole === "public" ? "visitor" : storedRole) as LoginRole || "student";
+      const resolvedRole =
+        ((storedRole === "public" ? "visitor" : storedRole) as LoginRole) ||
+        "student";
       const userId = String(authenticatedUser?.id ?? "user-id");
 
       const authUser = {
@@ -83,14 +109,8 @@ export default function Login() {
 
       localStorage.setItem("mock-user", JSON.stringify(authUser));
 
-      const params = new URLSearchParams(window.location.search);
-      const redirectTo = params.get("redirectTo");
-
-      if (redirectTo) {
-        setLocation(redirectTo);
-      } else {
-        setLocation("/eco-journey");
-      }
+      // Reload the authenticated destination so the shared auth provider reads the new session cookie.
+      window.location.assign(destination);
     } catch (err: any) {
       setError(err?.message || "Login failed. Please check your credentials.");
     } finally {
@@ -99,96 +119,122 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-leaf-green/20 via-background to-background flex flex-col">
-      <Navigation />
-
-      <div className="flex-1 container flex items-center justify-center py-12">
-        <div className="w-full max-w-md animate-scaleIn">
-          <Card className="glass-card border-white/20 shadow-2xl overflow-hidden">
-            <CardHeader className="text-center pt-10 pb-6">
-              <div className="flex justify-center mb-6">
-                <div className="relative group">
-                  <div className="absolute -inset-2 bg-gradient-to-r from-leaf-green to-digital-cyan rounded-full blur opacity-40 group-hover:opacity-75 transition duration-500" />
-                  <div className="relative glass-card p-4 rounded-full border-white/40">
-                    <img
-                      src="https://d2xsxph8kpxj0f.cloudfront.net/310519663327629652/4H46x9AiKyJYDgF5KtC5JK/tee-logo-icon-c4HyST3WbgCi982xP8aQdA.webp"
-                      alt="TEE Logo"
-                      className="h-12 w-12 object-contain"
-                    />
-                  </div>
+    <div className="entry-page entry-login">
+      <EntryHeader login />
+      <main id="main-content" className="entry-login-main">
+        <EntryScene compact />
+        <section className="entry-login-desk" aria-labelledby="login-title">
+          <div className="entry-login-paper">
+            <div className="entry-kicker">
+              <Ticket size={16} /> YOUR NEXT CHAPTER
+            </div>
+            <div className="entry-destination">
+              <ExperienceIcon expo={expo} />
+              <span>
+                YOU’RE HEADING TO
+                <strong>
+                  {expo
+                    ? "The Expo Platform"
+                    : destination === "/eco-journey"
+                      ? "The Eco Train Journey"
+                      : "Your next discovery"}
+                </strong>
+              </span>
+              <Link href="/" aria-label="Change your experience">
+                <ArrowLeft size={17} />
+              </Link>
+            </div>
+            <h1 id="login-title">
+              Good to
+              <br />
+              have you <em>here.</em>
+            </h1>
+            <p className="entry-login-subtitle">
+              Sign in and pick up your part in a better tomorrow.
+            </p>
+            <form
+              onSubmit={handleEmailLogin}
+              className="entry-login-form"
+              aria-busy={isLoading}
+            >
+              <div className="entry-field">
+                <label htmlFor="email">Email address</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="username"
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="entry-field">
+                <label htmlFor="password">Password</label>
+                <div className="entry-password-wrap">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="Your password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    aria-pressed={showPassword}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
                 </div>
               </div>
-              <CardHeader className="p-0">
-                <h2 className="text-3xl font-extrabold tracking-tight hero-text-glow text-foreground">Welcome Back</h2>
-                <p className="text-muted-foreground mt-2 font-medium text-sm">
-                  Sign in to Tomorrow's Earth Expo 2026
-                </p>
-              </CardHeader>
-            </CardHeader>
-
-            <CardContent className="px-8 pb-10 space-y-8">
-              <form onSubmit={handleEmailLogin} className="space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email" className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
-                      Email
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="bg-white/50 border-border"
-                    />
-                  </div>
-
-                  <div className="space-y-2 relative">
-                    <Label htmlFor="password" className="text-xs uppercase tracking-[0.2em] font-bold text-muted-foreground/80 ml-1">
-                      Password
-                    </Label>
-                    <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="bg-white/50 border-border"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
+              {error && (
+                <div className="entry-form-error" role="alert">
+                  <AlertCircle size={18} aria-hidden="true" />
+                  <span>{error}</span>
                 </div>
-
-                {error && (
-                  <div className="rounded-2xl border border-destructive/20 bg-destructive/10 p-3 text-destructive text-xs font-semibold flex items-start gap-2">
-                    <AlertTriangle size={16} />
-                    <span>{error}</span>
-                  </div>
+              )}
+              <button
+                type="submit"
+                className="entry-submit"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <LoaderCircle size={18} className="entry-loading-icon" />
+                    <span role="status">Signing in…</span>
+                  </>
+                ) : (
+                  <>
+                    Sign in & continue <ArrowRight size={19} />
+                  </>
                 )}
-
-                <Button type="submit" className="w-full premium-gradient text-white font-bold" disabled={isLoading}>
-                  {isLoading ? <Loader className="h-4 w-4 animate-spin" /> : "Login"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          <div className="mt-8 text-center space-y-4">
-            <p className="text-sm text-muted-foreground font-medium">
-              Don't have an account?{' '}
+              </button>
+            </form>
+            <p className="entry-signup">
+              New to Tomorrow’s Earth?{" "}
               <Link href="/signup">
-                <span className="text-primary hover:underline cursor-pointer font-bold">Join the movement</span>
+                Create an account <ArrowRight size={14} />
               </Link>
             </p>
+            <div className="entry-ticket-bottom">
+              <span>CURIOUS MINDS WELCOME</span>
+              <span aria-hidden="true">▎▏▍▎▎▏▍▏▎▍</span>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
+      <EntryFooter />
     </div>
   );
 }
