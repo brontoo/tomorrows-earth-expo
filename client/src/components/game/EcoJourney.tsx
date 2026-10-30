@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { initFloatingParallax, initConstellationCanvas } from "./animations";
@@ -13,6 +13,8 @@ import { readJourney, saveJourney } from "./train/persistence";
 import "./EcoJourney.css";
 import "./fieldJournal.css";
 import "./intro/boarding.css";
+import { gameBeats, gameEase } from "./motion/gameMotion";
+import "./motion/gameMotion.css";
 import p1 from "../../assets/illustrations/p1.png";
 import p2 from "../../assets/illustrations/p2.png";
 import p3 from "../../assets/illustrations/p3.png";
@@ -48,6 +50,7 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
   const [soundMuted, setSoundMuted] = useState(journalSfx.muted);
   const [story, setStory] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const openingMotion = useRef<gsap.core.Timeline | null>(null);
   const storyTimeline = useRef<gsap.core.Timeline | null>(null);
   const [modelUnavailable, setModelUnavailable] = useState(false);
   const board = useRef(onBoard); board.current = onBoard;
@@ -63,32 +66,65 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
     return () => { dispose?.(); stopParallax?.(); stopStars?.(); };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (prefersReducedMotion()) return;
+    const context = gsap.context(() => {
+      const entrance = gsap.timeline(); openingMotion.current = entrance;
+      entrance.fromTo('.hero-content', { opacity: 0, y: 18, rotation: -.6 },
+        { opacity: 1, y: 0, rotation: 0, duration: .85, ease: gameEase.arrive }, 0);
+      entrance.fromTo('.hero-title .intro-line > span', { yPercent: 110, rotation: 2 },
+        { yPercent: 0, rotation: 0, duration: gameBeats.reveal, stagger: gameBeats.word, ease: gameEase.arrive }, .12);
+      entrance.fromTo('.intro-journey-line, .hero-content > p:not(.intro-journey-line), #start-btn, .intro-ticket-motif',
+        { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: .6, stagger: .09, ease: gameEase.arrive }, .35);
+    }, containerRef);
+    return () => context.revert();
+  }, []);
+
+  useLayoutEffect(() => {
     if (!story) return;
     const reduced = prefersReducedMotion();
     const context = gsap.context(() => {
       const timeline = gsap.timeline(); storyTimeline.current = timeline;
-      timeline.to("#hero-content", { opacity: 0, y: reduced ? 0 : -20, duration: reduced ? .1 : .4 });
-      timeline.to("#character-group", { y: "-10vh", scale: 1.1, duration: reduced ? .1 : .7 }, 0);
-      timeline.set("#story-container", { pointerEvents: "none" });
-      timeline.to("#progress-container", { opacity: 1, duration: .2 });
-      const groups = containerRef.current?.querySelectorAll(".story-slide-group") ?? [];
+      const beats = gameBeats.intro;
+      timeline.to('#hero-content', { opacity: 0, y: reduced ? 0 : -12, duration: reduced ? .1 : gameBeats.exit, ease: gameEase.leave }, 0);
+      timeline.to('#character-group', { y: '-10vh', scale: 1.1, duration: reduced ? .1 : .95, ease: gameEase.travel }, 0);
+      timeline.to('#progress-container', { opacity: 1, duration: .45 }, .3);
+      const groups = Array.from(containerRef.current?.querySelectorAll('.story-slide-group') ?? []);
+      const starts = [beats.guide, beats.mission, beats.briefing];
       groups.forEach((group, index) => {
-        timeline.call(() => setActiveSlide(index));
-        if (index === 2) timeline.addLabel("travelBriefing");
-        if (index === 2) timeline.to("#character-group", { opacity: 0, duration: reduced ? .1 : .35 });
-        timeline.set(group, { opacity: 1 });
-        timeline.fromTo(group.querySelectorAll(".story-title, .story-desc"), { opacity: 0, y: reduced ? 0 : 12 }, { opacity: 1, y: 0, duration: reduced ? .1 : .45, stagger: .15 });
-        timeline.to({}, { duration: index === 2 ? 4 : 3.4 });
-        timeline.to(group, { opacity: 0, duration: .3 });
+        const at = starts[index];
+        timeline.addLabel(index === 2 ? 'travelBriefing' : `briefing-${index}`, at);
+        timeline.call(() => setActiveSlide(index), [], at);
+        timeline.set(group, { opacity: 1 }, at);
+        if (index === 2) {
+          timeline.to('#character-group', { opacity: 0, y: reduced ? '-10vh' : '-13vh', duration: reduced ? .1 : .36, ease: gameEase.leave }, at - .35);
+          timeline.fromTo('.intro-journey-brief', { opacity: 0, y: reduced ? 0 : 24, rotation: reduced ? 0 : .6 },
+            { opacity: 1, y: 0, rotation: 0, duration: reduced ? .1 : .85, ease: gameEase.arrive }, at);
+          timeline.fromTo('.intro-uae-map', { opacity: 0, scale: reduced ? 1 : .96 },
+            { opacity: 1, scale: 1, duration: reduced ? .1 : .8, ease: gameEase.arrive }, at + .2);
+          timeline.fromTo('.intro-seven-stops li', { opacity: 0, y: reduced ? 0 : 10 },
+            { opacity: 1, y: 0, duration: reduced ? .1 : .5, stagger: reduced ? 0 : gameBeats.station, ease: gameEase.arrive }, at + .5);
+          timeline.fromTo('.intro-platform-link', { opacity: 0, y: reduced ? 0 : 6 },
+            { opacity: 1, y: 0, duration: .45, ease: gameEase.arrive }, at + 1);
+        }
+        timeline.fromTo(group.querySelectorAll('.story-title, .story-desc'),
+          { opacity: 0, y: reduced ? 0 : 16, clipPath: reduced ? 'none' : 'inset(0 0 100% 0)' },
+          { opacity: 1, y: 0, clipPath: reduced ? 'none' : 'inset(-10% -2% -15% -2%)', duration: reduced ? .1 : gameBeats.reveal,
+            stagger: reduced ? 0 : .14, ease: gameEase.arrive }, at + (index === 2 ? .18 : 0));
+        const out = index === 2 ? beats.platform - .42 : starts[index + 1] - .38;
+        timeline.to(group, { opacity: 0, y: reduced ? 0 : -8, duration: reduced ? .1 : gameBeats.exit, ease: gameEase.leave }, out);
       });
-      timeline.call(() => board.current());
+      timeline.call(() => board.current(), [], beats.platform);
+      const visibility = () => { if (document.hidden) timeline.pause(); else timeline.resume(); };
+      document.addEventListener('visibilitychange', visibility);
+      return () => document.removeEventListener('visibilitychange', visibility);
     }, containerRef);
-    return () => context.revert();
+    return () => { context.revert(); storyTimeline.current = null; };
   }, [story]);
 
   const startStory = () => {
     if (story) return;
+    openingMotion.current?.progress(1).kill();
     unlockJourneyAudio(); journalSfx.stamp();
     setStory(true);
     // Begin staged decoding before the player reaches the final travel briefing.
@@ -172,9 +208,8 @@ function JourneyOpening({ onBoard }: { onBoard: () => void }) {
       />
       <div className="hero-content" id="hero-content" aria-hidden={story} inert={story} style={{ pointerEvents: story ? "none" : "auto" }}>
         <h1 className="hero-title">
-          Explore the UAE.
-          <br />
-          Protect Our Future.
+          <span className="intro-line"><span>Explore the UAE.</span></span>
+          <span className="intro-line"><span>Protect Our Future.</span></span>
         </h1>
         <p className="intro-journey-line">A journey across the Seven Emirates begins here.</p>
         <p
