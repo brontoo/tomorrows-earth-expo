@@ -24,6 +24,15 @@ export const prefersReducedMotion = (): boolean =>
 
 let audioCtx: AudioContext | null = null;
 let muted = false;
+try { muted = window.localStorage.getItem("ecoSoundMuted:v1") === "true"; } catch { /* storage is optional */ }
+
+/** Share the journal's context with the train; only call unlock from a user gesture. */
+export function existingJourneyAudio(): AudioContext | null { return audioCtx; }
+export function unlockJourneyAudio(): AudioContext | null {
+  const context = getAudio();
+  if (context?.state === "suspended") void context.resume().catch(() => undefined);
+  return context;
+}
 
 const getAudio = (): AudioContext | null => {
   if (!hasWindow) return null;
@@ -105,6 +114,8 @@ const tone = (
 const play = (fn: (ctx: AudioContext) => void) => {
   if (muted) return;
   try {
+    // Mount effects may request a chime; they must not create audio before a gesture.
+    if (!audioCtx && !window.navigator.userActivation?.hasBeenActive) return;
     const ctx = getAudio();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume();
@@ -120,6 +131,7 @@ export const journalSfx = {
   },
   setMuted(value: boolean): void {
     muted = value;
+    try { window.localStorage.setItem("ecoSoundMuted:v1", String(value)); } catch { /* optional */ }
     if (!muted) play(() => undefined);
   },
   toggle(): boolean {

@@ -3,10 +3,10 @@
 //  - initFloatingParallax: استخدام قيم data-speed لكل عنصر (بدل أنيميشن GSAP المتعارض)
 //  - initConstellationCanvas: نجوم بيضاء متوهجة فقط، بدون خطوط دائمة
 
-export function initFloatingParallax(selector: string): void {
+export function initFloatingParallax(selector: string): () => void {
   const elements = document.querySelectorAll<HTMLElement>(selector);
 
-  window.addEventListener('mousemove', (e) => {
+  const handleMove = (e: MouseEvent) => {
     const { clientX, clientY } = e;
     const centerX = window.innerWidth / 2;
     const centerY = window.innerHeight / 2;
@@ -18,15 +18,17 @@ export function initFloatingParallax(selector: string): void {
 
       el.style.transform = `translate3d(${moveX}px, ${moveY}px, 0px) rotate(${moveX * 0.02}deg)`;
     });
-  });
+  };
+  window.addEventListener('mousemove', handleMove);
+  return () => window.removeEventListener('mousemove', handleMove);
 }
 
 export function initConstellationCanvas(
   canvas: HTMLCanvasElement,
   points: { x: number; y: number }[]
-): void {
+): () => void {
   const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  if (!ctx) return () => undefined;
 
   const resize = () => {
     canvas.width = window.innerWidth;
@@ -48,8 +50,7 @@ export function initConstellationCanvas(
 
   resize();
   draw();
-  window.addEventListener('resize', () => {
-    resize();
-    draw();
-  });
+  const handleResize = () => { resize(); draw(); };
+  window.addEventListener('resize', handleResize);
+  return () => window.removeEventListener('resize', handleResize);
 }
