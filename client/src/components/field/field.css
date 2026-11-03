@@ -332,19 +332,19 @@
   align-items: center;
   gap: 6px;
 }
-.field-station-art {
+.field-chapter-art {
   position: relative;
   min-height: 300px;
   overflow: hidden;
 }
-.field-station-art > img {
+.field-chapter-art > img {
   position: absolute;
   inset: 0;
   height: 100%;
   width: 100%;
   object-fit: cover;
 }
-.field-station-art > span {
+.field-chapter-art > span {
   position: absolute;
   left: 20px;
   bottom: 20px;
@@ -447,14 +447,14 @@
   margin-top: 14px;
   justify-self: start;
 }
-.field-guide-card {
+.field-margin-note {
   background: #e6e9d9;
   border: 1px solid #cdd3be;
   border-radius: 80px 4px 4px 4px;
   padding: 24px 27px 28px;
   text-align: center;
 }
-.field-guide-card > img {
+.field-margin-note > img {
   display: block;
   height: 175px;
   width: 160px;
@@ -463,7 +463,7 @@
   border-radius: 80px 80px 4px 4px;
   margin: 0 auto 20px;
 }
-.field-guide-card h2 {
+.field-margin-note h2 {
   font:
     400 25px/1.15 var(--font-display),
     Georgia,
@@ -471,7 +471,7 @@
   letter-spacing: -0.5px;
   margin: 15px 0;
 }
-.field-guide-card p {
+.field-margin-note p {
   font-size: 12px;
   color: #75836b;
   line-height: 1.9;
@@ -783,14 +783,14 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
-.field-station-stamp {
+.field-chapter-stamp {
   border: 1px solid #cdd0bd;
   border-radius: 4px;
   text-align: center;
   padding: 24px 14px;
   background: #eeeee1;
 }
-.field-station-stamp.is-earned {
+.field-chapter-stamp.is-earned {
   background: #e3e9d5;
   border-color: #8da47e;
 }
@@ -826,22 +826,22 @@
   color: #4d7040;
   border-radius: 50%;
 }
-.field-station-stamp h3 {
+.field-chapter-stamp h3 {
   font:
     400 23px/1.2 var(--font-display),
     Georgia,
     serif;
   margin: 10px 0;
 }
-.field-station-stamp p {
+.field-chapter-stamp p {
   font-size: 10px;
   color: #89947d;
   margin-bottom: 15px;
 }
-.field-station-stamp .field-text-link {
+.field-chapter-stamp .field-text-link {
   font-size: 9px !important;
 }
-.field-station-stamp.is-earned p {
+.field-chapter-stamp.is-earned p {
   color: #5e7951;
 }
 .field-badge-grid {
@@ -1376,7 +1376,7 @@
     font-size: 9px;
     gap: 11px 15px;
   }
-  .field-station-art {
+  .field-chapter-art {
     min-height: 220px;
   }
   .field-mission-grid {
@@ -1398,7 +1398,7 @@
   .field-form label {
     font-size: 11px;
   }
-  .field-guide-card {
+  .field-margin-note {
     border-radius: 60px 4px 4px 4px;
   }
   .field-reward strong {
@@ -1495,13 +1495,13 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
-  .field-station-stamp {
+  .field-chapter-stamp {
     padding: 23px 10px;
   }
-  .field-station-stamp h3 {
+  .field-chapter-stamp h3 {
     font-size: 23px;
   }
-  .field-station-stamp .field-text-link {
+  .field-chapter-stamp .field-text-link {
     font-size: 8px !important;
     gap: 4px;
   }

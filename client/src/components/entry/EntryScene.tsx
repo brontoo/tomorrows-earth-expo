@@ -1,19 +1,15 @@
 import { Link } from "wouter";
-import { ArrowUpRight, Leaf, TrainFront, FlaskConical } from "lucide-react";
+import { ArrowUpRight, Leaf, BookOpen, FlaskConical } from "lucide-react";
 import "./entry.css";
 
 export function EntryBrand() {
   return (
-    <Link
-      href="/"
-      className="entry-brand"
-      aria-label="Tomorrow's Earth Expo home"
-    >
+    <Link href="/" className="entry-brand" aria-label="The Seven Emirates home">
       <span className="entry-brand-icon">
         <Leaf size={23} strokeWidth={1.5} />
       </span>
       <span>
-        Tomorrow’s Earth<span>EXPO · UM AL EMARAT SCHOOL</span>
+        The Seven Emirates<span>AN INTERACTIVE POP-UP TRAVEL BOOK</span>
       </span>
     </Link>
   );
@@ -26,7 +22,7 @@ export function EntryHeader({ login = false }: { login?: boolean }) {
       <nav aria-label="Entrance navigation">
         {login ? (
           <Link href="/" className="entry-header-link">
-            Choose an experience <ArrowUpRight size={16} />
+            Return to the book <ArrowUpRight size={16} />
           </Link>
         ) : (
           <Link href="/login" className="entry-header-link">
@@ -43,12 +39,12 @@ export function EntryScene({ compact = false }: { compact?: boolean }) {
     <figure className={`entry-scene ${compact ? "entry-scene-login" : ""}`}>
       <img
         className="entry-scene-art"
-        src="/train/Gemini_Generated_Image_43lqmg43lqmg43lq.jpg.jpg"
-        alt="Bu Ghosn welcomes you beside an open train door at a sunlit UAE station"
+        src="/book/cover-reference.webp"
+        alt="The Seven Emirates green hardcover travel book"
         fetchPriority="high"
       />
       <span className="entry-scene-label">
-        <span /> NEXT DEPARTURE: A BETTER TOMORROW
+        <span /> SEVEN CHAPTERS. ONE SHARED FUTURE.
       </span>
       <figcaption>
         <span>THE SEVEN EMIRATES JOURNEY</span>
@@ -70,7 +66,7 @@ export function ExperienceIcon({ expo = false }: { expo?: boolean }) {
   return expo ? (
     <FlaskConical size={25} strokeWidth={1.4} />
   ) : (
-    <TrainFront size={25} strokeWidth={1.4} />
+    <BookOpen size={25} strokeWidth={1.4} />
   );
 }
 

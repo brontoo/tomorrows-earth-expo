@@ -8,8 +8,8 @@ import {
   FieldNotice,
   missionStatus,
 } from "@/components/field/GameShell";
-import { stations } from "@/components/game/train/journeyScenes";
-import { isComplete } from "@/components/game/train/persistence";
+import { chapters } from "@/components/book/chapters";
+import { isComplete } from "@/components/book/chapters";
 
 export default function MyJourney({
   embedded = false,
@@ -44,7 +44,7 @@ export default function MyJourney({
       <FieldHeading
         eyebrow="YOUR ECO PASSPORT"
         title="Every discovery leaves a mark."
-        description="Your verified challenges, station stamps, and growing collection of achievements."
+        description="Your verified challenges, chapter stamps, and growing collection of achievements."
       >
         <Link className="field-button" href="/eco-journey">
           Continue journey <ArrowRight size={17} />
@@ -124,25 +124,25 @@ export default function MyJourney({
           <div className="field-section-heading">
             <div>
               <span className="field-kicker">THE SEVEN EMIRATES</span>
-              <h2>Your station stamps.</h2>
+              <h2>Your chapter stamps.</h2>
             </div>
             <span className="field-muted">
               Awarded after teacher verification
             </span>
           </div>
           {catalogue.isLoading && (
-            <FieldNotice>Preparing your station stamps…</FieldNotice>
+            <FieldNotice>Preparing your chapter stamps…</FieldNotice>
           )}
           {catalogue.isError && (
             <FieldNotice error onRetry={() => void catalogue.refetch()}>
-              Station details could not be loaded.
+              Chapter details could not be loaded.
             </FieldNotice>
           )}
           {catalogue.data && (
             <div className="field-stamp-grid">
-              {stations.map((station, index) => {
+              {chapters.map((chapter, index) => {
                 const mission = catalogue.data.find(
-                  m => m.slug === station.missionSlug
+                  m => m.slug === chapter.missionSlug
                 );
                 const state = passport.missionStates?.find(
                   s => s.missionId === mission?.id
@@ -150,17 +150,17 @@ export default function MyJourney({
                 const complete = isComplete(state);
                 return (
                   <article
-                    key={station.id}
-                    className={`field-station-stamp ${complete ? "is-earned" : ""}`}
+                    key={chapter.id}
+                    className={`field-chapter-stamp ${complete ? "is-earned" : ""}`}
                   >
                     <span className="field-kicker">
-                      STATION {String(index + 1).padStart(2, "0")}
+                      CHAPTER {String(index + 1).padStart(2, "0")}
                     </span>
                     <div className="field-stamp-mark">
-                      <img src={station.map} alt="" />
+                      <img src={chapter.map} alt="" />
                       {complete && <Check size={17} />}
                     </div>
-                    <h3>{station.name}</h3>
+                    <h3>{chapter.name}</h3>
                     <p>
                       {complete
                         ? "Stamp earned"

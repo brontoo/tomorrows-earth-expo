@@ -24,7 +24,7 @@ export default function ZoneDetail() {
           <ArrowLeft size={15} /> Back to Explore
         </Link>
         <Link href="/eco-journey">
-          Return to Eco Train <ArrowRight size={15} />
+          Return to the book <ArrowRight size={15} />
         </Link>
       </div>
       {query.isLoading && (

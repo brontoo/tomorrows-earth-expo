@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import {
   ArrowRight,
-  TrainFront,
   Compass,
   BookOpen,
   Leaf,
@@ -12,15 +11,16 @@ import {
 import type { ReactNode } from "react";
 import { EntryBrand } from "@/components/entry/EntryScene";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { stations, journeyScenes } from "@/components/game/train/journeyScenes";
+import { chapters } from "@/components/book/chapters";
+import "@/components/book/book.css";
 import "./field.css";
 
 export const stageFor = (slug?: string) =>
-  stations.find(station => station.missionSlug === slug);
+  chapters.find(chapter => chapter.missionSlug === slug);
 export const stageNumber = (slug?: string) =>
-  stations.findIndex(station => station.missionSlug === slug) + 1;
+  chapters.findIndex(chapter => chapter.missionSlug === slug) + 1;
 export const stageImage = (slug?: string) =>
-  journeyScenes[stageFor(slug)?.scene ?? 1].image;
+  (stageFor(slug) ?? chapters[0]).poster;
 const STATUS_LABELS: Record<string, string> = {
   in_progress: "In progress",
   submitted: "Awaiting review",
@@ -37,9 +37,9 @@ export function GameShell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const { user, isAuthenticated } = useAuthContext();
   const links = [
-    ["/eco-journey", "Eco Train", TrainFront],
+    ["/eco-journey", "Travel book", BookOpen],
     ["/missions", "Missions", Compass],
-    ["/my-journey", "Passport", Ticket],
+    ["/eco-journey?spread=stamps", "My stamps", Ticket],
     ["/explore", "Explore", BookOpen],
     ["/impact", "Our impact", Leaf],
     ["/student/dashboard", "My dashboard", LayoutDashboard],
@@ -51,7 +51,7 @@ export function GameShell({ children }: { children: ReactNode }) {
         <div className="field-user">
           {isAuthenticated ? (
             <>
-              <span>YOUR FIELD STATION</span>
+              <span>YOUR TRAVEL BOOK</span>
               <Link href="/student/dashboard">
                 {user?.name || "My dashboard"} <ArrowRight size={14} />
               </Link>

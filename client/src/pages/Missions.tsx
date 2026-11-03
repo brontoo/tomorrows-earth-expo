@@ -35,10 +35,10 @@ export default function Missions() {
       <FieldHeading
         eyebrow="THE FIELD CHALLENGES"
         title="A little action. A bigger change."
-        description="Explore a station, try something new, and bring your discoveries back to the train."
+        description="Explore a chapter, try something new, and record your discoveries in the book."
       >
         <Link className="field-button" href="/eco-journey">
-          Return to Eco Train <ArrowRight size={17} />
+          Return to the book <ArrowRight size={17} />
         </Link>
       </FieldHeading>
       <div className="field-filter-bar">

@@ -136,7 +136,7 @@ export default function Login() {
                   {expo
                     ? "The Expo Platform"
                     : destination === "/eco-journey"
-                      ? "The Eco Train Journey"
+                      ? "The Seven Emirates Book"
                       : "Your next discovery"}
                 </strong>
               </span>

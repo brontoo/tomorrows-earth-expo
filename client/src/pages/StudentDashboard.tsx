@@ -212,14 +212,14 @@ export default function StudentDashboard() {
   if (loading)
     return (
       <GameShell>
-        <FieldNotice>Preparing your field station…</FieldNotice>
+        <FieldNotice>Preparing your travel journal…</FieldNotice>
       </GameShell>
     );
   if (!isAuthenticated)
     return (
       <GameShell>
         <FieldHeading
-          eyebrow="YOUR STUDENT FIELD STATION"
+          eyebrow="YOUR STUDENT TRAVEL JOURNAL"
           title="Your next chapter is waiting."
           description="Sign in with your student account to continue your journey."
         />
@@ -235,7 +235,7 @@ export default function StudentDashboard() {
     return (
       <GameShell>
         <FieldHeading
-          eyebrow="STUDENT FIELD STATION"
+          eyebrow="STUDENT TRAVEL JOURNAL"
           title="A space for student explorers."
           description="This dashboard is available to student accounts."
         />

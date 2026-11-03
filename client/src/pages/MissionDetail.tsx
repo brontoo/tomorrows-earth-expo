@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "wouter";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
+import { chapters, chapterProgress } from "@/components/book/chapters";
 import {
   ArrowLeft,
   ArrowRight,
@@ -72,6 +73,30 @@ export default function MissionDetail() {
     { missionId: mission?.id ?? 0, academicYearId: yearQuery.data?.id ?? 0 },
     { enabled: Boolean(mission?.id && yearQuery.data?.id && isStudent) }
   );
+  const bookCatalogue = trpc.missions.getAll.useQuery(undefined, {
+    enabled: isStudent,
+  });
+  const bookPassport = trpc.passport.getMine.useQuery(undefined, {
+    enabled: isStudent,
+    refetchOnWindowFocus: true,
+  });
+  const chapterIndex = chapters.findIndex(
+    chapter => chapter.missionSlug === slug
+  );
+  const bookProgress = chapterProgress(
+    bookCatalogue.data ?? [],
+    bookPassport.data?.missionStates ?? []
+  );
+  const chapterAvailable =
+    chapterIndex < 0 ||
+    Boolean(
+      bookCatalogue.data &&
+        bookPassport.data &&
+        !bookCatalogue.isError &&
+        !bookPassport.isError &&
+        (chapterIndex <= bookProgress.frontier ||
+          bookProgress.completed[chapterIndex])
+    );
   const utils = trpc.useUtils();
   const refreshProgress = async () => {
     await Promise.all([
@@ -93,6 +118,7 @@ export default function MissionDetail() {
   const status = completion?.status ? STATUS[completion.status] : undefined;
   const canStart = Boolean(
     isStudent &&
+      chapterAvailable &&
       mission &&
       yearQuery.data &&
       !completion &&
@@ -101,7 +127,8 @@ export default function MissionDetail() {
       !startMutation.isPending
   );
   const canSubmit = Boolean(
-    completion &&
+    chapterAvailable &&
+      completion &&
       (completion.status === "in_progress" ||
         completion.status === "revision_requested") &&
       !submitMutation.isPending
@@ -112,7 +139,7 @@ export default function MissionDetail() {
     .map(line => line.trim())
     .filter(Boolean);
 
-  const station = stageFor(slug);
+  const chapter = stageFor(slug);
   const finished =
     completion?.status === "completed" || completion?.status === "verified";
   return (
@@ -121,12 +148,14 @@ export default function MissionDetail() {
         <Link href="/missions">
           <ArrowLeft size={15} /> Mission board
         </Link>
-        <Link href="/eco-journey">
-          Return to Eco Train <ArrowRight size={15} />
+        <Link
+          href={chapter ? `/eco-journey?chapter=${chapter.id}` : "/eco-journey"}
+        >
+          Return to the book <ArrowRight size={15} />
         </Link>
       </div>
       {missionQuery.isLoading && (
-        <FieldNotice>Preparing your station challenge…</FieldNotice>
+        <FieldNotice>Preparing your chapter challenge…</FieldNotice>
       )}
       {missionQuery.isError && (
         <FieldNotice error onRetry={() => void missionQuery.refetch()}>
@@ -143,8 +172,8 @@ export default function MissionDetail() {
           <section className="field-mission-hero">
             <div className="field-mission-intro">
               <span className="field-kicker">
-                {station
-                  ? `${String(stageNumber(slug)).padStart(2, "0")} / ${station.name.toUpperCase()}`
+                {chapter
+                  ? `${String(stageNumber(slug)).padStart(2, "0")} / ${chapter.name.toUpperCase()}`
                   : (mission.zoneName ?? "YOUR NEXT DISCOVERY")}
               </span>
               <h1>{mission.title}</h1>
@@ -165,17 +194,17 @@ export default function MissionDetail() {
                 <span>{mission.difficulty ?? "easy"}</span>
               </div>
             </div>
-            <div className="field-station-art">
+            <div className="field-chapter-art">
               <img
                 src={stageImage(slug)}
                 alt={
-                  station
-                    ? `${station.name}, your station for this challenge`
+                  chapter
+                    ? `${chapter.name}, your chapter for this challenge`
                     : "Illustrated UAE landscape"
                 }
               />
               <span>
-                {station?.name ?? mission.zoneName ?? "Explore the UAE"}
+                {chapter?.name ?? mission.zoneName ?? "Explore the UAE"}
               </span>
             </div>
           </section>
@@ -186,6 +215,15 @@ export default function MissionDetail() {
             <FieldNotice error onRetry={() => void completionQuery.refetch()}>
               Your mission progress could not be loaded. Please retry before
               starting.
+            </FieldNotice>
+          )}
+          {isStudent && !chapterAvailable && (
+            <FieldNotice>
+              {bookCatalogue.isError || bookPassport.isError
+                ? "Chapter progress could not be checked. Return to the book to reconnect."
+                : bookCatalogue.isLoading || bookPassport.isLoading
+                  ? "Checking your chapter access…"
+                  : "Complete and verify the previous chapter before starting this challenge."}
             </FieldNotice>
           )}
           {status && (
@@ -199,7 +237,14 @@ export default function MissionDetail() {
                 <p>{status.hint}</p>
               </div>
               {finished && (
-                <Link className="field-text-link" href="/eco-journey">
+                <Link
+                  className="field-text-link"
+                  href={
+                    chapter
+                      ? `/eco-journey?chapter=${chapter.id}`
+                      : "/eco-journey"
+                  }
+                >
                   Continue journey <ArrowRight size={15} />
                 </Link>
               )}
@@ -242,6 +287,7 @@ export default function MissionDetail() {
                         className="field-button"
                         disabled={!canStart}
                         onClick={() =>
+                          chapterAvailable &&
                           yearQuery.data &&
                           startMutation.mutate({
                             missionId: mission.id,
@@ -296,6 +342,7 @@ export default function MissionDetail() {
                       aria-busy={submitMutation.isPending}
                       onSubmit={event => {
                         event.preventDefault();
+                        if (!canSubmit) return;
                         submitMutation.mutate({
                           id: completion.id,
                           evidence: evidence || undefined,
@@ -358,12 +405,12 @@ export default function MissionDetail() {
               )}
             </div>
             <aside className="field-mission-aside">
-              <div className="field-guide-card">
+              <div className="field-margin-note">
                 <img
-                  src="/train/Gemini_Generated_Image_43lqmg43lqmg43lq.jpg.jpg"
-                  alt="Bu Ghosn, your eco guide"
+                  src="/book/cover-reference.webp"
+                  alt="A green hardcover travel book"
                 />
-                <span className="field-kicker">YOUR ECO GUIDE</span>
+                <span className="field-kicker">A NOTE IN THE MARGIN</span>
                 <h2>
                   A little care.
                   <br />A lasting difference.
@@ -389,8 +436,11 @@ export default function MissionDetail() {
                   {String(mission.repeatPolicy ?? "once").replaceAll("_", " ")}
                 </span>
               </div>
-              <Link className="field-text-link" href="/my-journey">
-                Open my passport <ArrowRight size={16} />
+              <Link
+                className="field-text-link"
+                href="/eco-journey?spread=stamps"
+              >
+                My travel stamps <ArrowRight size={16} />
               </Link>
             </aside>
           </div>

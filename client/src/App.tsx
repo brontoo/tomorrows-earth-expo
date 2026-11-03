@@ -1,4 +1,4 @@
-import Gateway from "./pages/Gateway";
+import TravelBook from "./components/book/TravelBook";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
@@ -10,38 +10,42 @@ import { AuthProvider, useAuthContext } from "./contexts/AuthContext";
 import { UserWelcomeToast } from "./components/UserWelcomeToast";
 
 // Eagerly load only the most-visited pages
-import Home from "./pages/Home";
+
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 
 // Lazy-load everything else (code splitting)
-const InnovationHub      = lazy(() => import("./pages/InnovationHub"));
-const ProjectDetail      = lazy(() => import("./pages/ProjectDetail"));
-const StudentDashboard   = lazy(() => import("./pages/StudentDashboard"));
-const TeacherDashboard   = lazy(() => import("./pages/TeacherDashboard"));
-const AdminDashboard     = lazy(() => import("./pages/AdminDashboard"));
-const JourneyCinema      = lazy(() => import("./pages/JourneyCinema"));
-const Resources          = lazy(() => import("./pages/Resources"));
-const WallMode           = lazy(() => import("./pages/WallMode"));
-const Vote               = lazy(() => import("./pages/Vote"));
-const ProjectSubmissionPage   = lazy(() => import("./pages/ProjectSubmissionPage"));
-const SubcategoriesPage       = lazy(() => import("./pages/SubcategoriesPage"));
-const SubcategoryDetailPage   = lazy(() => import("./pages/SubcategoryDetailPage"));
-const ChooseRole              = lazy(() => import("./pages/ChooseRole"));
+const InnovationHub = lazy(() => import("./pages/InnovationHub"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const StudentDashboard = lazy(() => import("./pages/StudentDashboard"));
+const TeacherDashboard = lazy(() => import("./pages/TeacherDashboard"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const JourneyCinema = lazy(() => import("./pages/JourneyCinema"));
+const Resources = lazy(() => import("./pages/Resources"));
+const WallMode = lazy(() => import("./pages/WallMode"));
+const Vote = lazy(() => import("./pages/Vote"));
+const ProjectSubmissionPage = lazy(
+  () => import("./pages/ProjectSubmissionPage")
+);
+const SubcategoriesPage = lazy(() => import("./pages/SubcategoriesPage"));
+const SubcategoryDetailPage = lazy(
+  () => import("./pages/SubcategoryDetailPage")
+);
+const ChooseRole = lazy(() => import("./pages/ChooseRole"));
 // تمت إضافة مسار اللعبة كتحميل متأخر (Lazy-load)
-const EcoJourneyPage          = lazy(() => import("./pages/EcoJourneyPage"));
+const EcoJourneyPage = lazy(() => import("./pages/EcoJourneyPage"));
 // Sustainability missions & gamification (additive)
-const Missions                = lazy(() => import("./pages/Missions"));
-const MissionDetail           = lazy(() => import("./pages/MissionDetail"));
-const MissionVerification     = lazy(() => import("./pages/MissionVerification"));
-const MyJourney               = lazy(() => import("./pages/MyJourney"));
-const Impact                  = lazy(() => import("./pages/Impact"));
-const Explore                 = lazy(() => import("./pages/Explore"));
-const ZoneDetail              = lazy(() => import("./pages/ZoneDetail"));
+const Missions = lazy(() => import("./pages/Missions"));
+const MissionDetail = lazy(() => import("./pages/MissionDetail"));
+const MissionVerification = lazy(() => import("./pages/MissionVerification"));
+
+const Impact = lazy(() => import("./pages/Impact"));
+const Explore = lazy(() => import("./pages/Explore"));
+const ZoneDetail = lazy(() => import("./pages/ZoneDetail"));
 
 const PageFallback = () => (
   <div className="flex min-h-screen items-center justify-center">
-    <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    <p className="text-sm text-stone-600">Turning to your next page…</p>
   </div>
 );
 
@@ -64,7 +68,7 @@ function DashboardRedirect() {
         ? "/admin/dashboard"
         : role === "teacher"
           ? "/teacher/dashboard"
-          : "/student/dashboard",
+          : "/student/dashboard"
     );
   }, [isAuthenticated, user?.role, setLocation]);
 
@@ -75,8 +79,7 @@ function Router() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-        <Route path="/" component={Gateway} />
-        <Route path="/" component={Home} />
+        <Route path="/">{() => <TravelBook cover />}</Route>
         <Route path="/login" component={Login} />
         <Route path="/signup" component={SignUp} />
         <Route path="/choose-role" component={ChooseRole} />
@@ -91,10 +94,19 @@ function Router() {
         <Route path="/wall-mode" component={WallMode} />
         <Route path="/vote" component={Vote} />
         <Route path="/project-submission" component={ProjectSubmissionPage} />
-        <Route path="/project-submission/:categoryId" component={ProjectSubmissionPage} />
+        <Route
+          path="/project-submission/:categoryId"
+          component={ProjectSubmissionPage}
+        />
         <Route path="/category/:categoryId" component={SubcategoriesPage} />
-        <Route path="/category/:categoryId/subcategory/:subcategoryName" component={SubcategoryDetailPage} />
-        <Route path="/category/:categoryId/subcategory/:subcategoryName/submit" component={ProjectSubmissionPage} />
+        <Route
+          path="/category/:categoryId/subcategory/:subcategoryName"
+          component={SubcategoryDetailPage}
+        />
+        <Route
+          path="/category/:categoryId/subcategory/:subcategoryName/submit"
+          component={ProjectSubmissionPage}
+        />
         <Route path="/my-projects" component={StudentDashboard} />
         <Route path="/my-projects/:projectId" component={ProjectDetail} />
         {/* تمت إضافة مسار اللعبة هنا */}
@@ -104,10 +116,13 @@ function Router() {
         <Route path="/missions/:id" component={MissionDetail} />
         <Route path="/impact" component={Impact} />
         {/* MyJourney يقبل خاصية embedded لذلك نمرّره كدالة عرض */}
-        <Route path="/my-journey">{() => <MyJourney />}</Route>
+        <Route path="/my-journey">{() => <TravelBook />}</Route>
         <Route path="/explore" component={Explore} />
         <Route path="/explore/:categorySlug" component={ZoneDetail} />
-        <Route path="/teacher/mission-verification" component={MissionVerification} />
+        <Route
+          path="/teacher/mission-verification"
+          component={MissionVerification}
+        />
         {/* /dashboard كان مسارًا ميتًا يحيل إليه Gateway */}
         <Route path="/dashboard" component={DashboardRedirect} />
         <Route path={"/404"} component={NotFound} />

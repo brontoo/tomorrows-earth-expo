@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import {
   ArrowRight,
-  TrainFront,
+  BookOpen,
   Award,
   Clock3,
   Compass,
@@ -9,8 +9,8 @@ import {
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { stations } from "@/components/game/train/journeyScenes";
-import { isComplete } from "@/components/game/train/persistence";
+import { chapters } from "@/components/book/chapters";
+import { isComplete } from "@/components/book/chapters";
 import {
   FieldHeading,
   FieldNotice,
@@ -22,8 +22,8 @@ export function StudentJourneyOverview() {
   const catalogue = trpc.missions.getAll.useQuery();
   const query = trpc.passport.getMine.useQuery();
   const passport = query.data;
-  const completed = stations.map(station => {
-    const mission = catalogue.data?.find(m => m.slug === station.missionSlug);
+  const completed = chapters.map(chapter => {
+    const mission = catalogue.data?.find(m => m.slug === chapter.missionSlug);
     return Boolean(
       mission &&
         isComplete(
@@ -33,7 +33,7 @@ export function StudentJourneyOverview() {
   });
   const count = completed.filter(Boolean).length;
   const index = completed.findIndex(value => !value);
-  const next = stations[index < 0 ? 6 : index];
+  const next = chapters[index < 0 ? 6 : index];
   const mission = catalogue.data?.find(m => m.slug === next.missionSlug);
   const state = passport?.missionStates?.find(
     s => s.missionId === mission?.id
@@ -45,7 +45,7 @@ export function StudentJourneyOverview() {
   return (
     <>
       <FieldHeading
-        eyebrow="YOUR STUDENT FIELD STATION"
+        eyebrow="YOUR TRAVEL JOURNAL"
         title={`Good to see you, ${(user?.name ?? "Explorer").split(" ")[0]}.`}
         description="A new discovery, a thoughtful action, a little progress. Your next chapter is waiting."
       />
@@ -67,7 +67,7 @@ export function StudentJourneyOverview() {
           <section className="field-dashboard-hero">
             <div>
               <span className="field-kicker">
-                {count === 7 ? "SEVEN EMIRATES EXPLORED" : "YOUR NEXT STATION"}
+                {count === 7 ? "SEVEN EMIRATES EXPLORED" : "YOUR NEXT CHAPTER"}
               </span>
               <h2>
                 {count === 7 ? "What a journey." : next.name}
@@ -79,10 +79,10 @@ export function StudentJourneyOverview() {
               </h2>
               <p>
                 {state && ["submitted", "verification_required"].includes(state)
-                  ? "Your evidence is with your teacher. Your next stop unlocks after approval."
+                  ? "Your evidence is with your teacher. Your next chapter unlocks after approval."
                   : mission
                     ? mission.title
-                    : "The station’s challenge is being prepared by your teacher."}
+                    : "The chapter’s challenge is being prepared by your teacher."}
               </p>
               <div className="field-actions">
                 <Link href="/eco-journey" className="field-button">
@@ -96,17 +96,17 @@ export function StudentJourneyOverview() {
             <div className="field-dashboard-art">
               <img
                 src={stageImage(next.missionSlug)}
-                alt={`${next.name}, a stop on your Eco Train journey`}
+                alt={`${next.name}, a chapter in your travel book`}
               />
               <span>
-                <TrainFront size={16} /> THE SEVEN EMIRATES JOURNEY
+                <BookOpen size={16} /> THE SEVEN EMIRATES JOURNEY
               </span>
             </div>
           </section>
           <div className="field-stats">
             <article>
               <Ticket size={19} />
-              <span>Verified station stamps</span>
+              <span>Verified chapter stamps</span>
               <strong>
                 {count}
                 <small>/ 7</small>
@@ -126,17 +126,17 @@ export function StudentJourneyOverview() {
           <div className="field-section-heading">
             <div>
               <span className="field-kicker">YOUR ROUTE ACROSS THE UAE</span>
-              <h2>Seven stops. One shared future.</h2>
+              <h2>Seven chapters. One shared future.</h2>
             </div>
             <Link className="field-text-link" href="/my-journey">
               View all stamps <ArrowRight size={15} />
             </Link>
           </div>
           <div className="field-dashboard-route">
-            {stations.map((station, i) => (
+            {chapters.map((chapter, i) => (
               <Link
                 href="/eco-journey"
-                key={station.id}
+                key={chapter.id}
                 className={
                   completed[i]
                     ? "is-earned"
@@ -144,16 +144,16 @@ export function StudentJourneyOverview() {
                       ? "is-current"
                       : ""
                 }
-                aria-label={`${station.name}: ${completed[i] ? "Stamp earned" : i === index ? "Current challenge" : "Upcoming stop"}`}
+                aria-label={`${chapter.name}: ${completed[i] ? "Stamp earned" : i === index ? "Current challenge" : "Upcoming chapter"}`}
               >
-                <img src={station.map} alt="" />
-                <strong>{station.name}</strong>
+                <img src={chapter.map} alt="" />
+                <strong>{chapter.name}</strong>
                 <span>
                   {completed[i]
                     ? "Stamp earned"
                     : i === index
                       ? "Current challenge"
-                      : "Upcoming stop"}
+                      : "Upcoming chapter"}
                 </span>
               </Link>
             ))}
@@ -172,7 +172,7 @@ export function StudentJourneyOverview() {
               <ArrowRight size={19} />
             </Link>
             <Link href="/explore">
-              <TrainFront size={24} />
+              <BookOpen size={24} />
               <h3>Explore learning paths</h3>
               <p>Discover the systems that make our planet a shared home.</p>
               <ArrowRight size={19} />
