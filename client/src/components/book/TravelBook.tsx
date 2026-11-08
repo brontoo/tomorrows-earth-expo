@@ -10,8 +10,8 @@ import {
   VolumeX,
 } from "lucide-react";
 import gsap from "gsap";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { trpc } from "@/lib/trpc";
+import { useBookProgress } from "./useBookProgress";
+import { resolveBookEngine } from "./frames/engineConfig";
 import {
   chapters,
   chapterProgress,
@@ -24,33 +24,12 @@ import "./book.css";
 const BookScene = lazy(() => import("./BookScene"));
 
 export default function TravelBook({ cover = false }: { cover?: boolean }) {
-  const { user, isAuthenticated, loading } = useAuthContext();
-  const student = isAuthenticated && user?.role === "student";
-  const catalogue = trpc.missions.getAll.useQuery(undefined, {
-    staleTime: 60_000,
-  });
-  const passport = trpc.passport.getMine.useQuery(undefined, {
-    enabled: student,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchInterval: 15_000,
-  });
+  const progress = useBookProgress();
   return (
     <BookJourney
-      key={`${user?.id ?? "guest"}:${cover}`}
+      key={`${progress.profile}:${cover}`}
       cover={cover}
-      profile={String(user?.id ?? "guest")}
-      student={student}
-      loading={
-        loading || catalogue.isLoading || (student && passport.isLoading)
-      }
-      error={catalogue.isError || (student && passport.isError)}
-      missions={catalogue.data ?? []}
-      states={passport.data?.missionStates ?? []}
-      refresh={() => {
-        void catalogue.refetch();
-        if (student) void passport.refetch();
-      }}
+      {...progress}
     />
   );
 }
@@ -264,6 +243,7 @@ function BookJourney({
       className={`travel-book book-phase-${state.phase} ${fallback ? "book-fallback" : ""}`}
       dir="ltr"
       id="main-content"
+      data-book-engine={resolveBookEngine(import.meta.env.VITE_BOOK_ENGINE)}
     >
       <a className="book-skip-link" href="#book-content">
         Skip to book content

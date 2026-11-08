@@ -26,6 +26,9 @@ def fixture(page,state):
   raw=json.loads(request.post_data or '{}') if request.method=='POST' else json.loads(parse_qs(url.query).get('input',['{}'])[0]);results=[]
   for i,name in enumerate(names):
    value=raw.get(str(i),{}).get('json',{}) or {};data=None
+   if name in state.get('fail_queries',[]):
+    results.append({'error':{'json':{'message':'Fixture: progress service unavailable','code':-32603,'data':{'code':'INTERNAL_SERVER_ERROR','httpStatus':500,'path':name}}}})
+    continue
    if name=='auth.me':data=USER if state.get('student',True) else None
    elif name=='missions.getAll':data=[] if state.get('unpublished') else missions
    elif name=='passport.getMine':data=dict(missionStates=[dict(missionId=n,status='verified') for n in state.get('verified',[])]+[dict(missionId=n,status=row['status']) for n,row in state.get('rows',{}).items() if n not in state.get('verified',[])],totalPoints=25*len(state.get('verified',[])),badges=[])
@@ -116,6 +119,32 @@ with sync_playwright() as p:
  context=browser.new_context();page=context.new_page();fixture(page,{'unpublished':True});page.goto(BASE+'/eco-journey?chapter=abu-dhabi',wait_until='networkidle');ready(page)
  expect(page.get_by_text('This chapter’s challenge has not been published yet.',exact=True)).to_be_visible()
  passed('Unpublished catalogue presents no fabricated mission or challenge link')
+ context.close()
+ context=browser.new_context();page=context.new_page();fixture(page,{'verified':[1]})
+ for route in ['/','/eco-journey','/my-journey','/eco-journey?spread=stamps','/eco-journey?chapter=dubai']:
+  page.goto(BASE+route,wait_until='networkidle')
+  expect(page.locator('[data-book-engine="legacy"]')).to_be_visible()
+  if 'stamps' in route or route=='/my-journey':
+   expect(page.get_by_role('heading',name='My travel stamps',exact=True)).to_be_visible()
+  elif 'chapter=dubai' in route:
+   ready(page);expect(page.get_by_role('heading',name='Dubai',exact=True)).to_be_visible()
+  elif route=='/':
+   expect(page.get_by_role('button',name='Open the book',exact=True)).to_be_visible()
+  else:expect(page.get_by_text('TABLE OF CONTENTS',exact=True)).to_be_visible()
+ page.goto(BASE+'/missions',wait_until='networkidle')
+ expect(page.get_by_role('heading',name='A little action. A bigger change.',exact=True)).to_be_visible()
+ page.goto(BASE+'/missions/water-detective',wait_until='networkidle')
+ expect(page.get_by_role('heading',name=missions[0]['title'],exact=True)).to_be_visible()
+ expect(page.get_by_role('link',name='Return to the book',exact=False)).to_have_attribute('href','/eco-journey?chapter=abu-dhabi')
+ passed('Legacy renderer, cover, chapter/stamp deep links and existing mission routes remain compatible')
+ context.close()
+ context=browser.new_context();page=context.new_page();fixture(page,{'fail_queries':['missions.getAll','passport.getMine']})
+ page.goto(BASE+'/eco-journey?chapter=dubai',wait_until='networkidle');ready(page)
+ expect(page.get_by_role('button',name='Reconnect book',exact=True)).to_be_visible()
+ expect(page.get_by_role('link',name='Start challenge',exact=True)).to_have_count(0)
+ expect(page.locator('.book-chapter-stamp')).to_have_count(0)
+ expect(page.get_by_role('button',name='Dubai: Locked',exact=True)).to_be_disabled()
+ passed('Unavailable catalogue/passport keeps challenges locked and offers recovery without fabricated stamps')
  context.close();browser.close()
 assert not report['page_errors'],report['page_errors']
 (OUT/'report.json').write_text(json.dumps(report,indent=2))
