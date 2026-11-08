@@ -1,0 +1,211 @@
+{
+  "frameCount": 1673,
+  "totalBytes": 263968706,
+  "allFramesDecodedAtFullHD": true,
+  "allCopiesHashVerified": true,
+  "missingFrameReferences": [],
+  "insertedOrRemovedByPreparation": 0,
+  "originalVideoExtractionIntegrity": "unverifiable-without-original-videos",
+  "duplicateFileGroups": [],
+  "duplicateDecodedPixelGroups": [],
+  "boundaries": [
+    {
+      "from": "Abu Dhabi",
+      "to": "Dubai",
+      "lastFrame": 238,
+      "firstFrame": 239,
+      "meanAbsoluteRgbDifference": 3.0826718428497943,
+      "normalizedDifference": 0.012088909187646253,
+      "pixelIdentical": false
+    },
+    {
+      "from": "Dubai",
+      "to": "Sharjah",
+      "lastFrame": 477,
+      "firstFrame": 478,
+      "meanAbsoluteRgbDifference": 3.6806397890946503,
+      "normalizedDifference": 0.014433881525861374,
+      "pixelIdentical": false
+    },
+    {
+      "from": "Sharjah",
+      "to": "Ajman",
+      "lastFrame": 716,
+      "firstFrame": 717,
+      "meanAbsoluteRgbDifference": 4.370194026491769,
+      "normalizedDifference": 0.017138015790163802,
+      "pixelIdentical": false
+    },
+    {
+      "from": "Ajman",
+      "to": "Umm Al Quwain",
+      "lastFrame": 955,
+      "firstFrame": 956,
+      "meanAbsoluteRgbDifference": 3.395379533179012,
+      "normalizedDifference": 0.013315213855603969,
+      "pixelIdentical": false
+    },
+    {
+      "from": "Umm Al Quwain",
+      "to": "Ras Al Khaimah",
+      "lastFrame": 1194,
+      "firstFrame": 1195,
+      "meanAbsoluteRgbDifference": 3.5528583140432097,
+      "normalizedDifference": 0.013932777702130235,
+      "pixelIdentical": false
+    },
+    {
+      "from": "Ras Al Khaimah",
+      "to": "Fujairah",
+      "lastFrame": 1433,
+      "firstFrame": 1434,
+      "meanAbsoluteRgbDifference": 4.1440485146604935,
+      "normalizedDifference": 0.016251170645727425,
+      "pixelIdentical": false
+    }
+  ],
+  "provenance": {
+    "repository": "https://github.com/brontoo/7E-Book",
+    "commit": "1bc718ef5e770033a3f00f398223abce01052fb1",
+    "kind": "supplied-lossy-webp-export",
+    "originalVideosAvailable": false,
+    "losslessReferenceAvailable": false,
+    "timingBasis": "Upstream reports 24 fps; original video PTS/durations/codecs cannot be verified",
+    "restingFrameBasis": "Last supplied frame of each clip, matching standalone chapter stops",
+    "sources": [
+      {
+        "videoId": "01-AD.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "02-DXB.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "03-SHJ.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "04-AJ.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "05-UMQ.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "06-RAK.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      },
+      {
+        "videoId": "07-FUJ.mp4",
+        "originalVideoAvailable": false,
+        "observedFrameCount": 239,
+        "width": 1920,
+        "height": 1080,
+        "frameRate": {
+          "numerator": 24,
+          "denominator": 1,
+          "basis": "upstream-report-not-video-probed"
+        },
+        "derivedDurationSeconds": 9.958333333333334,
+        "originalEncoding": null,
+        "originalDurationSeconds": null,
+        "originalFrameTimestampsAvailable": false,
+        "observedWebPChunks": [
+          "VP8 "
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,51 @@
+.frame-book-player {
+  position: absolute;
+  inset: 0;
+}
+.frame-book-player canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: grab;
+  touch-action: pan-y;
+}
+.frame-book-player canvas:active {
+  cursor: grabbing;
+}
+.frame-book-controls {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  right: 0;
+  bottom: -72px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  background: #f6f0e4;
+  padding: 8px;
+  border: 1px solid #26483b55;
+  font-size: 11px;
+}
+.frame-book-controls label {
+  flex: 1;
+  min-width: 120px;
+}
+.frame-book-controls input {
+  width: 100%;
+}
+.frame-book-controls button {
+  border: 1px solid #26483b55;
+  padding: 6px;
+  background: #fff;
+}
+.travel-book[data-book-engine="frames"] .book-stage-wrap {
+  margin-bottom: 85px;
+}
+.travel-book[data-book-engine="frames"] .book-edge-tabs {
+  pointer-events: none;
+}
+.travel-book[data-book-engine="frames"] .book-edge-tabs button {
+  pointer-events: auto;
+}

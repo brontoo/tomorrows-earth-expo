@@ -12,6 +12,8 @@ import {
 import gsap from "gsap";
 import { useBookProgress } from "./useBookProgress";
 import { resolveBookEngine } from "./frames/engineConfig";
+import { useFrameManifest } from "./frames/useFrameManifest";
+import FrameBookPlayer from "./frames/FrameBookPlayer";
 import {
   chapters,
   chapterProgress,
@@ -94,6 +96,19 @@ function BookJourney({
   const heading = useRef<HTMLHeadingElement>(null);
   const busy = ["opening", "turning", "stamping"].includes(state.phase);
   const inChapter = ["reveal", "ready", "stamping"].includes(state.phase);
+  const frameMedia = useFrameManifest(
+    import.meta.env.VITE_BOOK_ENGINE === "frames",
+    import.meta.env.VITE_BOOK_ASSET_BASE_URL
+  );
+  const [frameUnavailable, setFrameUnavailable] = useState(false);
+  const frameSurface =
+    inChapter || (state.phase === "turning" && state.destination === "reveal");
+  const engine = frameSurface
+    ? resolveBookEngine(import.meta.env.VITE_BOOK_ENGINE, {
+        playerReady: true,
+        assetsReady: Boolean(frameMedia.manifest) && !frameUnavailable,
+      })
+    : "legacy";
   const countText = `${progress.count} / 7 collected`;
   useEffect(() => {
     const query = matchMedia("(prefers-reduced-motion: reduce)");
@@ -126,7 +141,7 @@ function BookJourney({
   useEffect(() => {
     if (state.phase !== "cover" && !loading && !error)
       saveBook(profile, chapterIndex, saved.current.seenStamps);
-    if (state.phase === "ready")
+    if (state.phase === "ready" && engine !== "frames")
       heading.current?.focus({ preventScroll: true });
     if (["ready", "contents", "stamps", "final"].includes(state.phase)) {
       const query =
@@ -139,7 +154,7 @@ function BookJourney({
         `${window.location.pathname}?${query}`
       );
     }
-  }, [profile, chapterIndex, state.phase, loading, error]);
+  }, [profile, chapterIndex, state.phase, loading, error, engine]);
   useEffect(() => {
     if (
       state.phase !== "ready" ||
@@ -185,7 +200,7 @@ function BookJourney({
   }, [state.phase, chapter.id, chapterIndex, profile, reduced, sound]);
   // Stage only the next film. Do not download seven films on the cover.
   useEffect(() => {
-    if (!inChapter || chapterIndex >= 6) return;
+    if (!inChapter || chapterIndex >= 6 || engine === "frames") return;
     const next = document.createElement("video");
     next.preload = "metadata";
     next.muted = true;
@@ -197,7 +212,7 @@ function BookJourney({
       next.removeAttribute("src");
       next.load();
     };
-  }, [chapterIndex, inChapter]);
+  }, [chapterIndex, inChapter, engine]);
   const open = () => {
     sound.unlock();
     sound.play("open");
@@ -243,7 +258,7 @@ function BookJourney({
       className={`travel-book book-phase-${state.phase} ${fallback ? "book-fallback" : ""}`}
       dir="ltr"
       id="main-content"
-      data-book-engine={resolveBookEngine(import.meta.env.VITE_BOOK_ENGINE)}
+      data-book-engine={engine}
     >
       <a className="book-skip-link" href="#book-content">
         Skip to book content
@@ -321,7 +336,32 @@ function BookJourney({
           }
           aria-busy={busy}
         >
-          {!fallback && (
+          {engine === "frames" && frameMedia.manifest && (
+            <FrameBookPlayer
+              manifest={frameMedia.manifest}
+              baseUrl={frameMedia.baseUrl}
+              chapter={chapterIndex}
+              allowedRanges={
+                loading || error
+                  ? []
+                  : frameMedia.manifest.chapters.filter(
+                      (_, i) => i <= progress.frontier || progress.completed[i]
+                    )
+              }
+              reduced={reduced}
+              interactive={!busy && !loading && !error}
+              onChapter={id => {
+                const index = chapters.findIndex(c => c.id === id);
+                if (index !== chapterIndex) select(index);
+              }}
+              onReady={() => {
+                dispatch({ type: "ANIMATED" });
+                dispatch({ type: "REVEALED" });
+              }}
+              onFallback={() => setFrameUnavailable(true)}
+            />
+          )}
+          {engine === "legacy" && !fallback && (
             <Suspense
               fallback={
                 <img
@@ -341,7 +381,7 @@ function BookJourney({
               />
             </Suspense>
           )}
-          {fallback && (
+          {engine === "legacy" && fallback && (
             <img
               className="book-fallback-art"
               src={
@@ -352,7 +392,7 @@ function BookJourney({
               alt="Handcrafted paper travel book"
             />
           )}
-          {inChapter && (
+          {engine === "legacy" && inChapter && (
             <ChapterReveal
               key={chapter.id}
               chapter={chapter}
@@ -662,6 +702,11 @@ function BookJourney({
         </div>
       )}
       <footer className="book-footer">
+        {frameMedia.error && (
+          <span role="status">
+            Frame media unavailable. The legacy book remains available.
+          </span>
+        )}
         <span>
           7 CHAPTERS <i>·</i> 7 CHALLENGES <i>·</i> 7 STAMPS
         </span>

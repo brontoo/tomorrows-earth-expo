@@ -1,5 +1,9 @@
 # Seven Emirates frame-engine contract — Phase 1
 
+This document records the historical Phase 1 baseline. See
+[the supplied-source integration report](seven-emirates-source-integration.md)
+for the later, separately approved inactive player integration.
+
 The legacy Three.js/GSAP book remains the only installed renderer. No media,
 camera runtime, mission procedure, reward rule, route, or database schema changes
 are part of this phase.
