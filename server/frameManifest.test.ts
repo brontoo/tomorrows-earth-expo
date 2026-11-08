@@ -156,7 +156,13 @@ describe("Frame integrity and cancellation", () => {
     ).rejects.toThrow("Full HD");
     expect(close).toHaveBeenCalledOnce();
     const abort = new AbortController();
-    abort.abort();
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => {
+        abort.abort();
+        return { width: 1920, height: 1080, close };
+      })
+    );
     await expect(
       loadFrameImage(manifest, 0, "http://localhost/", abort.signal)
     ).rejects.toThrow("cancelled");

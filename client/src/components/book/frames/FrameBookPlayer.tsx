@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { EmirateChapterId, FrameManifest, FrameRange } from "./contracts";
-import { loadFrameImage, restrictFrame, scrubRange } from "./manifest";
+import { restrictFrame, scrubRange } from "./manifest";
+import { FrameScheduler, desktopPolicy, mobilePolicy } from "./FrameScheduler";
 import "./frames.css";
 
 interface Props {
@@ -33,7 +34,22 @@ export default function FrameBookPlayer({
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const cache = useRef(new Map<number, ImageBitmap>());
+  const [mobile] = useState(
+    () =>
+      matchMedia("(max-width: 767px)").matches ||
+      ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ??
+        8) <= 4
+  );
+  const scheduler = useMemo(
+    () =>
+      new FrameScheduler(
+        manifest,
+        baseUrl,
+        mobile ? mobilePolicy : desktopPolicy
+      ),
+    [manifest, baseUrl, mobile]
+  );
+  const direction = useRef<1 | -1>(1);
   const position = useRef(requested);
   const drag = useRef<{ id: number; x: number; frame: number } | null>(null);
   const callbacks = useRef({ onChapter, onReady });
@@ -51,21 +67,16 @@ export default function FrameBookPlayer({
       position.current < selected.startInclusive ||
       position.current >= selected.endExclusive
     ) {
+      direction.current = selected.restingFrame > position.current ? 1 : -1;
       position.current = selected.restingFrame;
       setRequested(selected.restingFrame);
     }
   }, [selected]);
 
-  useEffect(
-    () => () => {
-      cache.current.forEach(image => image.close());
-      cache.current.clear();
-    },
-    [manifest.mediaVersion, baseUrl]
-  );
+  useEffect(() => () => scheduler.dispose(), [scheduler]);
 
   useEffect(() => {
-    const abort = new AbortController();
+    let current = true;
     const draw = (image: ImageBitmap) => {
       const context = canvas.current?.getContext("2d", { alpha: false });
       if (!context) throw new Error("Full HD canvas is unavailable");
@@ -88,36 +99,43 @@ export default function FrameBookPlayer({
         setDisplayed(null);
         return;
       }
-      let image = cache.current.get(target);
-      if (!image) {
-        image = await loadFrameImage(manifest, target, baseUrl, abort.signal);
-        if (abort.signal.aborted) {
-          image.close();
-          return;
-        }
+      const oldChapter = manifest.chapters.find(
+        c =>
+          displayed !== null &&
+          displayed >= c.startInclusive &&
+          displayed < c.endExclusive
+      );
+      const newChapter = manifest.chapters.find(
+        c => target >= c.startInclusive && target < c.endExclusive
+      );
+      if (oldChapter && oldChapter !== newChapter) {
+        canvas.current?.getContext("2d")?.clearRect(0, 0, 1920, 1080);
+        setDisplayed(null);
       }
-      cache.current.delete(target);
-      cache.current.set(target, image);
+      const image = await scheduler.request(
+        target,
+        allowedRanges,
+        direction.current
+      );
+      if (!current) return;
       draw(image);
-      // 8 full-size decoded images = about 63 MiB. No whole-sequence decoding.
-      while (cache.current.size > 8) {
-        const oldest = cache.current.keys().next().value!;
-        cache.current.get(oldest)?.close();
-        cache.current.delete(oldest);
-      }
     };
     void run().catch(reason => {
-      if (!abort.signal.aborted)
+      if (current)
         setError(
           reason instanceof Error ? reason.message : "Frame unavailable"
         );
     });
-    return () => abort.abort();
-  }, [target, attempt, accessKey, manifest, baseUrl]);
+    return () => {
+      current = false;
+    };
+  }, [target, attempt, accessKey, manifest, scheduler]);
 
   const seek = (value: number) => {
     if (!interactive) return;
     const next = restrictFrame(value, position.current, allowedRanges);
+    if (next !== position.current)
+      direction.current = next > position.current ? 1 : -1;
     position.current = next;
     setRequested(next);
   };
@@ -142,6 +160,7 @@ export default function FrameBookPlayer({
       className="frame-book-player"
       data-frame-requested={target}
       data-frame-displayed={displayed ?? ""}
+      data-frame-policy={mobile ? "mobile" : "desktop"}
     >
       <canvas
         ref={canvas}

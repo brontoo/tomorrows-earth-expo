@@ -124,11 +124,25 @@ export async function loadFrameImage(
   baseUrl: string,
   signal: AbortSignal
 ): Promise<ImageBitmap> {
+  return decodeFrameBytes(
+    await loadFrameBytes(manifest, frame, baseUrl, signal),
+    signal
+  );
+}
+
+export async function loadFrameBytes(
+  manifest: FrameManifest,
+  frame: number,
+  baseUrl: string,
+  signal: AbortSignal,
+  priority: "high" | "low" = "high"
+): Promise<ArrayBuffer> {
   const record = manifest.frames[frame];
   if (!record) throw new Error("Unknown frame index");
   const response = await fetch(new URL(record.url, baseUrl), {
     signal,
     credentials: "omit",
+    priority,
   });
   if (!response.ok)
     throw new Error(`Frame request failed (${response.status})`);
@@ -140,6 +154,14 @@ export async function loadFrameImage(
     b => b.toString(16).padStart(2, "0")
   ).join("");
   if (digest !== record.sha256) throw new Error("Frame checksum mismatch");
+  if (signal.aborted) throw new Error("Frame request cancelled");
+  return bytes;
+}
+
+export async function decodeFrameBytes(
+  bytes: ArrayBuffer,
+  signal: AbortSignal
+): Promise<ImageBitmap> {
   const bitmap = await createImageBitmap(new Blob([bytes]));
   if (bitmap.width !== 1920 || bitmap.height !== 1080 || signal.aborted) {
     bitmap.close();

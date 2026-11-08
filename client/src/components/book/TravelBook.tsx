@@ -98,7 +98,8 @@ function BookJourney({
   const inChapter = ["reveal", "ready", "stamping"].includes(state.phase);
   const frameMedia = useFrameManifest(
     import.meta.env.VITE_BOOK_ENGINE === "frames",
-    import.meta.env.VITE_BOOK_ASSET_BASE_URL
+    import.meta.env.VITE_BOOK_ASSET_BASE_URL,
+    import.meta.env.VITE_BOOK_MEDIA_VERSION
   );
   const [frameUnavailable, setFrameUnavailable] = useState(false);
   const frameSurface =
@@ -109,6 +110,13 @@ function BookJourney({
         assetsReady: Boolean(frameMedia.manifest) && !frameUnavailable,
       })
     : "legacy";
+  const pendingFrameMedia =
+    import.meta.env.VITE_BOOK_ENGINE === "frames" &&
+    Boolean(import.meta.env.VITE_BOOK_ASSET_BASE_URL) &&
+    frameSurface &&
+    !frameMedia.manifest &&
+    !frameMedia.error &&
+    !frameUnavailable;
   const countText = `${progress.count} / 7 collected`;
   useEffect(() => {
     const query = matchMedia("(prefers-reduced-motion: reduce)");
@@ -200,7 +208,13 @@ function BookJourney({
   }, [state.phase, chapter.id, chapterIndex, profile, reduced, sound]);
   // Stage only the next film. Do not download seven films on the cover.
   useEffect(() => {
-    if (!inChapter || chapterIndex >= 6 || engine === "frames") return;
+    if (
+      !inChapter ||
+      chapterIndex >= 6 ||
+      engine === "frames" ||
+      pendingFrameMedia
+    )
+      return;
     const next = document.createElement("video");
     next.preload = "metadata";
     next.muted = true;
@@ -212,7 +226,7 @@ function BookJourney({
       next.removeAttribute("src");
       next.load();
     };
-  }, [chapterIndex, inChapter, engine]);
+  }, [chapterIndex, inChapter, engine, pendingFrameMedia]);
   const open = () => {
     sound.unlock();
     sound.play("open");
@@ -361,7 +375,12 @@ function BookJourney({
               onFallback={() => setFrameUnavailable(true)}
             />
           )}
-          {engine === "legacy" && !fallback && (
+          {pendingFrameMedia && (
+            <p className="book-media-loading" role="status">
+              Preparing Full HD book imagery…
+            </p>
+          )}
+          {engine === "legacy" && !fallback && !pendingFrameMedia && (
             <Suspense
               fallback={
                 <img
@@ -381,7 +400,7 @@ function BookJourney({
               />
             </Suspense>
           )}
-          {engine === "legacy" && fallback && (
+          {engine === "legacy" && fallback && !pendingFrameMedia && (
             <img
               className="book-fallback-art"
               src={
@@ -392,7 +411,7 @@ function BookJourney({
               alt="Handcrafted paper travel book"
             />
           )}
-          {engine === "legacy" && inChapter && (
+          {engine === "legacy" && inChapter && !pendingFrameMedia && (
             <ChapterReveal
               key={chapter.id}
               chapter={chapter}

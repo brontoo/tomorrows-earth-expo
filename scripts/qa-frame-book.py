@@ -67,7 +67,10 @@ with sync_playwright() as p:
     session.send("Input.dispatchTouchEvent",{"type":"touchEnd","touchPoints":[]})
     page.wait_for_function("Number(document.querySelector('.frame-book-player').dataset.frameDisplayed)>0")
     passed("Native touch dragging remains available without a camera")
-    state["verified"]=[1];page.reload(wait_until="networkidle")
+    state["verified"]=[1]
+    # This case tests navigation for a returning student; new-stamp animation is covered by qa-book.py.
+    page.evaluate("localStorage.setItem('sevenEmiratesBook:v1:9101',JSON.stringify({chapter:0,seenStamps:['abu-dhabi']}))")
+    page.reload(wait_until="networkidle")
     expect(page.locator('.book-phase-ready')).to_be_visible(timeout=10000)
     canvas=page.locator(".frame-book-player canvas")
     expect(player).to_have_attribute("data-frame-displayed","238")
@@ -96,8 +99,10 @@ with sync_playwright() as p:
     assert len([r for r in requests if "/frames/" in r])<100
     passed("Reduced motion/mobile layout retain controls; no camera requests or whole-sequence download")
     # Integrity failure remains recoverable and the legacy book can be selected locally.
-    page.route("**/frames/07-FUJ/f_0237.webp",lambda r:r.fulfill(status=200,body=b"invalid"))
-    page.locator(".frame-book-player canvas").focus();page.keyboard.press("ArrowLeft")
+    # Use a non-prefetched frame: adjacent frames are now intentionally cached.
+    page.route("**/frames/07-FUJ/f_0200.webp",lambda r:r.fulfill(status=200,body=b"invalid"))
+    page.get_by_role('slider',name='Book frame').evaluate("el=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'1634');el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}")
+    expect(player).to_have_attribute('data-frame-requested','1634')
     expect(page.get_by_role("button",name="Retry frame",exact=True)).to_be_visible()
     page.get_by_role("button",name="Use legacy book",exact=True).click()
     expect(page.locator('[data-book-engine="legacy"]')).to_be_visible()
