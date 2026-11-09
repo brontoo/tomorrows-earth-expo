@@ -1,0 +1,149 @@
+{
+  "task": "Task 14 direct original book entry",
+  "baseMain": "f9c8eb1202d860711d4c62f2b15b2c0b5b6c0e21",
+  "route": "/eco-journey",
+  "routeComponent": "FrameTravelBook directly; no TravelBook wrapper or rollout flag gate",
+  "defaultFrame": 0,
+  "frameAsset": "frames/01-AD/f_0000.webp",
+  "frameSha256": "7ecd4d5184e62142c5a8d0f6600258514332d45144d30b2c6f947c0f4401fda5",
+  "frameDimensions": [1920, 1080],
+  "entryUI": {
+    "legacyCover": false,
+    "contentsOrPreviewGate": false,
+    "openBookCTA": false,
+    "coverMarketingCard": false,
+    "handControls": "Available; explicit user opt-in, no automatic camera",
+    "chapterNavigation": "Seven optional direct jumps inside the existing player"
+  },
+  "variantBuild": {
+    "engine": "legacy",
+    "gesturesFlag": "false",
+    "mediaBaseAndVersion": "unset",
+    "envDir": "empty temporary directory",
+    "result": "passed; original frame 0 and hand button despite obsolete flags"
+  },
+  "variantBrowser": {
+    "entry": "original frame 0, no legacy cover or mandatory Contents, pinned B, camera off",
+    "checks": [
+      "All six boundaries both directions, keyboard and slider; one continuous timeline",
+      "Unobscured canvas, chapter jump, mouse and native touch navigation",
+      "Continuous RAF input burst forward/reverse through the full timeline paints during input and settles at frame 0",
+      "Canvas/scheduler identity unchanged; no camera request or earned stamp from navigation"
+    ],
+    "failures": [],
+    "pageErrors": [],
+    "mutations": [],
+    "blankSamples": 0,
+    "canvasClearCalls": 0,
+    "continuousBurstPaints": 70,
+    "continuousBurstDurationMs": 2361.9000000059605,
+    "browserVersion": "157.0.8103.38"
+  },
+  "productionBuild": "passed",
+  "fullSuite": {
+    "passed": 169,
+    "failed": 3,
+    "failures": "Pre-existing Projects deadline/reviewer fixture failures"
+  },
+  "typeCheck": {
+    "baselineErrors": 5,
+    "newErrors": 0
+  },
+  "newConfigurationTests": 5,
+  "normalBrowserRerun": {
+    "media": "local-fixtures",
+    "backend": "read-only fixtures",
+    "realStagingDeployment": false,
+    "physicalCameraVerified": false,
+    "checks": [
+      "guest: original frame 0, camera off, no synthetic cover/Contents and seven enabled compact jumps",
+      "guest: Fujairah first, then Dubai without progress or an intermediary screen",
+      "guest: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "guest: all six boundaries work forward and backward; full-range slider and labels agree",
+      "guest: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "student: original frame 0, camera off, no synthetic cover/Contents and seven enabled compact jumps",
+      "student: Fujairah first, then Dubai without progress or an intermediary screen",
+      "student: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "student: all six boundaries work forward and backward; full-range slider and labels agree",
+      "student: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "offline: original frame 0, camera off, no synthetic cover/Contents and seven enabled compact jumps",
+      "offline: Fujairah first, then Dubai without progress or an intermediary screen",
+      "offline: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "offline: all six boundaries work forward and backward; full-range slider and labels agree",
+      "offline: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "mobile-guest: original frame 0, camera off, no synthetic cover/Contents and seven enabled compact jumps",
+      "mobile-guest: Fujairah first, then Dubai without progress or an intermediary screen",
+      "mobile-guest: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "mobile-guest: all six boundaries work forward and backward; full-range slider and labels agree",
+      "mobile-guest: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "guest: /innovation-hub fixture UI smoke; no book media/camera/runtime",
+      "student: /student/dashboard fixture UI smoke; no book media/camera/runtime",
+      "teacher: /teacher/dashboard fixture UI smoke; no book media/camera/runtime",
+      "admin: /admin/dashboard fixture UI smoke; no book media/camera/runtime"
+    ],
+    "failures": [],
+    "pageErrors": [],
+    "blockedMutations": []
+  },
+  "retainedInitialRun": {
+    "checksPassed": 19,
+    "failure": [
+      "student: Locator expected to have attribute '0'\nActual value:  \nCall log:\n  - Expect \"to_have_attribute\" with timeout 45000ms\n  - waiting for locator(\".frame-book-player\")\n    7 \u00d7 locator resolved to <div data-frame-displayed=\"\" data-frame-requested=\"0\" class=\"frame-book-player\" data-frame-policy=\"desktop\" data-scheduler-id=\"848.1999999955297\">\u2026</div>\n      - unexpected value \"\"\n\nAria snapshot:\n- img \"Original Seven Emirates closed book\"\n- button \"Previous frame\" [disabled]\n- text: Book frame\n- slider \"Book frame\": \"0\"\n- button \"Next frame\"\n- status: Loading original book\n- text: \"Reduced motion: frames move only with your input.\"\n- alert:\n  - text: Frame request timed out; retry or continue navigating\n  - button \"Retry frame\""
+    ],
+    "pageErrors": [],
+    "interpretation": "One initial student bitmap-decode timeout. Cause not established; isolated student and full rerun passed. No player-core changes were made."
+  },
+  "isolatedStudentRetest": {
+    "media": "local-fixtures",
+    "backend": "read-only fixtures",
+    "realStagingDeployment": false,
+    "physicalCameraVerified": false,
+    "checks": [
+      "student: original frame 0, camera off, no synthetic cover/Contents and seven enabled compact jumps",
+      "student: Fujairah first, then Dubai without progress or an intermediary screen",
+      "student: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "student: all six boundaries work forward and backward; full-range slider and labels agree",
+      "student: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "guest: /innovation-hub fixture UI smoke; no book media/camera/runtime",
+      "student: /student/dashboard fixture UI smoke; no book media/camera/runtime",
+      "teacher: /teacher/dashboard fixture UI smoke; no book media/camera/runtime",
+      "admin: /admin/dashboard fixture UI smoke; no book media/camera/runtime"
+    ],
+    "failures": [],
+    "pageErrors": [],
+    "blockedMutations": []
+  },
+  "preservedFiles": {
+    "client/src/components/book/frames/FrameBookPlayer.tsx": "536436922454953995978e32c741f4d57801699ceab5804b611bb21ae78a1544",
+    "client/src/components/book/frames/FrameScheduler.ts": "0c5c0b6f943d904de64e2ed883415e6b5af69094389fdb5aa2e73df365aca9aa",
+    "client/src/components/book/frames/FrameTimeline.ts": "05f30bca8c8a28709c035135bb080a6eb869fa20acbd1e9fd936fcc950d1b17a",
+    "client/src/components/book/gestures/HandTrackingRuntime.ts": "b125bae894100793f6d6108afd058f928b31e9891c6994a9756eb0075c0f330d",
+    "client/src/components/book/gestures/GestureControls.tsx": "e04e52e83d0ac50635410021782089be0031ecb43861231a5ed84f9cf867c49a",
+    "media/seven-emirates/manifest.json": "96e7635ce959133c36268b0028474f0737932af5dd498977e7a5d1b69a34d11f"
+  },
+  "educationalBackendOrProjectsChanged": false,
+  "sourceImagesOrStorageChanged": false,
+  "physicalCameraTested": false,
+  "release": {
+    "method": "Normal main fast-forward push using existing Git-connected production configuration; see final Git result",
+    "target": "https://tomorrows-earth-expo.vercel.app/eco-journey",
+    "deploymentVerified": false,
+    "vercelCredentialAvailable": false,
+    "projectLinkAvailable": false,
+    "productionAccess": "CONNECT proxy HTTP 403, no origin response",
+    "githubStatusAPI": "Forbidden",
+    "newProjectCreated": false,
+    "manualCLIDeploymentAttempted": false,
+    "rollbackGitTag": "rollback/main-before-direct-frame-entry-20261109"
+  },
+  "changedFiles": [
+    "client/src/components/book/FrameTravelBook.tsx",
+    "client/src/components/book/TravelBook.tsx",
+    "client/src/components/book/frames/frameBookMediaConfig.ts",
+    "client/src/pages/EcoJourneyPage.tsx",
+    "docs/qa/seven-emirates-direct-entry.json",
+    "docs/seven-emirates-direct-entry.md",
+    "scripts/qa-continuous-book.py",
+    "server/frameBookMediaConfig.test.ts"
+  ]
+}

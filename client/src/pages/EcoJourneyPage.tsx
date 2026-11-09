@@ -1,4 +1,4 @@
-import TravelBook from "@/components/book/TravelBook";
+import FrameTravelBook from "@/components/book/FrameTravelBook";
 export default function EcoJourneyPage() {
-  return <TravelBook />;
+  return <FrameTravelBook />;
 }

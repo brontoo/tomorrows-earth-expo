@@ -70,7 +70,10 @@ async def main():
    else:
     await expect(page.locator('.frame-book-player')).to_have_attribute('data-frame-displayed','0',timeout=45000)
     await expect(page.locator('.book-phase-cover,.book-contents,.book-webgl')).to_have_count(0)
-    await expect(page.get_by_role('heading',name='The Seven Emirates',exact=True)).to_be_visible()
+    await expect(page.locator('.book-optional-mission')).to_have_count(0)
+    await expect(page.get_by_role('button',name='Enable Hand Controls',exact=True)).to_be_visible()
+    await expect(page.get_by_role('button',name='Preview chapters',exact=False)).to_have_count(0)
+    await expect(page.get_by_role('button',name='Open the book',exact=False)).to_have_count(0)
     await expect(page.locator('.book-gesture-controls')).to_have_attribute('data-camera-status','off')
     await expect(page.locator('.book-gesture-controls')).to_have_attribute('data-model-sha256','97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482')
     report['entry']='original frame 0, no legacy cover or mandatory Contents, pinned B, camera off'

@@ -11,7 +11,7 @@ import {
   stopBookDiagnostics,
 } from "./frames/FrameDiagnostics";
 import GestureControls from "./gestures/GestureControls";
-import { gesturePreviewEnabled } from "./gestures/GestureClassifier";
+import { frameBookMediaConfig } from "./frames/frameBookMediaConfig";
 import type { BookFrameInput } from "./gestures/BookGestureController";
 import "./book.css";
 import "./frames/frames.css";
@@ -24,10 +24,14 @@ export default function FrameTravelBook() {
     return stopBookDiagnostics;
   }, []);
   const [attempt, setAttempt] = useState(0);
+  const mediaConfig = frameBookMediaConfig({
+    VITE_BOOK_ASSET_BASE_URL: import.meta.env.VITE_BOOK_ASSET_BASE_URL,
+    VITE_BOOK_MEDIA_VERSION: import.meta.env.VITE_BOOK_MEDIA_VERSION,
+  });
   const media = useFrameManifest(
     true,
-    import.meta.env.VITE_BOOK_ASSET_BASE_URL,
-    import.meta.env.VITE_BOOK_MEDIA_VERSION,
+    mediaConfig.baseUrl,
+    mediaConfig.version,
     attempt
   );
   const scope = useRef<HTMLElement>(null),
@@ -96,10 +100,7 @@ export default function FrameTravelBook() {
           <Link href="/innovation-hub">Projects</Link>
         </nav>
       </header>
-      {gesturePreviewEnabled(
-        import.meta.env.VITE_BOOK_ENGINE,
-        import.meta.env.VITE_BOOK_GESTURES
-      ) && <GestureControls scope={scope} input={input} />}
+      <GestureControls scope={scope} input={input} />
       <div className="book-stage-wrap" id="book-content">
         <section
           className="book-stage"
@@ -164,66 +165,67 @@ export default function FrameTravelBook() {
             </button>
           ))}
         </nav>
-        <section
-          className="book-chapter-note book-optional-mission"
-          aria-label="Optional educational mission"
-        >
-          <div>
-            <span className="book-eyebrow">
-              {atCover
-                ? "THE COVER · CLOSED BOOK"
-                : `CHAPTER ${String(chapter + 1).padStart(2, "0")}`}
-            </span>
-            <h1>{atCover ? "The Seven Emirates" : active.name}</h1>
-            <p>
-              Explore every Emirate freely. Missions and earned stamps are
-              optional achievements.
-            </p>
-          </div>
-          <div className="book-chapter-actions">
-            {education.loading ? (
-              <p>Loading optional mission details…</p>
-            ) : education.error ? (
-              <>
-                <p>
-                  Optional missions are unavailable. Every Emirate remains open.
-                </p>
-                <button onClick={education.refresh}>
-                  Refresh optional missions
-                </button>
-              </>
-            ) : !education.student ? (
-              <Link
-                href={
-                  education.profile !== "guest"
-                    ? "/dashboard"
-                    : `/login?redirectTo=${encodeURIComponent(`/eco-journey?chapter=${active.id}`)}`
-                }
-              >
-                {education.profile !== "guest"
-                  ? "My account"
-                  : "Sign in for optional missions"}
-              </Link>
-            ) : mission ? (
-              <>
-                <p>Mission status: {status ?? "Not started"}</p>
-                <Link data-book-gesture="mission" href={active.route}>
-                  View optional challenge
-                </Link>
-              </>
-            ) : (
-              <p>This optional challenge has not been published yet.</p>
-            )}
-            {achievement.completed[chapter] && (
-              <p
-                className="book-earned-achievement"
-                aria-label={`${active.name} stamp collected`}
-              >
-                Mission stamp earned
+        {!atCover && (
+          <section
+            className="book-chapter-note book-optional-mission"
+            aria-label="Optional educational mission"
+          >
+            <div>
+              <span className="book-eyebrow">
+                {`CHAPTER ${String(chapter + 1).padStart(2, "0")}`}
+              </span>
+              <h1>{active.name}</h1>
+              <p>
+                Explore every Emirate freely. Missions and earned stamps are
+                optional achievements.
               </p>
-            )}
-          </div>
-        </section>
+            </div>
+            <div className="book-chapter-actions">
+              {education.loading ? (
+                <p>Loading optional mission details…</p>
+              ) : education.error ? (
+                <>
+                  <p>
+                    Optional missions are unavailable. Every Emirate remains
+                    open.
+                  </p>
+                  <button onClick={education.refresh}>
+                    Refresh optional missions
+                  </button>
+                </>
+              ) : !education.student ? (
+                <Link
+                  href={
+                    education.profile !== "guest"
+                      ? "/dashboard"
+                      : `/login?redirectTo=${encodeURIComponent(`/eco-journey?chapter=${active.id}`)}`
+                  }
+                >
+                  {education.profile !== "guest"
+                    ? "My account"
+                    : "Sign in for optional missions"}
+                </Link>
+              ) : mission ? (
+                <>
+                  <p>Mission status: {status ?? "Not started"}</p>
+                  <Link data-book-gesture="mission" href={active.route}>
+                    View optional challenge
+                  </Link>
+                </>
+              ) : (
+                <p>This optional challenge has not been published yet.</p>
+              )}
+              {achievement.completed[chapter] && (
+                <p
+                  className="book-earned-achievement"
+                  aria-label={`${active.name} stamp collected`}
+                >
+                  Mission stamp earned
+                </p>
+              )}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );
