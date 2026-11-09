@@ -1,0 +1,69 @@
+param(
+  [Parameter(Mandatory=$true)][string]$ExpectedCommit,
+  [ValidateSet('chrome','msedge')][string]$Browser='chrome'
+)
+$ErrorActionPreference='Stop'
+$app=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$expectedCommit=$ExpectedCommit
+$actual=(& git -C $app rev-parse HEAD).Trim()
+if ($LASTEXITCODE -ne 0 -or $actual -ne $expectedCommit) { throw 'Wrong Expo checkout. Check out the reviewed Phase 5A commit from its final report.' }
+& git -C $app diff --quiet
+if ($LASTEXITCODE -ne 0) { throw 'Tracked app changes found. Use the separate clean QA checkout.' }
+$portBusy=$false
+$probe=New-Object Net.Sockets.TcpClient
+try { $pending=$probe.ConnectAsync('127.0.0.1',4174); [void]$pending.Wait(300); $portBusy=$probe.Connected } catch {} finally { $probe.Dispose() }
+if ($portBusy) { throw 'Port 4174 is already in use. Stop that preview first; this launcher will not test an unrelated server.' }
+$reportRoot=Join-Path $env:USERPROFILE ('Seven-Emirates-Model-AB-Reports\'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+$Browser)
+New-Item -ItemType Directory -Force -Path $reportRoot | Out-Null
+$qaVenv=Join-Path $env:TEMP 'seven-emirates-browser-qa'
+& py -3 -c "import sys; assert sys.version_info >= (3,12), 'Python 3.12 or newer required'"
+if ($LASTEXITCODE -ne 0) { throw 'Install Python 3.12+ from python.org and enable the Python launcher.' }
+& py -3 -m venv $qaVenv
+if ($LASTEXITCODE -ne 0) { throw 'Python environment creation failed' }
+$python=Join-Path $qaVenv 'Scripts\python.exe'
+& $python -m pip install playwright==1.62.0
+if ($LASTEXITCODE -ne 0) { throw 'Playwright install failed. Keep TLS verification enabled.' }
+$flags=@{
+ VITE_BOOK_ENGINE='frames';VITE_BOOK_GESTURES='true';VITE_BOOK_MODEL_AB='true';
+ VITE_BOOK_ASSET_BASE_URL='https://hjqyhybgitdizfhwpdcv.supabase.co/storage/v1/object/public/seven-emirates-game/';
+ VITE_BOOK_MEDIA_VERSION='7e-1bc718ef5e77';COREPACK_ENABLE_DOWNLOAD_PROMPT='0'
+}
+$old=@{};foreach($name in $flags.Keys){$old[$name]=[Environment]::GetEnvironmentVariable($name,'Process')}
+$preview=$null
+try {
+ foreach($name in $flags.Keys){[Environment]::SetEnvironmentVariable($name,$flags[$name],'Process')}
+ Push-Location -LiteralPath $app
+ try { & corepack pnpm install --frozen-lockfile; if ($LASTEXITCODE -ne 0){throw 'Locked app dependency install failed'} }
+ finally { Pop-Location }
+ $escaped=$app.Replace("'","''")
+ $command="Set-Location -LiteralPath '$escaped'; & corepack pnpm exec vite --host 127.0.0.1 --port 4174 --strictPort"
+ $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+ $preview=Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile','-EncodedCommand',$encoded -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $reportRoot 'preview.log') -RedirectStandardError (Join-Path $reportRoot 'preview-error.log')
+ $ready=$false
+ for($i=0;$i -lt 60;$i++){
+  if($preview.HasExited){throw 'Preview exited. Check preview-error.log; port 4174 may already be in use.'}
+  try { $response=Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:4174' -TimeoutSec 1; if($response.StatusCode -eq 200){$ready=$true;break} } catch {}
+  Start-Sleep -Milliseconds 500
+ }
+ if(-not $ready){throw 'Preview did not start'}
+ Write-Host "Exact-byte inspection and A/B model initialization checks are running. Reports: $reportRoot"
+ & $python (Join-Path $PSScriptRoot 'inspect-gesture-models.py') --report (Join-Path $reportRoot 'model-components.json')
+ if($LASTEXITCODE -ne 0){throw 'Model download/hash/metadata inspection failed. Review model-components.json; no model was substituted.'}
+ foreach($variant in @('current','prototype')) {
+  $jsonFile=Join-Path $reportRoot ('automated-'+$variant+'.json')
+  & $python (Join-Path $PSScriptRoot 'qa-real-book.py') --channel $Browser --model-variant $variant --report $jsonFile
+  # The known mismatch/manual release gates intentionally keep this runner red.
+  if(-not (Test-Path $jsonFile)){throw 'A/B acceptance report was not produced'}
+  $result=Get-Content -Raw $jsonFile | ConvertFrom-Json
+  if(-not $result.remoteVerified -or -not $result.modelInitialized){throw "Live media or $variant initialization failed. Review its JSON before physical testing."}
+ }
+ Write-Host 'Both models initialized; their byte mismatch is NOT approved. Physical comparison is required.'
+ Write-Host 'A real browser will open. No camera starts until you click Enable Hand Controls.'
+ Write-Host 'Use the Owner camera QA panel, then Disable Camera and Save and finish.'
+ & $python (Join-Path $PSScriptRoot 'qa-book-model-ab.py') --app $app --channel $Browser --report (Join-Path $reportRoot 'owner-model-ab.json')
+ if($LASTEXITCODE -ne 0){Write-Host 'Physical session ended early; available diagnostics were saved.'}
+} finally {
+ if($preview -and -not $preview.HasExited){ & taskkill.exe /PID $preview.Id /T /F | Out-Null }
+ foreach($name in $flags.Keys){[Environment]::SetEnvironmentVariable($name,$old[$name],'Process')}
+ Write-Host "Reports saved: $reportRoot"
+}

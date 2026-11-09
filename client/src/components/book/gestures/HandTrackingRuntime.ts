@@ -1,11 +1,18 @@
 import { OPTIONS, type HandSample } from "./GestureClassifier";
+import {
+  GESTURE_MODELS,
+  loadGestureModel,
+  modelABEnabled,
+  selectGestureModel,
+  type GestureModelId,
+} from "./GestureModels";
 
 // Same SDK version as original prototype; versioned model and matching WASM.
 export const HAND_RESOURCES = Object.freeze({
   sdkVersion: "1.2.2",
   wasm: "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm",
-  model:
-    "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+  model: GESTURE_MODELS.current.url,
+  modelSha256: GESTURE_MODELS.current.sha256,
 });
 export interface Recognizer {
   recognizeForVideo(video: HTMLVideoElement, timestamp: number): HandSample;
@@ -18,13 +25,21 @@ export interface RuntimeDependencies {
   cancelRaf(id: number): void;
 }
 /** Shared by explicit camera opt-in and the independent browser acceptance probe. */
-export async function createBookRecognizer(): Promise<Recognizer> {
+export async function createBookRecognizer(
+  modelId: GestureModelId = "current"
+): Promise<Recognizer> {
+  const model = selectGestureModel(
+    modelId,
+    modelABEnabled(import.meta.env, Boolean(import.meta.hot))
+  );
+  // Verify before SDK creation; both GPU and CPU receive the SAME verified bytes.
+  const modelAssetBuffer = await loadGestureModel(model);
   const { FilesetResolver, GestureRecognizer } = await import(
     "@mediapipe/tasks-vision"
   );
   const vision = await FilesetResolver.forVisionTasks(HAND_RESOURCES.wasm);
   const options = (delegate: "GPU" | "CPU") => ({
-    baseOptions: { modelAssetPath: HAND_RESOURCES.model, delegate },
+    baseOptions: { modelAssetBuffer: modelAssetBuffer.slice(), delegate },
     runningMode: "VIDEO" as const,
     numHands: 1,
     minHandDetectionConfidence: 0.55,
@@ -39,7 +54,7 @@ export async function createBookRecognizer(): Promise<Recognizer> {
 }
 
 const dependencies: RuntimeDependencies = {
-  createRecognizer: createBookRecognizer,
+  createRecognizer: () => createBookRecognizer(),
   getCamera() {
     if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia)
       return Promise.reject(
@@ -58,6 +73,13 @@ const dependencies: RuntimeDependencies = {
   raf: cb => requestAnimationFrame(cb),
   cancelRaf: id => cancelAnimationFrame(id),
 };
+/** Model choice affects assets only, never classifier thresholds, input or frame ranges. */
+export function runtimeForModel(model: GestureModelId): RuntimeDependencies {
+  return {
+    ...dependencies,
+    createRecognizer: () => createBookRecognizer(model),
+  };
+}
 export type CameraStatus =
   | "off"
   | "loading"
@@ -187,6 +209,10 @@ export class HandTrackingRuntime {
       if (stream && stream !== this.stream)
         stream.getTracks().forEach(t => t.stop());
       this.stop();
+      if (error instanceof Error && error.message.startsWith("Gesture model")) {
+        this.status("error", error.message);
+        return;
+      }
       const name = error instanceof Error ? error.name : "";
       this.status(
         "error",

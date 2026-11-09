@@ -136,3 +136,27 @@
     margin-top: 6px;
   }
 }
+.book-model-ab {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #9a826040;
+  margin-bottom: 8px;
+}
+.book-model-ab select {
+  border: 1px solid #9a8260;
+  border-radius: 6px;
+  padding: 7px;
+  background: white;
+  max-width: 100%;
+}
+.book-model-ab small {
+  display: block;
+  width: 100%;
+  overflow-wrap: anywhere;
+  color: #625e52;
+}

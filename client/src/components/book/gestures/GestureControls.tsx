@@ -5,9 +5,18 @@ import {
   type BookFrameInput,
   type GestureView,
 } from "./BookGestureController";
-import { HandTrackingRuntime, type CameraStatus } from "./HandTrackingRuntime";
+import {
+  HandTrackingRuntime,
+  runtimeForModel,
+  type CameraStatus,
+} from "./HandTrackingRuntime";
 import { previewPoint, type Landmark } from "./GestureClassifier";
 import "./gestures.css";
+import {
+  GESTURE_MODELS,
+  modelABEnabled,
+  type GestureModelId,
+} from "./GestureModels";
 
 const CONNECTIONS = [
   [0, 1],
@@ -97,6 +106,9 @@ export default function GestureControls({
   const video = useRef<HTMLVideoElement>(null),
     skeleton = useRef<HTMLCanvasElement>(null);
   const runtime = useRef<HandTrackingRuntime | null>(null);
+  const abEnabled = modelABEnabled(import.meta.env, Boolean(import.meta.hot));
+  const [modelId, setModelId] = useState<GestureModelId>("current");
+  const model = GESTURE_MODELS[modelId];
   const [camera, setCamera] = useState<CameraStatus>("off");
   const [message, setMessage] = useState(
     "Camera off · mouse, touch and keyboard available"
@@ -161,7 +173,8 @@ export default function GestureControls({
           setCamera(status);
           setMessage(text);
         }
-      }
+      },
+      runtimeForModel(modelId)
     );
     runtime.current = instance;
     const manual = () => {
@@ -212,13 +225,36 @@ export default function GestureControls({
       window.removeEventListener("pagehide", pagehide);
       document.removeEventListener("visibilitychange", visibility);
     };
-  }, [scope, input]);
+  }, [scope, input, modelId]);
   return (
     <aside
       className="book-gesture-controls"
       data-camera-status={camera}
+      data-book-model={modelId}
+      data-model-sha256={model.sha256}
       aria-label="Optional hand controls"
     >
+      {abEnabled && (
+        <label className="book-model-ab">
+          Development A/B model
+          <select
+            aria-label="Development gesture model"
+            value={modelId}
+            disabled={active || pending}
+            onChange={event => {
+              runtime.current?.stop();
+              setModelId(event.target.value as GestureModelId);
+            }}
+          >
+            <option value="prototype">{GESTURE_MODELS.prototype.label}</option>
+            <option value="current">{GESTURE_MODELS.current.label}</option>
+          </select>
+          <small>
+            Disable Camera before switching. SHA-256 {model.sha256}. Selection
+            never starts camera.
+          </small>
+        </label>
+      )}
       <div className="book-gesture-bar">
         <button
           type="button"

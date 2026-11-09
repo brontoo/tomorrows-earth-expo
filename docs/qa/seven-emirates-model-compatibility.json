@@ -1,0 +1,61 @@
+{
+  "source": "User-confirmed GitHub Actions result; REST logs inaccessible from this cloud",
+  "runUrl": "https://github.com/brontoo/7E-Book/actions/runs/42595276281",
+  "liveMediaAndChapters": {
+    "status": "passed-reported",
+    "records": 1673,
+    "boundarySamples": 14,
+    "transitionsBothDirections": 6
+  },
+  "currentModelInitialization": {
+    "status": "passed-reported",
+    "initializationsAndClosures": 2,
+    "sdkVersion": "1.2.2",
+    "factory": "Historical URL-based input, before Phase 5A"
+  },
+  "prototypeModelInitialization": {
+    "status": "pending-new-A/B-preview"
+  },
+  "modelByteComparison": {
+    "status": "different",
+    "prototypeSha256": "a966b1d4e774e0423c19c8aa71f070e5a72fe7a03c2663dd2f3cb0b0095ee3e1",
+    "currentSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482"
+  },
+  "functionalGestureCompatibility": "not-tested",
+  "physicalCameraAcceptance": "not-tested",
+  "educationalWorkflowAcceptance": "not-tested",
+  "localModelInspection": {
+    "hashProvenance": "Owner-confirmed acceptance run 42595276281",
+    "models": {
+      "prototype": {
+        "url": "https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/gesture_recognizer.task",
+        "verified": false,
+        "expectedSha256": "a966b1d4e774e0423c19c8aa71f070e5a72fe7a03c2663dd2f3cb0b0095ee3e1",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+      },
+      "current": {
+        "url": "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+        "verified": false,
+        "expectedSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",
+        "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+      }
+    },
+    "physicalCameraVerified": false,
+    "functionalCompatibility": "not-tested",
+    "releaseGate": "Known unequal model artifacts await physical A/B review"
+  },
+  "recommendation": "Original is the preferred candidate only if both models prove viable; retain current default pending real A/B initialization and manual sign-off. No production activation.",
+  "productionReady": false,
+  "localUiSafetyCheck": {
+    "scope": "UI-only local media fixtures; no model bytes/SDK/camera are substituted or verified",
+    "physicalCameraVerified": false,
+    "checks": [
+      "Dev opt-in exposes A/B; selecting A makes no model/camera request; blocked model starts no camera",
+      "Production build with AB flag=true still hides A/B and retains current model"
+    ]
+  },
+  "newVerifiedBufferInitialization": {
+    "prototype": "pending-real-browser-run",
+    "current": "pending-real-browser-run"
+  }
+}

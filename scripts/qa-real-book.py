@@ -13,16 +13,19 @@ import statistics
 import time
 from urllib.parse import unquote, urlparse
 from playwright.sync_api import sync_playwright, expect
+from qa_model_reporting import acceptance_stages, KNOWN_HASHES
 
 ROOT = Path(__file__).resolve().parents[1]
 MEDIA = 'https://hjqyhybgitdizfhwpdcv.supabase.co/storage/v1/object/public/seven-emirates-game/7e-1bc718ef5e77/'
-MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task'
+MODEL_URLS = dict(current='https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',prototype='https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/gesture_recognizer.task')
 WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm/'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base-url', default='http://127.0.0.1:4174')
+parser.add_argument('--model-variant', choices=['current','prototype'], default='current')
 parser.add_argument('--channel', choices=['chrome', 'msedge'])
 parser.add_argument('--report', type=Path, default=Path('artifacts/real-book-acceptance.json'))
 args = parser.parse_args()
+MODEL = MODEL_URLS[args.model_variant]
 if urlparse(args.base_url).hostname not in ('localhost', '127.0.0.1'):
     raise SystemExit('Use the isolated localhost development preview, never production.')
 expected_raw = (ROOT / 'media/seven-emirates/manifest.json').read_bytes()
@@ -31,7 +34,7 @@ expected_sha = hashlib.sha256(expected_raw).hexdigest()
 bindings = re.findall(r'id:\s*"([^"]+)",\s*name:\s*"([^"]+)",\s*missionSlug:\s*"([^"]+)"',
                       (ROOT / 'client/src/components/book/chapters.ts').read_text())
 state = {'verified': []}
-report = dict(remoteVerified=False, modelInitialized=False, physicalCameraVerified=False,
+report = dict(modelVariant=args.model_variant, remoteVerified=False, modelInitialized=False, physicalCameraVerified=False,
               syntheticVideoUsed=False, mediaOrModelMocked=False, authAndProgressFixtures=True,
               checks=[], failures=[], networkFailures=[], timings={}, chapterRanges=[], resources=[])
 
@@ -66,12 +69,13 @@ MODEL_PAGE = '''<!doctype html><meta charset="utf-8"><title>Real MediaPipe accep
 <button id="verify">Verify actual hand model (no camera)</button><output id="status">Not started</output>
 <script type="module">
 import {createBookRecognizer,HAND_RESOURCES} from '/src/components/book/gestures/HandTrackingRuntime.ts';
-window.__resources=HAND_RESOURCES;window.__cameraCalls=0;
+import {GESTURE_MODELS} from '/src/components/book/gestures/GestureModels.ts';
+const variant=__MODEL_VARIANT__;window.__resources={...HAND_RESOURCES,model:GESTURE_MODELS[variant].url,modelSha256:GESTURE_MODELS[variant].sha256};window.__cameraCalls=0;
 if(navigator.mediaDevices)navigator.mediaDevices.getUserMedia=()=>{window.__cameraCalls++;throw Error('Unexpected camera request in model-only acceptance')};
 document.querySelector('#verify').onclick=async()=>{
  const start=performance.now();window.__modelResult=null;
  let recognizer;
- try {recognizer=await createBookRecognizer();window.__modelResult={passed:true,elapsedMs:performance.now()-start};}
+ try {recognizer=await createBookRecognizer(variant);window.__modelResult={passed:true,elapsedMs:performance.now()-start};}
  catch(error){window.__modelResult={passed:false,elapsedMs:performance.now()-start,error:String(error).slice(0,500)};}
  finally{try{recognizer?.close();window.__modelResult.closed=!!recognizer;}catch(error){window.__modelResult.passed=false;window.__modelResult.error='Recognizer cleanup failed';}document.querySelector('#status').textContent=JSON.stringify(window.__modelResult);}
 };
@@ -196,7 +200,7 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
     model_page.on('pageerror',lambda error:report['failures'].append('Model browser: '+str(error)))
     model_page.on('response',lambda response:model_responses.append(response) if response.url.startswith((MODEL,WASM)) else None)
     model_page.on('requestfailed',lambda r:report['networkFailures'].append(dict(url=r.url,error=r.failure)) if r.url.startswith((MODEL,WASM)) else None)
-    model_page.route(args.base_url+'/__gesture_model_acceptance__',lambda route:route.fulfill(content_type='text/html',body=MODEL_PAGE))
+    model_page.route(args.base_url+'/__gesture_model_acceptance__',lambda route:route.fulfill(content_type='text/html',body=MODEL_PAGE.replace('__MODEL_VARIANT__',json.dumps(args.model_variant))))
     try:
         model_page.goto(args.base_url+'/__gesture_model_acceptance__')
         model_page.wait_for_function('window.__resources?.sdkVersion === "1.2.2"')
@@ -224,22 +228,25 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         model_hashes = {r['sha256'] for r in report['resources'] if r['url']==MODEL and r.get('sha256')}
         assert len(model_hashes) == 1
         report['modelSha256'] = next(iter(model_hashes))
+        assert report['modelSha256'] == KNOWN_HASHES[args.model_variant]
         try:
-            original = model_page.evaluate('''async url=>{
-              const response=await fetch(url,{credentials:'omit'});if(!response.ok)throw Error('Original model HTTP '+response.status);
+            other_id = 'prototype' if args.model_variant == 'current' else 'current'
+            other = model_page.evaluate('''async url=>{
+              const response=await fetch(url,{credentials:'omit'});if(!response.ok)throw Error('Comparison model HTTP '+response.status);
               const bytes=await response.arrayBuffer();return {byteLength:bytes.byteLength,sha256:[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('')};
-            }''','https://storage.googleapis.com/mediapipe-tasks/gesture_recognizer/gesture_recognizer.task')
-            report['originalModelComparison'] = dict(**original, sameBytes=original['sha256']==report['modelSha256'])
-            if not report['originalModelComparison']['sameBytes']:
-                report['failures'].append('Original unversioned model differs from pinned version 1; review model provenance and physical behavior before activation.')
+            }''',MODEL_URLS[other_id])
+            assert other['sha256'] == KNOWN_HASHES[other_id], 'Comparison model SHA changed'
+            hashes={args.model_variant:report['modelSha256'],other_id:other['sha256']}
+            report['originalModelComparison'] = dict(verified=True,hashes=hashes,sameBytes=hashes['prototype']==hashes['current'])
         except Exception as error:
             report['originalModelComparison'] = dict(verified=False,error=failure_text(error))
         passed('Actual pinned SDK/WASM/model initialized twice after explicit opt-in, then closed, without requesting a camera')
     except Exception as error:
         report['failures'].append('Actual model: '+failure_text(error))
     browser.close()
+report['acceptanceStages'] = acceptance_stages(report)
 args.report.parent.mkdir(parents=True,exist_ok=True)
 args.report.write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
-if report['failures'] or not report['remoteVerified'] or not report['modelInitialized']:
-    raise SystemExit('Real acceptance incomplete; see the report. No physical-camera or publication claim.')
+if report['failures'] or not report['remoteVerified'] or not report['modelInitialized'] or report['acceptanceStages']['releaseGates']:
+    raise SystemExit('Release gates remain; inspect separate technical/model/physical/educational stages. No physical-camera or production approval.')
