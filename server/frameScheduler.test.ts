@@ -70,12 +70,14 @@ describe("Network frame scheduling", () => {
         [100 + direction, false],
         [100 + 2 * direction, false],
       ]);
-      expect(starts.length).toBe(7);
+      expect(starts.length).toBe(
+        1 + desktopPolicy.prefetchAhead + desktopPolicy.prefetchBehind
+      );
       scheduler.dispose();
     }
   );
   it("reuses cached forward/backward images without requesting their bytes again", async () => {
-    const transport = vi.fn(async () => new ArrayBuffer(8));
+    const transport = vi.fn(async (_frame: number) => new ArrayBuffer(8));
     const scheduler = new FrameScheduler(
       manifest,
       "https://example.test/",
@@ -89,7 +91,9 @@ describe("Network frame scheduling", () => {
     await idle(scheduler);
     expect(await scheduler.request(100, ranges, -1)).toBe(first);
     await idle(scheduler);
-    expect(transport.mock.calls.length).toBeLessThan(12);
+    expect(
+      transport.mock.calls.filter(([frame]) => frame === 100)
+    ).toHaveLength(1);
     expect(scheduler.stats.cacheHits).toBe(2);
     scheduler.dispose();
   });
@@ -142,7 +146,7 @@ describe("Network frame scheduling", () => {
     );
     scheduler.dispose();
   });
-  it("bounds concurrency, preempts speculative work and rejects obsolete requests", async () => {
+  it("bounds concurrency and prioritizes the latest frame without aborting in-flight work", async () => {
     const releases = new Map<number, (bytes: ArrayBuffer) => void>();
     let active = 0,
       maximum = 0;
@@ -169,8 +173,8 @@ describe("Network frame scheduling", () => {
     );
     const old = scheduler.request(0, ranges, 1);
     const latest = scheduler.request(100, ranges, 1);
-    await expect(old).rejects.toThrow("superseded");
     releases.get(0)!(new ArrayBuffer(8));
+    await expect(old).resolves.toMatchObject({ width: 1920 });
     await vi.waitFor(() => expect(releases.has(100)).toBe(true));
     releases.get(100)!(new ArrayBuffer(8));
     await latest;

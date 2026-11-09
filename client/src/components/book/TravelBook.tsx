@@ -25,9 +25,23 @@ import {
 import { readBook, readStorage, saveBook, writeStorage } from "./persistence";
 import { BookAudio } from "./BookAudio";
 import "./book.css";
+const FrameTravelBook = lazy(() => import("./FrameTravelBook"));
 const BookScene = lazy(() => import("./BookScene"));
 
 export default function TravelBook({ cover = false }: { cover?: boolean }) {
+  if (
+    !cover &&
+    window.location.pathname === "/eco-journey" &&
+    import.meta.env.VITE_BOOK_ENGINE === "frames"
+  )
+    return (
+      <Suspense fallback={<p role="status">Loading the original book…</p>}>
+        <FrameTravelBook />
+      </Suspense>
+    );
+  return <LegacyTravelBook cover={cover} />;
+}
+function LegacyTravelBook({ cover }: { cover: boolean }) {
   const progress = useBookProgress();
   return (
     <BookJourney

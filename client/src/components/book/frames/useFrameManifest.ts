@@ -1,22 +1,26 @@
 import { useEffect, useState } from "react";
 import type { FrameManifest } from "./contracts";
-import { loadFrameImage, validateFrameManifest } from "./manifest";
+import { loadFrameBytes, validateFrameManifest } from "./manifest";
 import { resolveAssetLocation } from "./assetLocation";
 
 export function useFrameManifest(
   enabled: boolean,
   configuredBase: string | undefined,
-  version?: string
+  version?: string,
+  attempt = 0
 ) {
   const [result, setResult] = useState<{
     manifest: FrameManifest | null;
     baseUrl: string;
     error: string | null;
+    initialFrameBytes?: ArrayBuffer;
+    firstFrameUrl?: string;
   }>({ manifest: null, baseUrl: "", error: null });
   useEffect(() => {
     if (!enabled || !configuredBase) return;
     const abort = new AbortController();
     let timedOut = false;
+    let firstFrameUrl: string | undefined;
     const timeout = window.setTimeout(() => {
       timedOut = true;
       abort.abort();
@@ -36,9 +40,23 @@ export function useFrameManifest(
       const manifest = validateFrameManifest(await response.json());
       if (version && manifest.mediaVersion !== version)
         throw new Error("Manifest media version mismatch");
-      const initial = await loadFrameImage(manifest, 0, baseUrl, abort.signal);
-      initial.close();
-      if (!abort.signal.aborted) setResult({ manifest, baseUrl, error: null });
+      // Verify once, then reuse these exact bytes in the player and original-image placeholder.
+      const initialFrameBytes = await loadFrameBytes(
+        manifest,
+        0,
+        baseUrl,
+        abort.signal
+      );
+      if (!abort.signal.aborted) {
+        firstFrameUrl = URL.createObjectURL(new Blob([initialFrameBytes]));
+        setResult({
+          manifest,
+          baseUrl,
+          error: null,
+          initialFrameBytes,
+          firstFrameUrl,
+        });
+      }
     };
     void run()
       .catch(error => {
@@ -57,7 +75,8 @@ export function useFrameManifest(
     return () => {
       window.clearTimeout(timeout);
       abort.abort();
+      if (firstFrameUrl) URL.revokeObjectURL(firstFrameUrl);
     };
-  }, [enabled, configuredBase, version]);
+  }, [enabled, configuredBase, version, attempt]);
   return result;
 }

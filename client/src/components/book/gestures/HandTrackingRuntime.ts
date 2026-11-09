@@ -1,3 +1,4 @@
+import { bookDiagnostics } from "../frames/FrameDiagnostics";
 import { OPTIONS, type HandSample } from "./GestureClassifier";
 import {
   GESTURE_MODELS,
@@ -172,8 +173,20 @@ export class HandTrackingRuntime {
             now - lastInference >= OPTIONS.inferenceIntervalMs
           ) {
             lastVideoTime = video.currentTime;
+            const started = performance.now();
+            const result = recognizer!.recognizeForVideo(video, now);
+            bookDiagnostics()?.record("inference", {
+              duration: performance.now() - started,
+              interval: Number.isFinite(lastInference)
+                ? now - lastInference
+                : null,
+            });
             lastInference = now;
-            this.sample(recognizer!.recognizeForVideo(video, now), now);
+            const processing = performance.now();
+            this.sample(result, now);
+            bookDiagnostics()?.record("gestureProcessing", {
+              duration: performance.now() - processing,
+            });
           }
           if (this.running && id === this.generation)
             this.raf = this.deps.raf(tick);

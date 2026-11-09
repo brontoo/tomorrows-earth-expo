@@ -1,3 +1,4 @@
+import { bookDiagnostics } from "../frames/FrameDiagnostics";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   BookGestureController,
@@ -156,12 +157,24 @@ export default function GestureControls({
           );
           hover.current?.setAttribute("data-gesture-hover", "true");
         }
+        const skeletonStarted = performance.now();
         drawSkeleton(
           skeleton.current,
           skeletonEnabled.current ? result.landmarks?.[0] : undefined,
           video.current
         );
-        setView(next);
+        bookDiagnostics()?.record("skeleton", {
+          duration: performance.now() - skeletonStarted,
+        });
+        // Keep pointer motion responsive, but a steady fist/idle pose need not re-render React at inference frequency.
+        setView(previous =>
+          previous.mode === next.mode &&
+          previous.selected === next.selected &&
+          previous.pointer?.x === next.pointer?.x &&
+          previous.pointer?.y === next.pointer?.y
+            ? previous
+            : next
+        );
       },
       (status, text) => {
         if (mounted) {
