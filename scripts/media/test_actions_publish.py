@@ -18,7 +18,7 @@ class SecretKeyTests(unittest.TestCase):
     def test_concurrent_existing_object_is_not_counted_as_an_upload(self):
         with tempfile.TemporaryDirectory() as directory:
             p=Path(directory)/'frame.webp';p.write_bytes(b'unit-test-bytes')
-            obj=dict(key='version/frame.webp',path=str(p),sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+            obj=dict(key='version/frame.webp',path=str(p),sha256=hashlib.sha256(p.read_bytes()).hexdigest(),contentType='image/webp')
             delivery=SupabaseDelivery('https://example.supabase.co','seven-emirates-game','sb_secret_UNIT_TEST_ONLY')
             with patch.object(delivery,'verify',side_effect=[False,True]),patch.object(delivery,'request',side_effect=urllib.error.HTTPError('https://example.supabase.co',409,'exists',None,None)):
                 self.assertEqual(delivery.upload_and_verify(obj),'verified-existing')
