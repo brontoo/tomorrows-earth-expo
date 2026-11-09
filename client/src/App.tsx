@@ -79,7 +79,7 @@ function Router() {
   return (
     <Suspense fallback={<PageFallback />}>
       <Switch>
-        <Route path="/">{() => <TravelBook cover />}</Route>
+        <Route path="/" component={EcoJourneyPage} />
         <Route path="/login" component={Login} />
         <Route path="/signup" component={SignUp} />
         <Route path="/choose-role" component={ChooseRole} />
