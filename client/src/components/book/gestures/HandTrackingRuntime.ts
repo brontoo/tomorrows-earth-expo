@@ -17,26 +17,29 @@ export interface RuntimeDependencies {
   raf(callback: FrameRequestCallback): number;
   cancelRaf(id: number): void;
 }
+/** Shared by explicit camera opt-in and the independent browser acceptance probe. */
+export async function createBookRecognizer(): Promise<Recognizer> {
+  const { FilesetResolver, GestureRecognizer } = await import(
+    "@mediapipe/tasks-vision"
+  );
+  const vision = await FilesetResolver.forVisionTasks(HAND_RESOURCES.wasm);
+  const options = (delegate: "GPU" | "CPU") => ({
+    baseOptions: { modelAssetPath: HAND_RESOURCES.model, delegate },
+    runningMode: "VIDEO" as const,
+    numHands: 1,
+    minHandDetectionConfidence: 0.55,
+    minHandPresenceConfidence: 0.55,
+    minTrackingConfidence: 0.55,
+  });
+  try {
+    return await GestureRecognizer.createFromOptions(vision, options("GPU"));
+  } catch {
+    return GestureRecognizer.createFromOptions(vision, options("CPU"));
+  }
+}
+
 const dependencies: RuntimeDependencies = {
-  async createRecognizer() {
-    const { FilesetResolver, GestureRecognizer } = await import(
-      "@mediapipe/tasks-vision"
-    );
-    const vision = await FilesetResolver.forVisionTasks(HAND_RESOURCES.wasm);
-    const options = (delegate: "GPU" | "CPU") => ({
-      baseOptions: { modelAssetPath: HAND_RESOURCES.model, delegate },
-      runningMode: "VIDEO" as const,
-      numHands: 1,
-      minHandDetectionConfidence: 0.55,
-      minHandPresenceConfidence: 0.55,
-      minTrackingConfidence: 0.55,
-    });
-    try {
-      return await GestureRecognizer.createFromOptions(vision, options("GPU"));
-    } catch {
-      return GestureRecognizer.createFromOptions(vision, options("CPU"));
-    }
-  },
+  createRecognizer: createBookRecognizer,
   getCamera() {
     if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia)
       return Promise.reject(

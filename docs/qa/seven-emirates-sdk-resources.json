@@ -1,0 +1,53 @@
+{
+  "package": "@mediapipe/tasks-vision",
+  "version": "1.2.2",
+  "license": "Apache-2.0",
+  "resources": [
+    {
+      "path": "vision_bundle.mjs",
+      "byteLength": 156062,
+      "sha256": "b65acb59b370cd6561afd9d04c29ed7a87e7ed6386922ac1b263af1f1ad06b7d",
+      "cdnStatus": 200,
+      "cdnSha256": "b65acb59b370cd6561afd9d04c29ed7a87e7ed6386922ac1b263af1f1ad06b7d",
+      "cdnMatchesPackage": true
+    },
+    {
+      "path": "wasm/vision_wasm_internal.js",
+      "byteLength": 334128,
+      "sha256": "f2b9c17131ea79716ec6bf07b117a087b2749a6f8a1e2f1f2e77a9382092db5b",
+      "cdnStatus": 200,
+      "cdnSha256": "f2b9c17131ea79716ec6bf07b117a087b2749a6f8a1e2f1f2e77a9382092db5b",
+      "cdnMatchesPackage": true
+    },
+    {
+      "path": "wasm/vision_wasm_internal.wasm",
+      "byteLength": 14603354,
+      "sha256": "f5bd25147ac89d506074293ce2675969b10e827180db95a0d9689c2ed80764ab",
+      "cdnStatus": 200,
+      "cdnSha256": "f5bd25147ac89d506074293ce2675969b10e827180db95a0d9689c2ed80764ab",
+      "cdnMatchesPackage": true
+    },
+    {
+      "path": "wasm/vision_wasm_module_internal.js",
+      "byteLength": 334166,
+      "sha256": "72fba0ac8a4034ce9d63f68389df1dead52069409ea621688eedf97f01d4362f",
+      "cdnStatus": 200,
+      "cdnSha256": "72fba0ac8a4034ce9d63f68389df1dead52069409ea621688eedf97f01d4362f",
+      "cdnMatchesPackage": true
+    },
+    {
+      "path": "wasm/vision_wasm_module_internal.wasm",
+      "byteLength": 14603372,
+      "sha256": "b8927a2eebfe80dd98a426a210a9e820c8215168c06f3bcf5d4d09080f623db5",
+      "cdnStatus": 200,
+      "cdnSha256": "b8927a2eebfe80dd98a426a210a9e820c8215168c06f3bcf5d4d09080f623db5",
+      "cdnMatchesPackage": true
+    }
+  ],
+  "model": {
+    "url": "https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task",
+    "version": "1",
+    "sha256": null,
+    "status": "unverified: cloud proxy blocks model host; no substitute downloaded"
+  }
+}

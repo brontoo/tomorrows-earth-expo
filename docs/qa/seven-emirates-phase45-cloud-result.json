@@ -1,0 +1,44 @@
+{
+  "remoteVerified": false,
+  "modelInitialized": false,
+  "physicalCameraVerified": false,
+  "syntheticVideoUsed": false,
+  "mediaOrModelMocked": false,
+  "authAndProgressFixtures": true,
+  "checks": [
+    "Projects initializes no camera, book media or recognizer"
+  ],
+  "failures": [
+    "Live media/app: Page.evaluate: TypeError: Failed to fetch",
+    "Actual model: Actual recognizer initialization failed; see modelAttempts/resources"
+  ],
+  "networkFailures": [
+    {
+      "url": "https://hjqyhybgitdizfhwpdcv.supabase.co/storage/v1/object/public/seven-emirates-game/7e-1bc718ef5e77/manifest.json",
+      "error": "net::ERR_TUNNEL_CONNECTION_FAILED"
+    },
+    {
+      "url": "https://hjqyhybgitdizfhwpdcv.supabase.co/storage/v1/object/public/seven-emirates-game/7e-1bc718ef5e77/manifest.json",
+      "error": "net::ERR_TUNNEL_CONNECTION_FAILED"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm/vision_wasm_internal.js",
+      "error": "net::ERR_CERT_AUTHORITY_INVALID"
+    },
+    {
+      "url": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm/vision_wasm_internal.js",
+      "error": "net::ERR_CERT_AUTHORITY_INVALID"
+    }
+  ],
+  "timings": {},
+  "chapterRanges": [],
+  "resources": [],
+  "modelAttempts": [
+    {
+      "passed": false,
+      "elapsedMs": 170.79999999701977,
+      "error": "[object Event]",
+      "closed": false
+    }
+  ]
+}
