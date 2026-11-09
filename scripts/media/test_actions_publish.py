@@ -3,6 +3,9 @@ from email.message import Message
 import json
 from pathlib import Path
 import unittest
+import tempfile
+import urllib.error
+import hashlib
 from unittest.mock import patch
 from assemble_actions_media import validate_manifest,MANIFEST_SHA256,SOURCE_COMMIT
 from audit_storage_policy import audit,connection_environment
@@ -12,6 +15,13 @@ from verify_public_delivery import sample_indices
 ROOT=Path(__file__).resolve().parents[2]
 
 class SecretKeyTests(unittest.TestCase):
+    def test_concurrent_existing_object_is_not_counted_as_an_upload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            p=Path(directory)/'frame.webp';p.write_bytes(b'unit-test-bytes')
+            obj=dict(key='version/frame.webp',path=str(p),sha256=hashlib.sha256(p.read_bytes()).hexdigest())
+            delivery=SupabaseDelivery('https://example.supabase.co','seven-emirates-game','sb_secret_UNIT_TEST_ONLY')
+            with patch.object(delivery,'verify',side_effect=[False,True]),patch.object(delivery,'request',side_effect=urllib.error.HTTPError('https://example.supabase.co',409,'exists',None,None)):
+                self.assertEqual(delivery.upload_and_verify(obj),'verified-existing')
     def test_new_secret_is_only_an_apikey(self):
         self.assertEqual(management_headers('sb_secret_UNIT_TEST_ONLY'),{'apikey':'sb_secret_UNIT_TEST_ONLY'})
     def test_legacy_service_role_jwt_retains_bearer_compatibility(self):

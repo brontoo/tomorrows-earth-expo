@@ -194,7 +194,7 @@ Until a successful runner report exists, uploaded, already-verified and final
 remote counts are **unverified**, not presumed to be 1,674. No successful public
 manifest or image URL is claimed.
 
-Local validation: all 19 publisher/helper tests pass; all 1,673 native source
+Local validation: all 20 publisher/helper tests pass; all 1,673 native source
 frames were assembled and checked against the exact manifest. The actual
 bundled client resolver/decoder passed all 14 boundary samples using explicit
 local fixtures (`remoteVerified:false`). The policy catalog SELECT was parsed

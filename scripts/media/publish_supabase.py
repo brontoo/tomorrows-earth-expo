@@ -110,12 +110,14 @@ class SupabaseDelivery:
         path="/storage/v1/object/"+urllib.parse.quote(self.bucket,safe="")+"/"+urllib.parse.quote(obj["key"],safe="/")
         data=Path(obj["path"]).read_bytes()
         if sha(data)!=obj["sha256"]: raise ValueError("Local file changed since planning")
+        status="uploaded-and-verified"
         try: self.request(path,method="POST",data=data,content_type=obj["contentType"],private=True)
         except urllib.error.HTTPError as error:
             if error.code not in (400,409): raise RuntimeError(f"Upload failed (HTTP {error.code})") from None
             # Another resumable worker/process may have uploaded it. Read and verify; never upsert.
+            status="verified-existing"
         if not self.verify(obj): raise ValueError("Uploaded object is still missing")
-        return "uploaded-and-verified"
+        return status
 
 def publish(plan, delivery, checkpoint, workers=3):
     checkpoint=checkpoint.resolve()
