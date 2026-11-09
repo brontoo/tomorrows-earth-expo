@@ -14,6 +14,9 @@ import { useBookProgress } from "./useBookProgress";
 import { resolveBookEngine } from "./frames/engineConfig";
 import { useFrameManifest } from "./frames/useFrameManifest";
 import FrameBookPlayer from "./frames/FrameBookPlayer";
+import GestureControls from "./gestures/GestureControls";
+import { gesturePreviewEnabled } from "./gestures/GestureClassifier";
+import type { BookFrameInput } from "./gestures/BookGestureController";
 import {
   chapters,
   chapterProgress,
@@ -93,6 +96,7 @@ function BookJourney({
   );
   const [sound] = useState(() => new BookAudio());
   const shell = useRef<HTMLElement>(null);
+  const gestureInput = useRef<BookFrameInput | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const busy = ["opening", "turning", "stamping"].includes(state.phase);
   const inChapter = ["reveal", "ready", "stamping"].includes(state.phase);
@@ -311,6 +315,14 @@ function BookJourney({
           </Link>
         </nav>
       </header>
+      {gesturePreviewEnabled(
+        import.meta.env.VITE_BOOK_ENGINE,
+        import.meta.env.VITE_BOOK_GESTURES
+      ) &&
+        frameMedia.manifest &&
+        !frameUnavailable && (
+          <GestureControls scope={shell} input={gestureInput} />
+        )}
       {state.phase === "cover" ? (
         <section className="book-cover-heading" id="book-content">
           <span className="book-eyebrow">
@@ -323,7 +335,11 @@ function BookJourney({
         </section>
       ) : (
         <div className="book-running-head" id="book-content">
-          <button disabled={busy} onClick={() => spread("contents")}>
+          <button
+            data-book-gesture="spread"
+            disabled={busy}
+            onClick={() => spread("contents")}
+          >
             <ArrowLeft size={14} /> Contents
           </button>
           <span>
@@ -335,7 +351,11 @@ function BookJourney({
                   ? "THE FINAL SPREAD"
                   : "THE SEVEN EMIRATES"}
           </span>
-          <button disabled={busy} onClick={() => spread("stamps")}>
+          <button
+            data-book-gesture="spread"
+            disabled={busy}
+            onClick={() => spread("stamps")}
+          >
             My travel stamps <span>{progress.count}/7</span>
           </button>
         </div>
@@ -352,6 +372,7 @@ function BookJourney({
         >
           {engine === "frames" && frameMedia.manifest && (
             <FrameBookPlayer
+              gestureInput={gestureInput}
               manifest={frameMedia.manifest}
               baseUrl={frameMedia.baseUrl}
               chapter={chapterIndex}
@@ -456,6 +477,7 @@ function BookJourney({
                       error ||
                       (i > progress.frontier && !progress.completed[i])
                     }
+                    data-book-gesture="chapter"
                     onClick={() => select(i)}
                     aria-label={`Chapter ${c.order}: ${c.name}. ${stateName(i)}`}
                   >
@@ -525,6 +547,7 @@ function BookJourney({
                       loading ||
                       error
                     }
+                    data-book-gesture="chapter"
                     onClick={() => select(i)}
                     aria-label={`${c.name}: ${progress.completed[i] ? "Stamp collected. Revisit chapter" : "Not collected"}`}
                   >
@@ -551,6 +574,7 @@ function BookJourney({
                 {progress.count === 7 && (
                   <button
                     className="book-text-button"
+                    data-book-gesture="chapter"
                     onClick={() => select(0)}
                   >
                     Replay the journey
@@ -612,6 +636,7 @@ function BookJourney({
                 ) : (
                   <>
                     <Link
+                      data-book-gesture="mission"
                       className={`book-button ${busy ? "is-disabled" : ""}`}
                       aria-disabled={busy}
                       tabIndex={busy ? -1 : 0}
@@ -640,6 +665,7 @@ function BookJourney({
                       <button
                         className="book-text-button"
                         disabled={busy}
+                        data-book-gesture="chapter"
                         onClick={() => select(chapterIndex + 1)}
                       >
                         Turn to {chapters[chapterIndex + 1].name}{" "}
@@ -694,6 +720,7 @@ function BookJourney({
                   error ||
                   (i > progress.frontier && !progress.completed[i])
                 }
+                data-book-gesture="chapter"
                 onClick={() => select(i)}
                 style={{ "--tab-color": c.accent } as React.CSSProperties}
               >
@@ -712,7 +739,11 @@ function BookJourney({
       {state.phase === "cover" && (
         <div className="book-cover-action">
           <p>Open the book and begin your journey through the Emirates.</p>
-          <button className="book-button" onClick={open}>
+          <button
+            data-book-gesture="open"
+            className="book-button"
+            onClick={open}
+          >
             Open the book <ArrowRight size={17} />
           </button>
           <button className="book-text-button" onClick={open}>

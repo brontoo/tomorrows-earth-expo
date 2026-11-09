@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { EmirateChapterId, FrameManifest, FrameRange } from "./contracts";
 import { restrictFrame, scrubRange } from "./manifest";
 import { FrameScheduler, desktopPolicy, mobilePolicy } from "./FrameScheduler";
 import "./frames.css";
+import type { BookFrameInput } from "../gestures/BookGestureController";
 
 interface Props {
+  gestureInput?: RefObject<BookFrameInput | null>;
   manifest: FrameManifest;
   baseUrl: string;
   chapter: number;
@@ -18,6 +20,7 @@ interface Props {
 
 /** React adaptation of 7E-Book's canvas/drag interaction. No camera or educational writes. */
 export default function FrameBookPlayer({
+  gestureInput,
   manifest,
   baseUrl,
   chapter,
@@ -139,6 +142,22 @@ export default function FrameBookPlayer({
     position.current = next;
     setRequested(next);
   };
+  // Stable presentation port; reads fresh guards and routes every gesture through seek().
+  const gestureLive = useRef({ seek, interactive });
+  gestureLive.current = { seek, interactive };
+  useEffect(() => {
+    if (!gestureInput) return;
+    gestureInput.current = {
+      frameCount: manifest.frameCount,
+      getFrame: () => position.current,
+      isAvailable: () =>
+        gestureLive.current.interactive && drag.current === null,
+      seekTo: frame => gestureLive.current.seek(frame),
+    };
+    return () => {
+      gestureInput.current = null;
+    };
+  }, [gestureInput, manifest.frameCount]);
   const range = scrubRange(target, allowedRanges) ?? selected;
   useEffect(() => {
     if (!interactive || displayed === null) return;
@@ -211,6 +230,7 @@ export default function FrameBookPlayer({
       <div className="frame-book-controls">
         <button
           type="button"
+          data-book-gesture="frame-step"
           onClick={() => seek(Math.max(0, target - 1))}
           disabled={!interactive || target === range.startInclusive}
         >
@@ -230,6 +250,7 @@ export default function FrameBookPlayer({
         </label>
         <button
           type="button"
+          data-book-gesture="frame-step"
           onClick={() => seek(target + 1)}
           disabled={!interactive || target === range.endExclusive - 1}
         >
