@@ -55,6 +55,8 @@ Configure these **environment secrets**, never source files or chat:
 4. Only if Expo is private: `EXPO_REPOSITORY_READ_TOKEN`, a fine-grained token
    with **Contents: read** on the Expo repository, for the cross-repository
    checkout. The source repository uses its normal read-only job token.
+5. Optional `SUPABASE_POLICY_CA_CERT`: PEM CA certificate downloaded from the
+   intended project dashboard, if additional trust is required. See below.
 
 Do not put a management key in `VITE_*`. Do not use publishable/anon/user keys
 for this job. GitHub's own `GITHUB_TOKEN` remains read-only. Checkouts do not
@@ -70,6 +72,73 @@ JWTs retain both headers. Unit tests verify the header construction. The runner
 must still prove actual compatibility via an authenticated, read-only Storage
 bucket GET before any upload. Local documentation/header tests alone do not
 establish remote credential validity.
+
+## PostgreSQL audit diagnostics and trusted CA configuration
+
+The failed run `42572894118` reached the policy query after successful Storage
+and frame integrity checks. Its old generic message cannot establish the
+underlying cause: that version discarded PostgreSQL stderr. Do not infer that
+TLS, a password, SQL, or an unsafe policy was responsible without new evidence.
+
+The audit now reads stderr privately in the C locale and emits only fixed
+categories and reviewed instructions: `invalid-connection`, `network`,
+`tls-verification`, `authentication`, `role-or-catalog-permission`,
+`sql-or-response`, `policy-enforcement`, or `unexpected`. It never logs raw
+stderr, full connection strings, passwords, environment dumps or tracebacks.
+Expected failures produce a credential-free `verified:false` report retained by
+the existing artifact step. A failure always exits nonzero and blocks upload.
+Unknown failures are not guessed to be authentication or policy failures.
+
+In the intended Supabase project dashboard, choose **Connect → Session pooler**.
+Copy its actual host (do not construct it from the region), port **5432**, database
+**postgres**, and username **<audit-role>.hjqyhybgitdizfhwpdcv**. Use that database
+role's password, not an API key. Percent-encode reserved password characters
+before saving `SUPABASE_POLICY_DATABASE_URL` in the GitHub publishing environment.
+Do not use transaction mode on port 6543. Direct Postgres on port 5432 is also
+accepted but may require IPv6 or the project's IPv4 add-on. The script validates
+project binding and fields without printing the connection or username.
+
+TLS remains **verify-full** in every mode. URL query options cannot downgrade
+it. `PGSSLROOTCERT=system` works only if the server chain is trusted by the runner;
+it is not evidence that the Supabase CA is installed. PostgreSQL client/libpq 16+
+is checked before the query. Supabase documents downloading its CA from
+**Database → Settings → SSL Configuration → Download Certificate** and configuring
+it for `verify-full`, including a shared-pooler example:
+
+- [Supabase connection methods and SSL](https://supabase.com/docs/guides/database/connecting-to-postgres)
+- [Supabase SSL enforcement and CA setup](https://supabase.com/docs/guides/platform/ssl-enforcement)
+
+If a new run reports `tls-verification`, obtain the certificate through the
+intended project's dashboard and add its complete PEM contents as environment
+secret **SUPABASE_POLICY_CA_CERT**. This is a public CA certificate, never a private
+key. The workflow passes it only to the audit step. The audit validates PEM and
+builds a mode-0600 temporary trust bundle containing system CAs plus this CA,
+then removes the file after the query. Hostname verification remains mandatory;
+a CA cannot repair a wrong hostname. No CA is fetched from an unauthenticated
+endpoint, guessed, or committed. Whether the actual pooler requires an additional
+CA must be established by the next authenticated runner check, not assumed.
+
+For Windows, use the same optional `SUPABASE_POLICY_CA_CERT` PEM environment
+variable, or set `SUPABASE_POLICY_SSLROOTCERT` to the dashboard certificate file
+path; configure one method only. The file is validated and `verify-full` remains
+mandatory. Clear these settings after the run. A database network failure should
+be investigated using the dashboard Session Pooler endpoint and database network
+restrictions; an authentication failure requires checking the role/project suffix
+and database password. For role/catalog permission failures, an administrator
+should review access to the listed read-only catalogs, without granting storage
+writes or changing student policies.
+
+If policy proof fails, the diagnostic names the candidate permissive policies
+with escaped identifiers. This conservative audit does not establish that a
+policy is exploitable simply because it cannot prove a guard. Review the exact
+predicates and applicable roles. Any remediation must be separately reviewed and
+limited to game-bucket INSERT/UPDATE/DELETE restrictive guards; preserve SELECT
+and other bucket behavior. The script never executes remediation DDL.
+
+Run a **new manual workflow on main**, not a rerun of the old definition. Inspect
+its audit category/report before making any secret correction; never paste a
+secret into an issue or chat. A passing audit and all downstream remote checks
+are required before publication can be called successful.
 
 ## Bucket and read-only write-policy gate
 
@@ -185,21 +254,24 @@ immutable/public-byte verification and no-overwrite behavior apply on Windows.
 
 ## Current execution status
 
-Local preparation and tests are performed without a live Supabase credential.
-GitHub's environment/dispatch API is returning Forbidden from the cloud task,
-so environment secrets/protections cannot be inspected or configured here and
-no GitHub-runner execution is claimed. A workflow pushed to default main is
-ready for the manual setup/run above; it is not proof of completed publication.
-Until a successful runner report exists, uploaded, already-verified and final
-remote counts are **unverified**, not presumed to be 1,674. No successful public
-manifest or image URL is claimed.
+The user confirmed run `42572894118` passed both checkouts, the publisher tests,
+all 1,673 source frame checks, authenticated Storage/public-bucket verification
+and PostgreSQL client installation. It stopped at the old generic policy-query
+error; upload was skipped. That message discarded the underlying error, so its
+connection/TLS/authentication/SQL cause is not established. GitHub's API still
+returns Forbidden from this cloud task, preventing direct log inspection,
+secret/protection inspection or dispatch here. No live policy audit or successful
+publication is claimed by this fix; uploaded/already-verified/final remote counts
+require a successful runner report, not an HTTP upload response alone.
 
-Local validation: all 20 publisher/helper tests pass; all 1,673 native source
-frames were assembled and checked against the exact manifest. The actual
-bundled client resolver/decoder passed all 14 boundary samples using explicit
-local fixtures (`remoteVerified:false`). The policy catalog SELECT was parsed
-successfully by local PostgreSQL, but this is not a Supabase policy audit.
-The unchanged application build passes. Type checking retains the six known
-baseline diagnostics, and Vitest retains 118 passing tests and the same three
-baseline failures. No frontend, mission procedure, schema or gesture code was
-modified in this task.
+For this diagnostic fix, all **34 publisher/helper tests** pass, including failure
+classification, secret suppression, Session Pooler validation, temporary CA trust,
+nonzero failure reports and unchanged policy enforcement. Previously, all 1,673
+native source frames matched the exact manifest, and the actual client resolver
+and decoder passed all 14 boundary samples with explicit local fixtures
+(`remoteVerified:false`). Those local checks do not establish public hosting.
+
+Earlier Task 05 application validation passed the build and retained the six
+known type-check diagnostics and three baseline Vitest failures (118 passes).
+This diagnostic fix changes no application, mission, schema, gesture or media
+files; its validation is the publisher/policy suite and workflow actionlint.
