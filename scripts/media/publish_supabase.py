@@ -5,6 +5,7 @@ Default is a local plan. --apply requires secure environment configuration.
 All existing objects are downloaded and SHA-256 verified, never blindly overwritten.
 """
 import argparse
+import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
@@ -21,6 +22,23 @@ PROJECT = "https://hjqyhybgitdizfhwpdcv.supabase.co"
 BUCKET = "seven-emirates-game"
 
 def sha(data): return hashlib.sha256(data).hexdigest()
+
+def management_headers(token):
+    """New Secret API keys are not JWTs. Storage authorization is proved by ensure_bucket()."""
+    if token.startswith("sb_secret_"):
+        return {"apikey":token}
+    try:
+        parts=token.split('.')
+        payload=json.loads(base64.urlsafe_b64decode(parts[1]+'='*(-len(parts[1])%4))) if len(parts)==3 else {}
+    except (ValueError,IndexError):payload={}
+    if not isinstance(payload,dict) or payload.get('role')!='service_role':
+        raise ValueError('Use a Supabase Secret API key or legacy service-role JWT, never a publishable/anon/user key')
+    return {"apikey":token,"Authorization":"Bearer "+token}
+
+def validate_public_response(obj,body,headers):
+    if headers.get_content_type() != obj["contentType"]: raise ValueError(f"Remote MIME type mismatch: {obj['key']}")
+    if len(body) != obj["size"] or sha(body) != obj["sha256"]: raise ValueError(f"Remote bytes differ; immutable object will not be overwritten: {obj['key']}")
+    if headers.get("Content-Length") and int(headers["Content-Length"]) != obj["size"]: raise ValueError("Remote content length mismatch")
 
 def build_plan(root, bucket=BUCKET):
     root = root.resolve()
@@ -54,9 +72,10 @@ class SupabaseDelivery:
         self.project, self.bucket, self.token = project.rstrip("/"), bucket, token
         context = ssl.create_default_context(cafile=os.environ.get("SSL_CERT_FILE") or None)
         self.opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=context), NoManagementRedirects())
-    def request(self, path, method="GET", data=None, content_type=None, private=False):
+    def request(self, path, method="GET", data=None, content_type=None, private=False, extra_headers=None):
         headers = {"Accept-Encoding":"identity"}
-        if private: headers.update({"apikey":self.token,"Authorization":"Bearer "+self.token})
+        if private: headers.update(management_headers(self.token))
+        if extra_headers:headers.update(extra_headers)
         if content_type: headers["Content-Type"] = content_type
         if method == "POST" and "/object/" in path: headers.update({"x-upsert":"false","cache-control":"max-age=31536000"})
         request = urllib.request.Request(self.project+path, method=method, data=data, headers=headers)
@@ -71,7 +90,9 @@ class SupabaseDelivery:
             self.request("/storage/v1/bucket",method="POST",data=payload,content_type="application/json",private=True)
             body,_=self.request(path,private=True)
         metadata=json.loads(body)
+        if metadata.get("id",metadata.get("name")) != self.bucket: raise ValueError("Storage returned the wrong bucket")
         if metadata.get("public") is not True: raise ValueError("Game delivery requires the dedicated public bucket")
+        return metadata
     def verify(self, obj):
         try: body,headers = self.request(self.public_path(obj["key"]))
         except urllib.error.HTTPError as error:
@@ -82,9 +103,7 @@ class SupabaseDelivery:
                 except (ValueError,AttributeError): missing=False
                 if missing: return False
             raise RuntimeError(f"Public object read failed (HTTP {error.code})") from None
-        if headers.get_content_type() != obj["contentType"]: raise ValueError(f"Remote MIME type mismatch: {obj['key']}")
-        if len(body) != obj["size"] or sha(body) != obj["sha256"]: raise ValueError(f"Remote bytes differ; immutable object will not be overwritten: {obj['key']}")
-        if headers.get("Content-Length") and int(headers["Content-Length"]) != obj["size"]: raise ValueError("Remote content length mismatch")
+        validate_public_response(obj,body,headers)
         return True
     def upload_and_verify(self, obj):
         if self.verify(obj): return "verified-existing"
@@ -133,16 +152,24 @@ if __name__ == "__main__":
     parser.add_argument("--workers",type=int,choices=range(1,5),default=3)
     parser.add_argument("--apply",action="store_true")
     parser.add_argument("--create-bucket",action="store_true")
+    parser.add_argument("--report",type=Path,help="Credential-free successful publication summary")
     args=parser.parse_args()
     plan=build_plan(args.root,args.bucket)
     print(json.dumps({k:v for k,v in plan.items() if k!="objects"},indent=2))
     if args.apply:
-        token=os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-        if not token: raise SystemExit("Set SUPABASE_SERVICE_ROLE_KEY securely before --apply; never put it in client/VITE variables")
+        token=os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+        if not token: raise SystemExit("Set SUPABASE_SECRET_KEY (preferred) or SUPABASE_SERVICE_ROLE_KEY securely before --apply; never use client/VITE variables")
         try:
             remote=SupabaseDelivery(args.project,args.bucket,token)
             remote.ensure_bucket(args.create_bucket)
             count=publish(plan,remote,args.checkpoint,args.workers)
+            verified=json.loads(args.checkpoint.read_text())["verified"]
+            summary=dict(mediaVersion=plan["mediaVersion"],manifestSha256=plan["manifestSha256"],project=remote.project,bucket=remote.bucket,
+                         verifiedTotal=count,uploaded=sum(v['status']=='uploaded-and-verified' for v in verified.values()),
+                         alreadyVerified=sum(v['status']=='verified-existing' for v in verified.values()),
+                         manifestUrl=remote.project+remote.public_path(plan["mediaVersion"]+"/manifest.json"))
+            if args.report:
+                args.report.parent.mkdir(parents=True,exist_ok=True);args.report.write_text(json.dumps(summary,indent=2)+'\n')
             print(f"Remote verified objects: {count}")
             print("Public version base:",remote.project+remote.public_path(plan["mediaVersion"]+"/"))
         except Exception as error:
