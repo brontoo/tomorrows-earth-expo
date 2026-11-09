@@ -160,7 +160,7 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         canvas = player.locator('canvas')
         canvas.focus(); canvas.press('ArrowRight')
         expect(player).to_have_attribute('data-frame-displayed','239')
-        expect(page.locator('.book-edge-tabs button:disabled')).to_have_count(0)
+        expect(page.locator('.book-compact-chapters button:disabled')).to_have_count(0)
         canvas.press('Home'); expect(player).to_have_attribute('data-frame-displayed','0')
         page.wait_for_timeout(500); expect(player).to_have_attribute('data-frame-displayed','0')
         passed('Zero-progress students can cross chapters; camera is lazy and there is no autoplay')
@@ -168,7 +168,7 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         assert state['verified'] == []
         page.evaluate('(ids)=>localStorage.setItem("sevenEmiratesBook:v1:9101",JSON.stringify({chapter:0,seenStamps:ids}))', [c[0] for c in bindings])
         page.reload(wait_until='domcontentloaded')
-        expect(page.locator('.book-phase-ready')).to_be_visible(timeout=45000)
+        expect(player).to_have_attribute('data-frame-displayed','238',timeout=45000)
         timings = []
         for index, chapter in enumerate(manifest['chapters']):
             page.goto(args.base_url+'/eco-journey?chapter='+chapter['chapterId'],wait_until='domcontentloaded')
@@ -192,7 +192,7 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         report['timings']['boundaryMaxMs'] = max(timings)
         passed('All six live chapter boundaries stay synchronized with ZERO educational completion')
         assert state['verified']==[]
-        assert page.locator('.book-chapter-stamp').count()==0
+        assert page.locator('.book-chapter-stamp,.book-earned-achievement').count()==0
         report['zeroProgressExploration']=True
         report['remoteVerified'] = True
     except Exception as error:

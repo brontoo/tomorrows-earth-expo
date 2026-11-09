@@ -1,4 +1,5 @@
 import type { FrameManifest, FrameRange } from "./contracts";
+import { bookDiagnostics } from "./FrameDiagnostics";
 
 const ids = [
   "abu-dhabi",
@@ -139,20 +140,63 @@ export async function loadFrameBytes(
 ): Promise<ArrayBuffer> {
   const record = manifest.frames[frame];
   if (!record) throw new Error("Unknown frame index");
+  const started = performance.now();
   const response = await fetch(new URL(record.url, baseUrl), {
     signal,
     credentials: "omit",
     priority,
   });
+  bookDiagnostics()?.record("http", {
+    frame,
+    status: response.status,
+    cacheControl: response.headers.get("cache-control"),
+    age: response.headers.get("age"),
+    cdnCache:
+      response.headers.get("cf-cache-status") ??
+      response.headers.get("x-cache"),
+  });
   if (!response.ok)
     throw new Error(`Frame request failed (${response.status})`);
+  const headersAt = performance.now();
   const bytes = await response.arrayBuffer();
+  const transferredAt = performance.now();
+  const timing = bookDiagnostics()
+    ? (performance
+        .getEntriesByName?.(new URL(record.url, baseUrl).href, "resource")
+        .slice(-1)[0] as PerformanceResourceTiming | undefined)
+    : undefined;
+  const resourceTiming =
+    timing && (timing.transferSize > 0 || timing.encodedBodySize > 0)
+      ? {
+          transferSize: timing.transferSize,
+          encodedBodySize: timing.encodedBodySize,
+          bodyNetworkMs: timing.responseEnd - timing.responseStart,
+        }
+      : null;
+  bookDiagnostics()?.record("transfer", {
+    frame,
+    duration: transferredAt - started,
+    headersMs: headersAt - started,
+    bodyMs: transferredAt - headersAt,
+    byteLength: bytes.byteLength,
+    resourceTiming,
+    status: response.status,
+    cacheControl: response.headers.get("cache-control"),
+    age: response.headers.get("age"),
+    cdnCache:
+      response.headers.get("cf-cache-status") ??
+      response.headers.get("x-cache"),
+  });
   if (bytes.byteLength !== record.byteLength)
     throw new Error("Frame byte size mismatch");
   const digest = Array.from(
     new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
     b => b.toString(16).padStart(2, "0")
   ).join("");
+  bookDiagnostics()?.record("sha256", {
+    frame,
+    duration: performance.now() - transferredAt,
+  });
   if (digest !== record.sha256) throw new Error("Frame checksum mismatch");
   if (signal.aborted) throw new Error("Frame request cancelled");
   return bytes;
@@ -162,7 +206,13 @@ export async function decodeFrameBytes(
   bytes: ArrayBuffer,
   signal: AbortSignal
 ): Promise<ImageBitmap> {
+  if (signal.aborted) throw new Error("Frame request cancelled");
+  const started = performance.now();
   const bitmap = await createImageBitmap(new Blob([bytes]));
+  bookDiagnostics()?.record("decode", {
+    duration: performance.now() - started,
+    encodedBytes: bytes.byteLength,
+  });
   if (bitmap.width !== 1920 || bitmap.height !== 1080 || signal.aborted) {
     bitmap.close();
     throw new Error(
