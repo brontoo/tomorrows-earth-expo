@@ -21,7 +21,7 @@ const missions = chapters.map((c, i) => ({
   title: c.name,
 }));
 afterEach(() => vi.unstubAllGlobals());
-describe("Travel book progression", () => {
+describe("Travel book free exploration and optional achievements", () => {
   it("preserves the seven existing mission bindings and order", () => {
     expect(chapters.map(c => c.missionSlug)).toEqual([
       "water-detective",
@@ -40,7 +40,7 @@ describe("Travel book progression", () => {
       { missionId: 21, status: "submitted" },
       { missionId: 22, status: "in_progress" },
     ]);
-    expect(progress).toMatchObject({ count: 1, frontier: 1 });
+    expect(progress).toMatchObject({ count: 1 });
     expect(progress.completed).toEqual([
       true,
       false,
@@ -63,20 +63,15 @@ describe("Travel book progression", () => {
       chapterProgress([], [{ missionId: 20, status: "completed" }]).count
     ).toBe(0);
   });
-  it("rejects locked and malformed navigation and double transitions", () => {
-    for (const index of [1, 7, -1, NaN, 1.5])
-      expect(bookReducer(initial, { type: "SELECT", index, frontier: 0 })).toBe(
-        initial
-      );
+  it("rejects malformed navigation and double transitions, not valid chapters", () => {
+    for (const index of [7, -1, NaN, 1.5])
+      expect(bookReducer(initial, { type: "SELECT", index })).toBe(initial);
     const turning = bookReducer(initial, {
       type: "SELECT",
       index: 0,
-      frontier: 0,
     });
     expect(turning.phase).toBe("turning");
-    expect(
-      bookReducer(turning, { type: "SELECT", index: 0, frontier: 0 })
-    ).toBe(turning);
+    expect(bookReducer(turning, { type: "SELECT", index: 0 })).toBe(turning);
     expect(bookReducer(turning, { type: "ANIMATED" }).phase).toBe("reveal");
   });
   it("supports completed revisits and all seven stamps without changing completion", () => {
@@ -84,8 +79,6 @@ describe("Travel book progression", () => {
       bookReducer(initial, {
         type: "SELECT",
         index: 5,
-        frontier: 0,
-        completed: true,
       }).chapter
     ).toBe(5);
     expect(
@@ -93,7 +86,7 @@ describe("Travel book progression", () => {
         missions,
         missions.map(m => ({ missionId: m.id, status: "completed" }))
       )
-    ).toMatchObject({ frontier: 6, count: 7 });
+    ).toMatchObject({ count: 7 });
   });
   it("ignores stale animation callbacks after navigation has settled", () => {
     const ready = { ...initial, phase: "ready" as const };
@@ -154,5 +147,194 @@ describe("Flexible page geometry", () => {
       }
     }
     geometry.dispose();
+  });
+});
+
+describe("Educational integration contract", () => {
+  it("keeps exact chapter identifiers, order and existing mission URLs", () => {
+    expect(
+      chapters.map(({ id, order, missionSlug, route }) => [
+        id,
+        order,
+        missionSlug,
+        route,
+      ])
+    ).toEqual([
+      ["abu-dhabi", 1, "water-detective", "/missions/water-detective"],
+      ["dubai", 2, "energy-smart-check", "/missions/energy-smart-check"],
+      ["sharjah", 3, "waste-sort-study", "/missions/waste-sort-study"],
+      [
+        "ajman",
+        4,
+        "micro-habitat-observer",
+        "/missions/micro-habitat-observer",
+      ],
+      [
+        "umm-al-quwain",
+        5,
+        "climate-evidence-basics",
+        "/missions/climate-evidence-basics",
+      ],
+      [
+        "ras-al-khaimah",
+        6,
+        "design-a-better-route",
+        "/missions/design-a-better-route",
+      ],
+      [
+        "fujairah",
+        7,
+        "one-week-impact-choice",
+        "/missions/one-week-impact-choice",
+      ],
+    ]);
+  });
+
+  it.each([
+    "in_progress",
+    "submitted",
+    "verification_required",
+    "rejected",
+    "revision_requested",
+    "pending",
+    "unknown",
+  ])("%s never earns a stamp and never restricts exploration", status => {
+    const progress = chapterProgress(missions, [
+      { missionId: missions[0].id, status },
+    ]);
+    expect(progress.count).toBe(0);
+    expect(progress.completed).toEqual(Array(7).fill(false));
+    expect(
+      bookReducer(initial, {
+        type: "SELECT",
+        index: 1,
+      })
+    ).toMatchObject({ chapter: 1 });
+  });
+
+  it.each(["completed", "verified"])(
+    "%s updates achievements while every chapter remains accessible",
+    status => {
+      for (let count = 0; count <= 7; count++) {
+        const progress = chapterProgress(
+          missions,
+          missions.slice(0, count).map(m => ({ missionId: m.id, status }))
+        );
+        expect(progress.count).toBe(count);
+        for (let index = 0; index < 7; index++) {
+          const next = bookReducer(initial, {
+            type: "SELECT",
+            index,
+          });
+          expect(next.chapter).toBe(index);
+        }
+      }
+    }
+  );
+
+  it("allows completed and incomplete chapters to reopen in any order", () => {
+    const progress = chapterProgress(missions, [
+      { missionId: missions[5].id, status: "verified" },
+    ]);
+    expect(
+      bookReducer(initial, {
+        type: "SELECT",
+        index: 5,
+      }).chapter
+    ).toBe(5);
+    expect(
+      bookReducer(initial, {
+        type: "SELECT",
+        index: 4,
+      })
+    ).toMatchObject({ chapter: 4 });
+  });
+
+  it("presentation events cannot create server-derived stamps", () => {
+    const states = [{ missionId: missions[0].id, status: "submitted" }];
+    const before = chapterProgress(missions, states);
+    let state = bookReducer({ ...initial, phase: "cover" }, { type: "OPEN" });
+    state = bookReducer(state, { type: "ANIMATED" });
+    state = bookReducer(state, { type: "SELECT", index: 0 });
+    for (const event of ["ANIMATED", "REVEALED", "STAMP", "STAMPED"] as const) {
+      state = bookReducer(state, { type: event });
+      expect(chapterProgress(missions, states)).toEqual(before);
+    }
+    expect(before.count).toBe(0);
+    expect(states).toEqual([
+      { missionId: missions[0].id, status: "submitted" },
+    ]);
+  });
+
+  it("never treats stale IDs or missing catalogue entries as completed chapters", () => {
+    const states = missions.map(m => ({ missionId: m.id, status: "verified" }));
+    expect(chapterProgress([], states)).toMatchObject({
+      count: 0,
+    });
+    const progress = chapterProgress(missions.slice(1), states);
+    expect(progress.completed[0]).toBe(false);
+    expect(
+      chapterProgress(missions, [{ missionId: 99999, status: "completed" }])
+        .count
+    ).toBe(0);
+  });
+});
+
+describe("Profile-specific book restoration", () => {
+  function storage(data = new Map<string, string>()) {
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+      removeItem: (key: string) => data.delete(key),
+    });
+    return data;
+  }
+
+  it("restores independent chapter positions and seen animations for each profile", () => {
+    storage();
+    saveBook("student-a", 4, ["abu-dhabi"]);
+    saveBook("student-b", 1, ["dubai"]);
+    expect(readBook("student-a")).toEqual({
+      chapter: 4,
+      seenStamps: ["abu-dhabi"],
+    });
+    expect(readBook("student-b")).toEqual({
+      chapter: 1,
+      seenStamps: ["dubai"],
+    });
+    expect(readBook("guest")).toEqual({ chapter: 0, seenStamps: [] });
+    saveBook("student-a", 2, []);
+    expect(readBook("student-b").chapter).toBe(1);
+  });
+
+  it("restored positions and forged seen stamps never confer educational completion", () => {
+    storage();
+    saveBook(
+      "student",
+      6,
+      chapters.map(c => c.id)
+    );
+    const saved = readBook("student");
+    const progress = chapterProgress(missions, []);
+    expect(progress.count).toBe(0);
+    expect(
+      bookReducer(initial, {
+        type: "SELECT",
+        index: saved.chapter,
+      })
+    ).toMatchObject({ chapter: 6 });
+  });
+
+  it("clamps saved out-of-range chapters and discards invalid stamp entries", () => {
+    const data = storage();
+    data.set(
+      "sevenEmiratesBook:v1:test",
+      JSON.stringify({ chapter: 100, seenStamps: ["dubai", 123, null] })
+    );
+    expect(readBook("test")).toEqual({ chapter: 6, seenStamps: ["dubai"] });
+    data.set("sevenEmiratesBook:v1:test", JSON.stringify({ chapter: -2 }));
+    expect(readBook("test").chapter).toBe(0);
+    data.set("sevenEmiratesBook:v1:test", "{corrupt");
+    expect(readBook("test")).toEqual({ chapter: 0, seenStamps: [] });
   });
 });

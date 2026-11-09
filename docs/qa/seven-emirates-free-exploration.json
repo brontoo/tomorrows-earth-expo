@@ -1,0 +1,182 @@
+{
+  "task": "Task 10 / Phase 6 staging release candidate",
+  "baseCommit": "72d319e3e435850a476c0fa45e28740da06f54d3",
+  "branch": "integration/seven-emirates-frame-engine",
+  "ownerDecisions": {
+    "allSevenChaptersUnrestricted": true,
+    "frameRangeStartInclusiveEndExclusive": [0, 1673],
+    "model": "B / Current Version 1",
+    "modelSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",
+    "physicalCamera": "Owner-reported Chrome 21/21, not performed by cloud runner",
+    "modelARequired": false
+  },
+  "browser": {
+    "media": "local-fixtures",
+    "backend": "read-only fixtures",
+    "realStagingDeployment": false,
+    "physicalCameraVerified": false,
+    "checks": [
+      "guest: closed entry opens manually into seven enabled Contents chapters",
+      "guest: Fujairah first, return to Contents, then Dubai without progress",
+      "guest: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "guest: all six boundaries work forward and backward; full-range slider and labels agree",
+      "guest: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "student: closed entry opens manually into seven enabled Contents chapters",
+      "student: Fujairah first, return to Contents, then Dubai without progress",
+      "student: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "student: all six boundaries work forward and backward; full-range slider and labels agree",
+      "student: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "offline: closed entry opens manually into seven enabled Contents chapters",
+      "offline: Fujairah first, return to Contents, then Dubai without progress",
+      "offline: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "offline: all six boundaries work forward and backward; full-range slider and labels agree",
+      "offline: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "mobile-guest: closed entry opens manually into seven enabled Contents chapters",
+      "mobile-guest: Fujairah first, return to Contents, then Dubai without progress",
+      "mobile-guest: all seven deep links/labels/resting frames; no locks, earned stamps or A/B selector",
+      "mobile-guest: all six boundaries work forward and backward; full-range slider and labels agree",
+      "mobile-guest: unobscured canvas, mouse, native touch, keyboard, slider, no autoplay/camera and no navigation rewards",
+      "guest: /innovation-hub fixture UI smoke; no book media/camera/runtime",
+      "student: /student/dashboard fixture UI smoke; no book media/camera/runtime",
+      "teacher: /teacher/dashboard fixture UI smoke; no book media/camera/runtime",
+      "admin: /admin/dashboard fixture UI smoke; no book media/camera/runtime"
+    ],
+    "failures": [],
+    "pageErrors": [],
+    "blockedMutations": [],
+    "cancelledPreloadOrNavigationRequests": 28,
+    "unexpectedNetworkFailures": [],
+    "passedCheckCount": 24
+  },
+  "fixFoundByQA": "Mobile legacy chapter note overlaid the canvas; frame-only normal-flow layout exposes the complete image and canvas center. Final mouse/touch/overlay checks pass.",
+  "media": {
+    "scope": "Existing external local reference only; no remote publication or file writes",
+    "verifiedFrames": 1673,
+    "verifiedManifestSha256": "96e7635ce959133c36268b0028474f0737932af5dd498977e7a5d1b69a34d11f",
+    "nativeDimensions": [1920, 1080],
+    "allFrameSha256AndSizesValid": true
+  },
+  "applicationBuild": {
+    "command": "pnpm build",
+    "result": "passed",
+    "notices": "Existing chunk-size notices"
+  },
+  "typeCheck": {
+    "command": "pnpm check",
+    "result": "five pre-existing errors; no new diagnostics",
+    "baselineFiles": [
+      "client/src/pages/AdminDashboard.tsx",
+      "client/src/pages/EcoGuide.tsx (two diagnostics)",
+      "server/_core/sdk.ts",
+      "server/scripts/seedTomorrowEarth.ts"
+    ]
+  },
+  "fullSuite": {
+    "command": "pnpm test --maxWorkers=2 --minWorkers=1",
+    "database": "Existing local Docker development test database only",
+    "passed": 154,
+    "failed": 3,
+    "newFailures": 0,
+    "baselineFailures": [
+      "Project Submission: history/notifications fixture blocked by expired submission deadline",
+      "Project Submission: student submission expects another error but gets expired-deadline PRECONDITION_FAILED",
+      "Teacher Project Management: supervised projects fixture uses account not approved as reviewer"
+    ]
+  },
+  "targeted": {
+    "command": "pnpm exec vitest run server/travelBook.test.ts server/bookExploration.test.ts server/bookGestureModels.test.ts server/bookGestureResources.test.ts server/bookGestures.test.ts --maxWorkers=2 --minWorkers=1",
+    "passed": 61,
+    "failed": 0,
+    "coverage": [
+      "all 1673 integer positions",
+      "all six boundary pairs forward and reverse, including fist-controller samples",
+      "server-derived completed/verified stamps only",
+      "all statuses, chapter bindings/order and profile persistence",
+      "camera/model resource guards",
+      "core.autocrlf=true checkout retains authoritative LF manifest SHA"
+    ]
+  },
+  "pythonModelTools": {
+    "command": "python scripts/test-model-tools.py",
+    "passed": 3
+  },
+  "stagingBuild": {
+    "scope": "Frontend staging candidate only; not a deployed environment",
+    "engine": "frames",
+    "gestures": true,
+    "modelAB": false,
+    "model": "B",
+    "modelSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",
+    "exploration": "all seven chapters; frames [0,1673)",
+    "authConfigured": false
+  },
+  "legacyRollbackBuild": {
+    "scope": "Frontend staging candidate only; not a deployed environment",
+    "engine": "legacy",
+    "gestures": false,
+    "modelAB": false,
+    "model": "B",
+    "modelSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",
+    "exploration": "all seven chapters; frames [0,1673)",
+    "authConfigured": false
+  },
+  "outputGuards": "Verified builder refuses source directories and unowned nonempty output without deleting unrelated content",
+  "staging": {
+    "deployed": false,
+    "url": null,
+    "missing": [
+      "Authorized Vercel identity and isolated staging project/team link",
+      "Genuine nonproduction database/backend/auth/signing settings and role test accounts"
+    ],
+    "liveMediaProbe": "curl exit 56, CONNECT tunnel failed HTTP 403; no origin HTTP response",
+    "remoteObjectsVerifiedThisTask": null,
+    "productionChanged": false,
+    "mergedToMain": false
+  },
+  "preservation": {
+    "educationalBackendChanged": false,
+    "databaseOrStoragePoliciesChanged": false,
+    "projectsChanged": false,
+    "imageOrManifestDataChanged": false,
+    "navigationRewards": "No API mutations attempted in browser checks; zero fixture stamps/points/statuses. Genuine deployed backend acceptance pending.",
+    "missionWorkflow": "Existing optional mission action guards unchanged; book never consumes mission frontier",
+    "dashboardAndMissionDetail": "Copy corrections only, distinguishing optional achievements from book access"
+  },
+  "rollback": "Build same free-exploration integration commit with node scripts/build-book-staging.mjs --legacy-rollback; use vercel.staging-rollback.json for isolated preview only. Never revert to an older locked commit.",
+  "recommendation": "Ready as isolated-staging candidate once infrastructure exists; production promotion waits for genuine deployed platform acceptance. No further Model A review required.",
+  "changedFiles": [
+    ".env.staging.example",
+    ".gitattributes",
+    ".gitignore",
+    "client/src/components/book/TravelBook.tsx",
+    "client/src/components/book/book.css",
+    "client/src/components/book/chapters.ts",
+    "client/src/components/book/frames/FrameBookPlayer.tsx",
+    "client/src/components/book/frames/contracts.ts",
+    "client/src/components/book/frames/exploration.ts",
+    "client/src/components/book/frames/frames.css",
+    "client/src/components/book/gestures/BookGestureController.ts",
+    "client/src/components/book/gestures/GestureControls.tsx",
+    "client/src/components/book/gestures/GestureModels.ts",
+    "client/src/components/book/gestures/HandTrackingRuntime.ts",
+    "client/src/components/field/StudentJourneyOverview.tsx",
+    "client/src/pages/MissionDetail.tsx",
+    "docs/qa/seven-emirates-free-exploration.json",
+    "docs/qa/seven-emirates-model-compatibility.json",
+    "docs/seven-emirates-model-ab.md",
+    "docs/seven-emirates-staging.md",
+    "scripts/build-book-staging.mjs",
+    "scripts/qa-free-exploration.py",
+    "scripts/qa-real-book.py",
+    "scripts/qa_model_reporting.py",
+    "scripts/start-book-model-ab.ps1",
+    "scripts/test-model-tools.py",
+    "server/bookExploration.test.ts",
+    "server/bookGestureModels.test.ts",
+    "server/bookGestureResources.test.ts",
+    "server/bookGestures.test.ts",
+    "server/travelBook.test.ts",
+    "vercel.staging-rollback.json",
+    "vercel.staging.json"
+  ]
+}

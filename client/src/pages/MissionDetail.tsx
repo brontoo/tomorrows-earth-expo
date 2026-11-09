@@ -222,8 +222,8 @@ export default function MissionDetail() {
               {bookCatalogue.isError || bookPassport.isError
                 ? "Chapter progress could not be checked. Return to the book to reconnect."
                 : bookCatalogue.isLoading || bookPassport.isLoading
-                  ? "Checking your chapter access…"
-                  : "Complete and verify the previous chapter before starting this challenge."}
+                  ? "Checking optional mission availability…"
+                  : "Complete and verify the previous mission before starting this optional challenge. Every Emirate remains open to explore."}
             </FieldNotice>
           )}
           {status && (

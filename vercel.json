@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "node scripts/build-book-production.mjs",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
   "rewrites": [

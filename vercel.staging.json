@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "buildCommand": "node scripts/build-book-staging.mjs --out-dir dist-staging",
+  "outputDirectory": "dist-staging",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "rewrites": [
+    { "source": "/api/trpc/(.*)", "destination": "/api/trpc" },
+    { "source": "/api/oauth/(.*)", "destination": "/api/server" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

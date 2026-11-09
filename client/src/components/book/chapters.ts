@@ -78,6 +78,7 @@ export interface MissionState {
 }
 export const isComplete = (status?: string) =>
   status === "completed" || status === "verified";
+/** Optional server-derived achievements. Never authorizes exploration. */
 export function chapterProgress(
   missions: MissionCard[],
   states: MissionState[]
@@ -89,10 +90,11 @@ export function chapterProgress(
         isComplete(states.find(s => s.missionId === mission.id)?.status)
     );
   });
+  // Retained only for the existing OPTIONAL mission page; never book access.
   const first = completed.findIndex(done => !done);
   return {
-    completed,
     frontier: first < 0 ? chapters.length - 1 : first,
+    completed,
     count: completed.filter(Boolean).length,
   };
 }
@@ -114,7 +116,7 @@ export interface BookState {
 }
 export type BookEvent =
   | { type: "OPEN" }
-  | { type: "SELECT"; index: number; frontier: number; completed?: boolean }
+  | { type: "SELECT"; index: number }
   | { type: "SPREAD"; spread: "contents" | "stamps" | "final" }
   | { type: "ANIMATED" }
   | { type: "REVEALED" }
@@ -131,8 +133,7 @@ export function bookReducer(state: BookState, event: BookEvent): BookState {
       return busy ||
         !Number.isInteger(event.index) ||
         event.index < 0 ||
-        event.index >= chapters.length ||
-        (event.index > event.frontier && !event.completed)
+        event.index >= chapters.length
         ? state
         : {
             phase: "turning",

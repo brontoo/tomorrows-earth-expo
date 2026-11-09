@@ -1,0 +1,55 @@
+{
+  "scope": "Real local HTTP imagery + emulated network; auth/catalogue/passport are fixtures. No remote CDN readiness claim.",
+  "checks": [
+    "desktop: cold first frame, bounded entry requests, locked prefetch and cached bidirectional scrubbing",
+    "desktop: failed same-chapter load retains valid imagery and retry recovers",
+    "desktop: refresh and forged chapter URL preserve educational access",
+    "desktop: a failed new-chapter frame has no wrong-chapter substitute, and permitted Dubai survives refresh",
+    "desktop: repeated navigation releases bitmaps, keeps global listener count bounded and stops media on Projects pages",
+    "mobile: cold first frame, bounded entry requests, locked prefetch and cached bidirectional scrubbing",
+    "mobile: failed same-chapter load retains valid imagery and retry recovers",
+    "mobile: refresh and forged chapter URL preserve educational access",
+    "mobile: a failed new-chapter frame has no wrong-chapter substitute, and permitted Dubai survives refresh",
+    "mobile: repeated navigation releases bitmaps, keeps global listener count bounded and stops media on Projects pages",
+    "Unrelated login and Projects entry pages make zero frame or manifest requests"
+  ],
+  "measurements": [
+    {
+      "device": "desktop",
+      "latencyMs": 80,
+      "downloadBytesPerSecond": 1048576,
+      "coldNavigationToFrameMs": 3166.9,
+      "cachedStepMedianMs": 4.3,
+      "cachedStepMaximumMs": 11.6,
+      "entryFrameRequests": 4,
+      "maxLiveBitmaps": 3,
+      "globalListenersBeforeProjectsWarmup": 34,
+      "globalListenersAfterEachRoundTrip": [
+        47,
+        47,
+        47,
+        47,
+        47
+      ]
+    },
+    {
+      "device": "mobile",
+      "latencyMs": 150,
+      "downloadBytesPerSecond": 262144,
+      "coldNavigationToFrameMs": 7776.5,
+      "cachedStepMedianMs": 6.1,
+      "cachedStepMaximumMs": 22.7,
+      "entryFrameRequests": 3,
+      "maxLiveBitmaps": 2,
+      "globalListenersBeforeProjectsWarmup": 34,
+      "globalListenersAfterEachRoundTrip": [
+        47,
+        47,
+        47,
+        47,
+        47
+      ]
+    }
+  ],
+  "pageErrors": []
+}

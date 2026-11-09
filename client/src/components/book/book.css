@@ -1085,3 +1085,10 @@
     font-size: 5px;
   }
 }
+
+.book-chapter-navigation {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}

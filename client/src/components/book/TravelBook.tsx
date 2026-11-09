@@ -5,13 +5,17 @@ import {
   ArrowRight,
   BookOpen,
   Check,
-  LockKeyhole,
   Volume2,
   VolumeX,
 } from "lucide-react";
 import gsap from "gsap";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { trpc } from "@/lib/trpc";
+import { useBookProgress } from "./useBookProgress";
+import { resolveBookEngine } from "./frames/engineConfig";
+import { useFrameManifest } from "./frames/useFrameManifest";
+import FrameBookPlayer from "./frames/FrameBookPlayer";
+import GestureControls from "./gestures/GestureControls";
+import { gesturePreviewEnabled } from "./gestures/GestureClassifier";
+import type { BookFrameInput } from "./gestures/BookGestureController";
 import {
   chapters,
   chapterProgress,
@@ -24,33 +28,12 @@ import "./book.css";
 const BookScene = lazy(() => import("./BookScene"));
 
 export default function TravelBook({ cover = false }: { cover?: boolean }) {
-  const { user, isAuthenticated, loading } = useAuthContext();
-  const student = isAuthenticated && user?.role === "student";
-  const catalogue = trpc.missions.getAll.useQuery(undefined, {
-    staleTime: 60_000,
-  });
-  const passport = trpc.passport.getMine.useQuery(undefined, {
-    enabled: student,
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
-    refetchInterval: 15_000,
-  });
+  const progress = useBookProgress();
   return (
     <BookJourney
-      key={`${user?.id ?? "guest"}:${cover}`}
+      key={`${progress.profile}:${cover}`}
       cover={cover}
-      profile={String(user?.id ?? "guest")}
-      student={student}
-      loading={
-        loading || catalogue.isLoading || (student && passport.isLoading)
-      }
-      error={catalogue.isError || (student && passport.isError)}
-      missions={catalogue.data ?? []}
-      states={passport.data?.missionStates ?? []}
-      refresh={() => {
-        void catalogue.refetch();
-        if (student) void passport.refetch();
-      }}
+      {...progress}
     />
   );
 }
@@ -82,8 +65,8 @@ function BookJourney({
   );
   const [state, dispatch] = useReducer(bookReducer, {
     phase:
-      cover &&
       requested < 0 &&
+      window.location.pathname !== "/my-journey" &&
       !new URLSearchParams(window.location.search).has("spread")
         ? "cover"
         : new URLSearchParams(window.location.search).get("spread") ===
@@ -96,9 +79,10 @@ function BookJourney({
     destination: "reveal",
     serial: 0,
   } as BookState);
-  const chapterIndex = progress.completed[state.chapter]
-    ? state.chapter
-    : Math.min(state.chapter, progress.frontier);
+  const chapterIndex = Math.max(
+    0,
+    Math.min(chapters.length - 1, state.chapter)
+  );
   const chapter = chapters[chapterIndex];
   const mission = missions.find(m => m.slug === chapter.missionSlug);
   const missionStatus = states.find(s => s.missionId === mission?.id)?.status;
@@ -112,9 +96,31 @@ function BookJourney({
   );
   const [sound] = useState(() => new BookAudio());
   const shell = useRef<HTMLElement>(null);
+  const gestureInput = useRef<BookFrameInput | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const busy = ["opening", "turning", "stamping"].includes(state.phase);
   const inChapter = ["reveal", "ready", "stamping"].includes(state.phase);
+  const frameMedia = useFrameManifest(
+    import.meta.env.VITE_BOOK_ENGINE === "frames",
+    import.meta.env.VITE_BOOK_ASSET_BASE_URL,
+    import.meta.env.VITE_BOOK_MEDIA_VERSION
+  );
+  const [frameUnavailable, setFrameUnavailable] = useState(false);
+  const frameSurface =
+    inChapter || (state.phase === "turning" && state.destination === "reveal");
+  const engine = frameSurface
+    ? resolveBookEngine(import.meta.env.VITE_BOOK_ENGINE, {
+        playerReady: true,
+        assetsReady: Boolean(frameMedia.manifest) && !frameUnavailable,
+      })
+    : "legacy";
+  const pendingFrameMedia =
+    import.meta.env.VITE_BOOK_ENGINE === "frames" &&
+    Boolean(import.meta.env.VITE_BOOK_ASSET_BASE_URL) &&
+    frameSurface &&
+    !frameMedia.manifest &&
+    !frameMedia.error &&
+    !frameUnavailable;
   const countText = `${progress.count} / 7 collected`;
   useEffect(() => {
     const query = matchMedia("(prefers-reduced-motion: reduce)");
@@ -145,9 +151,9 @@ function BookJourney({
     }
   }, [fallback, state.phase, state.serial, reduced]);
   useEffect(() => {
-    if (state.phase !== "cover" && !loading && !error)
+    if (state.phase !== "cover")
       saveBook(profile, chapterIndex, saved.current.seenStamps);
-    if (state.phase === "ready")
+    if (state.phase === "ready" && engine !== "frames")
       heading.current?.focus({ preventScroll: true });
     if (["ready", "contents", "stamps", "final"].includes(state.phase)) {
       const query =
@@ -160,7 +166,7 @@ function BookJourney({
         `${window.location.pathname}?${query}`
       );
     }
-  }, [profile, chapterIndex, state.phase, loading, error]);
+  }, [profile, chapterIndex, state.phase, loading, error, engine]);
   useEffect(() => {
     if (
       state.phase !== "ready" ||
@@ -183,8 +189,6 @@ function BookJourney({
         );
         saveBook(profile, chapterIndex, saved.current.seenStamps);
         dispatch({ type: "STAMPED" });
-        if (chapterIndex === 6 && progress.count === 7)
-          dispatch({ type: "SPREAD", spread: "final" });
       },
     });
     if (stamp)
@@ -206,7 +210,13 @@ function BookJourney({
   }, [state.phase, chapter.id, chapterIndex, profile, reduced, sound]);
   // Stage only the next film. Do not download seven films on the cover.
   useEffect(() => {
-    if (!inChapter || chapterIndex >= 6) return;
+    if (
+      !inChapter ||
+      chapterIndex >= 6 ||
+      engine === "frames" ||
+      pendingFrameMedia
+    )
+      return;
     const next = document.createElement("video");
     next.preload = "metadata";
     next.muted = true;
@@ -218,27 +228,19 @@ function BookJourney({
       next.removeAttribute("src");
       next.load();
     };
-  }, [chapterIndex, inChapter]);
+  }, [chapterIndex, inChapter, engine, pendingFrameMedia]);
   const open = () => {
     sound.unlock();
     sound.play("open");
     dispatch({ type: "OPEN" });
   };
   const select = (index: number) => {
-    if (
-      loading ||
-      error ||
-      (index > progress.frontier && !progress.completed[index]) ||
-      busy
-    )
-      return;
+    if (busy) return;
     sound.unlock();
     sound.play("turn");
     dispatch({
       type: "SELECT",
       index,
-      frontier: progress.frontier,
-      completed: progress.completed[index],
     });
   };
   const spread = (target: "contents" | "stamps" | "final") => {
@@ -251,19 +253,18 @@ function BookJourney({
     else dispatch({ type: "ANIMATED" });
   };
   const stateName = (i: number) =>
-    progress.completed[i]
-      ? "Completed"
-      : i > progress.frontier && !progress.completed[i]
-        ? "Locked"
-        : inChapter && i === chapterIndex
-          ? "Current"
-          : "Available";
+    inChapter && i === chapterIndex
+      ? "Current"
+      : progress.completed[i]
+        ? "Achievement earned"
+        : "Explore";
   return (
     <main
       ref={shell}
       className={`travel-book book-phase-${state.phase} ${fallback ? "book-fallback" : ""}`}
       dir="ltr"
       id="main-content"
+      data-book-engine={engine}
     >
       <a className="book-skip-link" href="#book-content">
         Skip to book content
@@ -302,6 +303,14 @@ function BookJourney({
           </Link>
         </nav>
       </header>
+      {gesturePreviewEnabled(
+        import.meta.env.VITE_BOOK_ENGINE,
+        import.meta.env.VITE_BOOK_GESTURES
+      ) &&
+        frameMedia.manifest &&
+        !frameUnavailable && (
+          <GestureControls scope={shell} input={gestureInput} />
+        )}
       {state.phase === "cover" ? (
         <section className="book-cover-heading" id="book-content">
           <span className="book-eyebrow">
@@ -314,7 +323,11 @@ function BookJourney({
         </section>
       ) : (
         <div className="book-running-head" id="book-content">
-          <button disabled={busy} onClick={() => spread("contents")}>
+          <button
+            data-book-gesture="spread"
+            disabled={busy}
+            onClick={() => spread("contents")}
+          >
             <ArrowLeft size={14} /> Contents
           </button>
           <span>
@@ -326,7 +339,11 @@ function BookJourney({
                   ? "THE FINAL SPREAD"
                   : "THE SEVEN EMIRATES"}
           </span>
-          <button disabled={busy} onClick={() => spread("stamps")}>
+          <button
+            data-book-gesture="spread"
+            disabled={busy}
+            onClick={() => spread("stamps")}
+          >
             My travel stamps <span>{progress.count}/7</span>
           </button>
         </div>
@@ -341,7 +358,31 @@ function BookJourney({
           }
           aria-busy={busy}
         >
-          {!fallback && (
+          {engine === "frames" && frameMedia.manifest && (
+            <FrameBookPlayer
+              gestureInput={gestureInput}
+              manifest={frameMedia.manifest}
+              baseUrl={frameMedia.baseUrl}
+              chapter={chapterIndex}
+              reduced={reduced}
+              interactive={!busy}
+              onChapter={id => {
+                const index = chapters.findIndex(c => c.id === id);
+                if (index !== chapterIndex) select(index);
+              }}
+              onReady={() => {
+                dispatch({ type: "ANIMATED" });
+                dispatch({ type: "REVEALED" });
+              }}
+              onFallback={() => setFrameUnavailable(true)}
+            />
+          )}
+          {pendingFrameMedia && (
+            <p className="book-media-loading" role="status">
+              Preparing Full HD book imagery…
+            </p>
+          )}
+          {engine === "legacy" && !fallback && !pendingFrameMedia && (
             <Suspense
               fallback={
                 <img
@@ -361,7 +402,7 @@ function BookJourney({
               />
             </Suspense>
           )}
-          {fallback && (
+          {engine === "legacy" && fallback && !pendingFrameMedia && (
             <img
               className="book-fallback-art"
               src={
@@ -372,7 +413,7 @@ function BookJourney({
               alt="Handcrafted paper travel book"
             />
           )}
-          {inChapter && (
+          {engine === "legacy" && inChapter && !pendingFrameMedia && (
             <ChapterReveal
               key={chapter.id}
               chapter={chapter}
@@ -396,15 +437,16 @@ function BookJourney({
                   <em>a new perspective.</em>
                 </h2>
                 <p>
-                  Seven Emirates, brought to life in paper. Explore a chapter,
-                  complete its environmental challenge, and collect a stamp for
-                  your journey.
+                  Seven Emirates, brought to life in paper. Explore any chapter
+                  in any order. Environmental challenges and earned stamps are
+                  optional achievements.
                 </p>
                 <span className="book-printer-mark">✳</span>
                 <p className="book-small-print">
-                  Your teacher verifies your discoveries.
+                  Every Emirate is open to everyone.
                   <br />
-                  Each collected stamp opens the next chapter.
+                  Teacher verification applies only to optional mission
+                  achievements.
                 </p>
               </div>
               <div className="book-contents-list">
@@ -412,11 +454,8 @@ function BookJourney({
                 {chapters.map((c, i) => (
                   <button
                     key={c.id}
-                    disabled={
-                      loading ||
-                      error ||
-                      (i > progress.frontier && !progress.completed[i])
-                    }
+                    disabled={busy}
+                    data-book-gesture="chapter"
                     onClick={() => select(i)}
                     aria-label={`Chapter ${c.order}: ${c.name}. ${stateName(i)}`}
                   >
@@ -430,8 +469,6 @@ function BookJourney({
                     <span aria-hidden="true">
                       {progress.completed[i] ? (
                         <Check size={17} />
-                      ) : i > progress.frontier ? (
-                        <LockKeyhole size={13} />
                       ) : (
                         <ArrowRight size={17} />
                       )}
@@ -440,12 +477,14 @@ function BookJourney({
                 ))}
                 <p className="book-small-print">
                   {loading
-                    ? "Gathering the published chapters…"
+                    ? "Optional mission information is loading. All Emirates remain open."
                     : error
-                      ? "The chapter catalogue could not be reached."
-                      : `${countText} · Begin where curiosity takes you.`}
+                      ? "Optional missions are unavailable. You can still explore every Emirate."
+                      : `${countText} optional achievements · Begin where curiosity takes you.`}
                 </p>
-                {error && <button onClick={refresh}>Reconnect chapters</button>}
+                {error && (
+                  <button onClick={refresh}>Reconnect optional missions</button>
+                )}
               </div>
             </div>
           )}
@@ -481,19 +520,16 @@ function BookJourney({
                   <button
                     key={c.id}
                     className={`book-stamp ${progress.completed[i] ? "is-collected" : ""}`}
-                    disabled={
-                      (i > progress.frontier && !progress.completed[i]) ||
-                      loading ||
-                      error
-                    }
+                    disabled={busy}
+                    data-book-gesture="chapter"
                     onClick={() => select(i)}
-                    aria-label={`${c.name}: ${progress.completed[i] ? "Stamp collected. Revisit chapter" : "Not collected"}`}
+                    aria-label={`${c.name}: ${progress.completed[i] ? "Stamp collected. Revisit chapter" : "Not collected. Explore chapter"}`}
                   >
                     <img src={c.stamp} alt="" />
                     <strong>{c.name}</strong>
                     <small>
                       {progress.completed[i]
-                        ? "CHAPTER COMPLETE"
+                        ? "MISSION COMPLETE"
                         : "NOT YET COLLECTED"}
                     </small>
                   </button>
@@ -512,6 +548,7 @@ function BookJourney({
                 {progress.count === 7 && (
                   <button
                     className="book-text-button"
+                    data-book-gesture="chapter"
                     onClick={() => select(0)}
                   >
                     Replay the journey
@@ -542,15 +579,18 @@ function BookJourney({
               <div className="book-chapter-actions">
                 {error ? (
                   <>
-                    <p>Progress is unavailable. Your saved work is safe.</p>
+                    <p>
+                      Optional mission progress is unavailable. Explore freely;
+                      your saved work is safe.
+                    </p>
                     <button className="book-button" onClick={refresh}>
-                      Reconnect book
+                      Refresh optional missions
                     </button>
                   </>
                 ) : loading ? (
-                  <p role="status">Gathering your chapter…</p>
+                  <p role="status">Loading optional mission details…</p>
                 ) : !mission ? (
-                  <p>This chapter’s challenge has not been published yet.</p>
+                  <p>This optional challenge has not been published yet.</p>
                 ) : !student ? (
                   <>
                     <p>
@@ -566,13 +606,16 @@ function BookJourney({
                           : `/login?redirectTo=${encodeURIComponent(`/eco-journey?chapter=${chapter.id}`)}`
                       }
                     >
-                      {profile !== "guest" ? "My account" : "Sign in to start"}{" "}
+                      {profile !== "guest"
+                        ? "My account"
+                        : "Sign in for optional mission"}{" "}
                       <ArrowRight size={16} />
                     </Link>
                   </>
                 ) : (
                   <>
                     <Link
+                      data-book-gesture="mission"
                       className={`book-button ${busy ? "is-disabled" : ""}`}
                       aria-disabled={busy}
                       tabIndex={busy ? -1 : 0}
@@ -597,16 +640,6 @@ function BookJourney({
                             : "Start challenge"}{" "}
                       <ArrowRight size={16} />
                     </Link>
-                    {earned && chapterIndex < 6 && (
-                      <button
-                        className="book-text-button"
-                        disabled={busy}
-                        onClick={() => select(chapterIndex + 1)}
-                      >
-                        Turn to {chapters[chapterIndex + 1].name}{" "}
-                        <ArrowRight size={16} />
-                      </button>
-                    )}
                     {earned && progress.count === 7 && chapterIndex === 6 && (
                       <button
                         className="book-text-button"
@@ -621,19 +654,45 @@ function BookJourney({
                         missionStatus ?? ""
                       ) && (
                         <small>
-                          Your teacher’s verification unlocks the next chapter.
+                          Your teacher verifies this optional achievement. Every
+                          Emirate remains open.
                         </small>
                       )}
                   </>
                 )}
               </div>
+              <nav
+                className="book-chapter-navigation"
+                aria-label="Explore Emirates"
+              >
+                {chapterIndex > 0 && (
+                  <button
+                    className="book-text-button"
+                    disabled={busy}
+                    data-book-gesture="chapter"
+                    onClick={() => select(chapterIndex - 1)}
+                  >
+                    Previous Emirate
+                  </button>
+                )}
+                {chapterIndex < chapters.length - 1 && (
+                  <button
+                    className="book-text-button"
+                    disabled={busy}
+                    data-book-gesture="chapter"
+                    onClick={() => select(chapterIndex + 1)}
+                  >
+                    Next Emirate
+                  </button>
+                )}
+              </nav>
               {earned && (
                 <div
                   className="book-chapter-stamp"
                   aria-label={`${chapter.name} stamp collected`}
                 >
                   <img src={chapter.stamp} alt="" />
-                  <span>CHAPTER COMPLETE</span>
+                  <span>MISSION COMPLETE</span>
                 </div>
               )}
             </div>
@@ -649,22 +708,14 @@ function BookJourney({
                 aria-current={
                   inChapter && i === chapterIndex ? "page" : undefined
                 }
-                disabled={
-                  busy ||
-                  loading ||
-                  error ||
-                  (i > progress.frontier && !progress.completed[i])
-                }
+                disabled={busy}
+                data-book-gesture="chapter"
                 onClick={() => select(i)}
                 style={{ "--tab-color": c.accent } as React.CSSProperties}
               >
                 <span>{String(c.order).padStart(2, "0")}</span>
                 <span>{c.name}</span>
-                {progress.completed[i] ? (
-                  <Check size={12} />
-                ) : i > progress.frontier ? (
-                  <LockKeyhole size={10} />
-                ) : null}
+                {progress.completed[i] ? <Check size={12} /> : null}
               </button>
             ))}
           </nav>
@@ -673,7 +724,11 @@ function BookJourney({
       {state.phase === "cover" && (
         <div className="book-cover-action">
           <p>Open the book and begin your journey through the Emirates.</p>
-          <button className="book-button" onClick={open}>
+          <button
+            data-book-gesture="open"
+            className="book-button"
+            onClick={open}
+          >
             Open the book <ArrowRight size={17} />
           </button>
           <button className="book-text-button" onClick={open}>
@@ -682,6 +737,11 @@ function BookJourney({
         </div>
       )}
       <footer className="book-footer">
+        {frameMedia.error && (
+          <span role="status">
+            Frame media unavailable. The legacy book remains available.
+          </span>
+        )}
         <span>
           7 CHAPTERS <i>·</i> 7 CHALLENGES <i>·</i> 7 STAMPS
         </span>
