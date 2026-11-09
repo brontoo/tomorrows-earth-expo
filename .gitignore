@@ -109,7 +109,11 @@ temp/
 .vercel
 .env*.local
 .env*
+!.env.staging.example
 
 # local-only tooling
 tomorrows-earth-expo/
 *.tar.gz
+
+# Isolated staging output, never committed or used by the default production build.
+dist-staging/

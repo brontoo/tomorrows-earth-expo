@@ -79,7 +79,7 @@ export function StudentJourneyOverview() {
               </h2>
               <p>
                 {state && ["submitted", "verification_required"].includes(state)
-                  ? "Your evidence is with your teacher. Your next chapter unlocks after approval."
+                  ? "Your evidence is with your teacher. Mission approval is separate from exploring any Emirate."
                   : mission
                     ? mission.title
                     : "The chapter’s challenge is being prepared by your teacher."}

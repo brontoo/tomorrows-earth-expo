@@ -41,7 +41,33 @@
   background: #fff;
 }
 .travel-book[data-book-engine="frames"] .book-stage-wrap {
-  margin-bottom: 85px;
+  margin-bottom: 24px;
+}
+/* The legacy scene overlays paper notes. Keep the complete cinematic image
+   exposed to pointer/touch input at every viewport size in the frame player. */
+.travel-book[data-book-engine="frames"] .book-stage {
+  aspect-ratio: auto;
+  min-height: 0;
+  height: auto;
+}
+.travel-book[data-book-engine="frames"] .frame-book-player {
+  position: relative;
+}
+.travel-book[data-book-engine="frames"] .frame-book-player canvas {
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+.travel-book[data-book-engine="frames"] .frame-book-controls {
+  position: relative;
+  bottom: auto;
+}
+.travel-book[data-book-engine="frames"] .book-chapter-note {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin-top: 20px;
+  transform: none;
 }
 .travel-book[data-book-engine="frames"] .book-edge-tabs {
   pointer-events: none;

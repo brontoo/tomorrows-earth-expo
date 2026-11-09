@@ -16,28 +16,11 @@ export const GESTURE_MODELS = Object.freeze({
   }),
 });
 export type GestureModelId = keyof typeof GESTURE_MODELS;
-export function modelABEnabled(
-  env: {
-    DEV?: boolean;
-    VITE_BOOK_MODEL_AB?: string;
-    VITE_BOOK_ENGINE?: string;
-    VITE_BOOK_GESTURES?: string;
-  },
-  devServer = false
-) {
-  return (
-    devServer &&
-    env.DEV === true &&
-    env.VITE_BOOK_MODEL_AB === "true" &&
-    env.VITE_BOOK_ENGINE === "frames" &&
-    env.VITE_BOOK_GESTURES === "true"
-  );
-}
-export function selectGestureModel(id: string, abEnabled: boolean) {
+/** Owner Task 10: B is final. Historical A metadata above is audit-only. */
+export function selectGestureModel(id: string, _obsoleteABFlag?: boolean) {
   if (id === "current") return GESTURE_MODELS.current;
-  if (id === "prototype" && abEnabled) return GESTURE_MODELS.prototype;
   throw new Error(
-    "Original-model selection requires the explicit development A/B preview. No model was substituted."
+    "Owner-approved Model B is required. No alternative model was loaded."
   );
 }
 export async function verifyModelBytes(

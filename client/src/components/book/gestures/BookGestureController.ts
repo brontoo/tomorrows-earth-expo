@@ -10,7 +10,7 @@ import {
   type HandSample,
 } from "./GestureClassifier";
 
-/** Presentation port only. Player's seekTo enforces current allowed ranges on EVERY call. */
+/** Presentation port only. Player's seekTo enforces full-sequence media bounds on EVERY call; never mission progress. */
 export interface BookFrameInput {
   readonly frameCount: number;
   getFrame(): number;

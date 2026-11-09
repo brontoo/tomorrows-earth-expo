@@ -21,7 +21,7 @@ MODEL_URLS = dict(current='https://storage.googleapis.com/mediapipe-models/gestu
 WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm/'
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--base-url', default='http://127.0.0.1:4174')
-parser.add_argument('--model-variant', choices=['current','prototype'], default='current')
+parser.add_argument('--model-variant', choices=['current'], default='current')
 parser.add_argument('--channel', choices=['chrome', 'msedge'])
 parser.add_argument('--report', type=Path, default=Path('artifacts/real-book-acceptance.json'))
 args = parser.parse_args()
@@ -159,13 +159,13 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         assert not any(url.startswith((MODEL,WASM)) for url in requests)
         canvas = player.locator('canvas')
         canvas.focus(); canvas.press('ArrowRight')
-        expect(player).to_have_attribute('data-frame-displayed','238')
-        expect(page.locator('.book-edge-tabs button:disabled')).to_have_count(6)
+        expect(player).to_have_attribute('data-frame-displayed','239')
+        expect(page.locator('.book-edge-tabs button:disabled')).to_have_count(0)
         canvas.press('Home'); expect(player).to_have_attribute('data-frame-displayed','0')
         page.wait_for_timeout(500); expect(player).to_have_attribute('data-frame-displayed','0')
-        passed('Locked chapters cannot be crossed; camera is lazy and there is no autoplay')
+        passed('Zero-progress students can cross chapters; camera is lazy and there is no autoplay')
         # Controlled progress fixture only: no missions are completed on a real server.
-        state['verified'] = list(range(1,8))
+        assert state['verified'] == []
         page.evaluate('(ids)=>localStorage.setItem("sevenEmiratesBook:v1:9101",JSON.stringify({chapter:0,seenStamps:ids}))', [c[0] for c in bindings])
         page.reload(wait_until='domcontentloaded')
         expect(page.locator('.book-phase-ready')).to_be_visible(timeout=45000)
@@ -190,7 +190,10 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         report['timings']['boundaryKeyToDisplayedMs'] = timings
         report['timings']['boundaryMedianMs'] = round(statistics.median(timings),1)
         report['timings']['boundaryMaxMs'] = max(timings)
-        passed('All six live chapter boundaries stay synchronized in both directions')
+        passed('All six live chapter boundaries stay synchronized with ZERO educational completion')
+        assert state['verified']==[]
+        assert page.locator('.book-chapter-stamp').count()==0
+        report['zeroProgressExploration']=True
         report['remoteVerified'] = True
     except Exception as error:
         report['failures'].append('Live media/app: '+failure_text(error))
@@ -229,17 +232,9 @@ navigator.mediaDevices.getUserMedia=(...args)=>{window.__cameraCalls++;return na
         assert len(model_hashes) == 1
         report['modelSha256'] = next(iter(model_hashes))
         assert report['modelSha256'] == KNOWN_HASHES[args.model_variant]
-        try:
-            other_id = 'prototype' if args.model_variant == 'current' else 'current'
-            other = model_page.evaluate('''async url=>{
-              const response=await fetch(url,{credentials:'omit'});if(!response.ok)throw Error('Comparison model HTTP '+response.status);
-              const bytes=await response.arrayBuffer();return {byteLength:bytes.byteLength,sha256:[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('')};
-            }''',MODEL_URLS[other_id])
-            assert other['sha256'] == KNOWN_HASHES[other_id], 'Comparison model SHA changed'
-            hashes={args.model_variant:report['modelSha256'],other_id:other['sha256']}
-            report['originalModelComparison'] = dict(verified=True,hashes=hashes,sameBytes=hashes['prototype']==hashes['current'])
-        except Exception as error:
-            report['originalModelComparison'] = dict(verified=False,error=failure_text(error))
+        report['originalModelComparison'] = dict(sameBytes=False, performedThisRun=False,
+            hashes=KNOWN_HASHES, disposition='Owner accepted Model B after Chrome 21/21; no further Model A comparison required',
+            source='Task 10 final owner decision; prior CI run 42595276281')
         passed('Actual pinned SDK/WASM/model initialized twice after explicit opt-in, then closed, without requesting a camera')
     except Exception as error:
         report['failures'].append('Actual model: '+failure_text(error))
@@ -248,5 +243,5 @@ report['acceptanceStages'] = acceptance_stages(report)
 args.report.parent.mkdir(parents=True,exist_ok=True)
 args.report.write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))
-if report['failures'] or not report['remoteVerified'] or not report['modelInitialized'] or report['acceptanceStages']['releaseGates']:
-    raise SystemExit('Release gates remain; inspect separate technical/model/physical/educational stages. No physical-camera or production approval.')
+if report['failures'] or not report['remoteVerified'] or not report['modelInitialized']:
+    raise SystemExit('Automated staging checks incomplete; no production deployment or backend acceptance claim.')

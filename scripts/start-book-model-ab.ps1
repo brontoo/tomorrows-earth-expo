@@ -3,6 +3,7 @@ param(
   [ValidateSet('chrome','msedge')][string]$Browser='chrome'
 )
 $ErrorActionPreference='Stop'
+throw 'Retired: owner finalized Model B in Task 10. Use the staging/free-exploration guide; do not rerun Model A.'
 $app=(Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $expectedCommit=$ExpectedCommit
 $actual=(& git -C $app rev-parse HEAD).Trim()

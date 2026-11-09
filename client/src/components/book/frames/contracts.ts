@@ -102,7 +102,7 @@ export interface FramePlayerState {
   readonly displayedFrame: FrameIndex | null;
   readonly chapterId: EmirateChapterId | null;
   readonly asset: FrameAssetStatus;
-  /** Supplied by the educational layer. Enforced for every input and restored position. */
+  /** Structural media bounds. The book always supplies [0, frameCount), independent of education. */
   readonly allowedRanges: readonly FrameRange[];
   readonly cacheBudget: FrameCacheBudget;
   readonly activeInput: FrameInputSource | null;
@@ -130,7 +130,7 @@ export interface FramePlayerEvents {
   onStateChange(state: FramePlayerState): void;
   onFrameDisplayed(frame: FrameIndex, chapterId: EmirateChapterId): void;
   onAssetStatusChange(status: FrameAssetStatus): void;
-  /** Requests navigation only. The educational layer rechecks access and resolves the mission. */
+  /** Requests presentation navigation only. All book chapters are open; optional missions retain their own authority. */
   onChapterRequested(chapterId: EmirateChapterId): void;
   onChallengeRequested(chapterId: EmirateChapterId): void;
 }

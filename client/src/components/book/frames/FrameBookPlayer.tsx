@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import type { EmirateChapterId, FrameManifest, FrameRange } from "./contracts";
+import type { EmirateChapterId, FrameManifest } from "./contracts";
 import { restrictFrame, scrubRange } from "./manifest";
 import { FrameScheduler, desktopPolicy, mobilePolicy } from "./FrameScheduler";
 import "./frames.css";
+import { explorationRanges } from "./exploration";
 import type { BookFrameInput } from "../gestures/BookGestureController";
 
 interface Props {
@@ -10,7 +11,6 @@ interface Props {
   manifest: FrameManifest;
   baseUrl: string;
   chapter: number;
-  allowedRanges: readonly FrameRange[];
   reduced: boolean;
   interactive: boolean;
   onChapter: (id: EmirateChapterId) => void;
@@ -24,7 +24,6 @@ export default function FrameBookPlayer({
   manifest,
   baseUrl,
   chapter,
-  allowedRanges,
   reduced,
   interactive,
   onChapter,
@@ -32,6 +31,7 @@ export default function FrameBookPlayer({
   onFallback,
 }: Props) {
   const selected = manifest.chapters[chapter];
+  const allowedRanges = useMemo(() => explorationRanges(manifest), [manifest]);
   const [requested, setRequested] = useState(selected.restingFrame);
   const [displayed, setDisplayed] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);

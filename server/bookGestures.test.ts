@@ -118,7 +118,7 @@ describe("Original 7E gesture behavior with educational guards", () => {
     c.process(sample("Open_Palm"), 280, input, scope, false, () => false);
     expect(seek).toHaveBeenCalledTimes(n);
   });
-  it("never bypasses a locked gap, but can reverse inside a reopened completed range", () => {
+  it("respects generic structural media gaps supplied to the test port", () => {
     const c = new BookGestureController(),
       { input } = port(500, [
         { startInclusive: 0, endExclusive: 239 },
@@ -137,7 +137,7 @@ describe("Original 7E gesture behavior with educational guards", () => {
       );
     expect(input.getFrame()).toBe(478);
   });
-  it("clamps to frontier and will not scrub unavailable/busy inputs", () => {
+  it("clamps to media bounds and will not scrub unavailable/busy inputs", () => {
     const c = new BookGestureController(),
       { input, seek } = port(237);
     c.process(sample(), 0, input, scope, false, () => false);

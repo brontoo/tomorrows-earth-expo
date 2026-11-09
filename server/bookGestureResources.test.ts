@@ -59,7 +59,7 @@ describe("production recognizer factory (SDK mocked for unit tests only)", () =>
     vi.stubEnv("DEV", false);
     try {
       await expect(createBookRecognizer("prototype")).rejects.toThrow(
-        "development A/B preview"
+        "Model B"
       );
       expect(sdk.resolve).not.toHaveBeenCalled();
       expect(sdk.create).not.toHaveBeenCalled();

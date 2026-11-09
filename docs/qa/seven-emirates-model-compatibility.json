@@ -14,15 +14,15 @@
     "factory": "Historical URL-based input, before Phase 5A"
   },
   "prototypeModelInitialization": {
-    "status": "pending-new-A/B-preview"
+    "status": "not-required-owner-finalized-B"
   },
   "modelByteComparison": {
     "status": "different",
     "prototypeSha256": "a966b1d4e774e0423c19c8aa71f070e5a72fe7a03c2663dd2f3cb0b0095ee3e1",
     "currentSha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482"
   },
-  "functionalGestureCompatibility": "not-tested",
-  "physicalCameraAcceptance": "not-tested",
+  "functionalGestureCompatibility": "owner-accepted-Model-B",
+  "physicalCameraAcceptance": "owner-reported-Chrome-21/21",
   "educationalWorkflowAcceptance": "not-tested",
   "localModelInspection": {
     "hashProvenance": "Owner-confirmed acceptance run 42595276281",
@@ -42,9 +42,10 @@
     },
     "physicalCameraVerified": false,
     "functionalCompatibility": "not-tested",
-    "releaseGate": "Known unequal model artifacts await physical A/B review"
+    "historicalReleaseGate": "Known unequal model artifacts await physical A/B review",
+    "historicalGateSupersededBy": "Task 10 owner approval of Model B; no Model A testing required"
   },
-  "recommendation": "Original is the preferred candidate only if both models prove viable; retain current default pending real A/B initialization and manual sign-off. No production activation.",
+  "recommendation": "Final Model B, owner-approved. No further A/B comparison required.",
   "productionReady": false,
   "localUiSafetyCheck": {
     "scope": "UI-only local media fixtures; no model bytes/SDK/camera are substituted or verified",
@@ -52,10 +53,19 @@
     "checks": [
       "Dev opt-in exposes A/B; selecting A makes no model/camera request; blocked model starts no camera",
       "Production build with AB flag=true still hides A/B and retains current model"
-    ]
+    ],
+    "historicalBeforeTask10": true
   },
   "newVerifiedBufferInitialization": {
-    "prototype": "pending-real-browser-run",
-    "current": "pending-real-browser-run"
+    "prototype": "not-required",
+    "current": "owner-reported-Chrome-camera-success"
+  },
+  "ownerFinalDecision": {
+    "source": "Task 10 mandatory owner decisions",
+    "model": "B-current-version-1",
+    "sha256": "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",
+    "chromePositiveChecklistResponses": "21/21 owner-reported",
+    "requiresModelATesting": false,
+    "artifactDifferenceReview": "Accepted by owner; retained as technical audit, not a new release gate"
   }
 }

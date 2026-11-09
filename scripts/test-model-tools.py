@@ -11,14 +11,14 @@ spec=importlib.util.spec_from_file_location('inspect_models',Path(__file__).with
 inspector=importlib.util.module_from_spec(spec);spec.loader.exec_module(inspector)
 
 class ModelTools(unittest.TestCase):
- def test_passed_technical_stages_do_not_hide_known_artifact_or_manual_gates(self):
+ def test_owner_accepted_B_retains_artifact_audit_and_separate_staging_gate(self):
   stage=acceptance_stages(dict(remoteVerified=True,modelInitialized=True,failures=[],originalModelComparison=dict(sameBytes=False)))
   self.assertEqual(stage['liveMediaAndChapters'],'passed');self.assertEqual(stage['modelInitialization'],'passed')
-  self.assertEqual(stage['modelByteComparison'],'different');self.assertTrue(stage['automatedTechnicalChecksPassed'])
+  self.assertEqual(stage['modelByteComparison'],'different-audited-owner-accepted-B');self.assertTrue(stage['automatedTechnicalChecksPassed'])
   self.assertFalse(stage['productionReady']);self.assertTrue(stage['releaseGates'])
-  self.assertEqual(stage['functionalGestureCompatibility'],'not-tested')
+  self.assertEqual(stage['functionalGestureCompatibility'],'owner-accepted-Model-B')
  def test_network_or_unknown_comparison_is_not_reported_as_a_pass(self):
-  stage=acceptance_stages({});self.assertEqual(stage['modelByteComparison'],'unverified-in-this-run')
+  stage=acceptance_stages({});self.assertEqual(stage['modelInitialization'],'not-verified')
   self.assertFalse(stage['automatedTechnicalChecksPassed']);self.assertFalse(stage['productionReady'])
  def test_zip_inspection_reads_nested_labels_without_extracting_weights(self):
   inner=io.BytesIO()

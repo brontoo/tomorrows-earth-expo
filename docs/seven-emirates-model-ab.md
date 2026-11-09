@@ -1,3 +1,5 @@
+> Historical Phase 5A audit. Superseded by Task 10: Model B is owner-approved (Chrome 21/21), all Emirates are freely accessible, and no further A/B testing is required. Use `seven-emirates-staging.md` for the current release candidate.
+
 # Phase 5A — controlled model compatibility review
 
 The game, gesture classifier/controller, thresholds, frame scheduler, input

@@ -2,7 +2,6 @@ import { OPTIONS, type HandSample } from "./GestureClassifier";
 import {
   GESTURE_MODELS,
   loadGestureModel,
-  modelABEnabled,
   selectGestureModel,
   type GestureModelId,
 } from "./GestureModels";
@@ -28,10 +27,7 @@ export interface RuntimeDependencies {
 export async function createBookRecognizer(
   modelId: GestureModelId = "current"
 ): Promise<Recognizer> {
-  const model = selectGestureModel(
-    modelId,
-    modelABEnabled(import.meta.env, Boolean(import.meta.hot))
-  );
+  const model = selectGestureModel(modelId, false);
   // Verify before SDK creation; both GPU and CPU receive the SAME verified bytes.
   const modelAssetBuffer = await loadGestureModel(model);
   const { FilesetResolver, GestureRecognizer } = await import(

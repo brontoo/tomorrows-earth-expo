@@ -21,7 +21,7 @@ const missions = chapters.map((c, i) => ({
   title: c.name,
 }));
 afterEach(() => vi.unstubAllGlobals());
-describe("Travel book progression", () => {
+describe("Travel book free exploration and optional achievements", () => {
   it("preserves the seven existing mission bindings and order", () => {
     expect(chapters.map(c => c.missionSlug)).toEqual([
       "water-detective",
@@ -40,7 +40,7 @@ describe("Travel book progression", () => {
       { missionId: 21, status: "submitted" },
       { missionId: 22, status: "in_progress" },
     ]);
-    expect(progress).toMatchObject({ count: 1, frontier: 1 });
+    expect(progress).toMatchObject({ count: 1 });
     expect(progress.completed).toEqual([
       true,
       false,
@@ -63,20 +63,15 @@ describe("Travel book progression", () => {
       chapterProgress([], [{ missionId: 20, status: "completed" }]).count
     ).toBe(0);
   });
-  it("rejects locked and malformed navigation and double transitions", () => {
-    for (const index of [1, 7, -1, NaN, 1.5])
-      expect(bookReducer(initial, { type: "SELECT", index, frontier: 0 })).toBe(
-        initial
-      );
+  it("rejects malformed navigation and double transitions, not valid chapters", () => {
+    for (const index of [7, -1, NaN, 1.5])
+      expect(bookReducer(initial, { type: "SELECT", index })).toBe(initial);
     const turning = bookReducer(initial, {
       type: "SELECT",
       index: 0,
-      frontier: 0,
     });
     expect(turning.phase).toBe("turning");
-    expect(
-      bookReducer(turning, { type: "SELECT", index: 0, frontier: 0 })
-    ).toBe(turning);
+    expect(bookReducer(turning, { type: "SELECT", index: 0 })).toBe(turning);
     expect(bookReducer(turning, { type: "ANIMATED" }).phase).toBe("reveal");
   });
   it("supports completed revisits and all seven stamps without changing completion", () => {
@@ -84,8 +79,6 @@ describe("Travel book progression", () => {
       bookReducer(initial, {
         type: "SELECT",
         index: 5,
-        frontier: 0,
-        completed: true,
       }).chapter
     ).toBe(5);
     expect(
@@ -93,7 +86,7 @@ describe("Travel book progression", () => {
         missions,
         missions.map(m => ({ missionId: m.id, status: "completed" }))
       )
-    ).toMatchObject({ frontier: 6, count: 7 });
+    ).toMatchObject({ count: 7 });
   });
   it("ignores stale animation callbacks after navigation has settled", () => {
     const ready = { ...initial, phase: "ready" as const };
@@ -205,24 +198,22 @@ describe("Educational integration contract", () => {
     "revision_requested",
     "pending",
     "unknown",
-  ])("%s never earns a stamp or advances the frontier", status => {
+  ])("%s never earns a stamp and never restricts exploration", status => {
     const progress = chapterProgress(missions, [
       { missionId: missions[0].id, status },
     ]);
     expect(progress.count).toBe(0);
-    expect(progress.frontier).toBe(0);
     expect(progress.completed).toEqual(Array(7).fill(false));
     expect(
       bookReducer(initial, {
         type: "SELECT",
         index: 1,
-        frontier: progress.frontier,
       })
-    ).toBe(initial);
+    ).toMatchObject({ chapter: 1 });
   });
 
   it.each(["completed", "verified"])(
-    "%s unlocks exactly the next sequential chapter",
+    "%s updates achievements while every chapter remains accessible",
     status => {
       for (let count = 0; count <= 7; count++) {
         const progress = chapterProgress(
@@ -230,42 +221,33 @@ describe("Educational integration contract", () => {
           missions.slice(0, count).map(m => ({ missionId: m.id, status }))
         );
         expect(progress.count).toBe(count);
-        expect(progress.frontier).toBe(Math.min(count, 6));
         for (let index = 0; index < 7; index++) {
           const next = bookReducer(initial, {
             type: "SELECT",
             index,
-            frontier: progress.frontier,
-            completed: progress.completed[index],
           });
-          if (index <= progress.frontier) expect(next.chapter).toBe(index);
-          else expect(next).toBe(initial);
+          expect(next.chapter).toBe(index);
         }
       }
     }
   );
 
-  it("allows an already completed chapter to reopen without unlocking intervening gaps", () => {
+  it("allows completed and incomplete chapters to reopen in any order", () => {
     const progress = chapterProgress(missions, [
       { missionId: missions[5].id, status: "verified" },
     ]);
-    expect(progress.frontier).toBe(0);
     expect(
       bookReducer(initial, {
         type: "SELECT",
         index: 5,
-        frontier: progress.frontier,
-        completed: progress.completed[5],
       }).chapter
     ).toBe(5);
     expect(
       bookReducer(initial, {
         type: "SELECT",
         index: 4,
-        frontier: progress.frontier,
-        completed: progress.completed[4],
       })
-    ).toBe(initial);
+    ).toMatchObject({ chapter: 4 });
   });
 
   it("presentation events cannot create server-derived stamps", () => {
@@ -273,7 +255,7 @@ describe("Educational integration contract", () => {
     const before = chapterProgress(missions, states);
     let state = bookReducer({ ...initial, phase: "cover" }, { type: "OPEN" });
     state = bookReducer(state, { type: "ANIMATED" });
-    state = bookReducer(state, { type: "SELECT", index: 0, frontier: 0 });
+    state = bookReducer(state, { type: "SELECT", index: 0 });
     for (const event of ["ANIMATED", "REVEALED", "STAMP", "STAMPED"] as const) {
       state = bookReducer(state, { type: event });
       expect(chapterProgress(missions, states)).toEqual(before);
@@ -288,11 +270,9 @@ describe("Educational integration contract", () => {
     const states = missions.map(m => ({ missionId: m.id, status: "verified" }));
     expect(chapterProgress([], states)).toMatchObject({
       count: 0,
-      frontier: 0,
     });
     const progress = chapterProgress(missions.slice(1), states);
     expect(progress.completed[0]).toBe(false);
-    expect(progress.frontier).toBe(0);
     expect(
       chapterProgress(missions, [{ missionId: 99999, status: "completed" }])
         .count
@@ -341,10 +321,8 @@ describe("Profile-specific book restoration", () => {
       bookReducer(initial, {
         type: "SELECT",
         index: saved.chapter,
-        frontier: progress.frontier,
-        completed: progress.completed[saved.chapter],
       })
-    ).toBe(initial);
+    ).toMatchObject({ chapter: 6 });
   });
 
   it("clamps saved out-of-range chapters and discards invalid stamp entries", () => {

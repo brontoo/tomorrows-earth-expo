@@ -2,33 +2,22 @@ import { describe, expect, it, vi } from "vitest";
 import { createHash, webcrypto } from "node:crypto";
 import {
   GESTURE_MODELS,
-  modelABEnabled,
   selectGestureModel,
   verifyModelBytes,
   loadGestureModel,
 } from "../client/src/components/book/gestures/GestureModels";
 
-describe("controlled A/B model selection and byte integrity", () => {
-  it("requires development and all explicit preview flags", () => {
-    const preview = {
-      DEV: true,
-      VITE_BOOK_MODEL_AB: "true",
-      VITE_BOOK_ENGINE: "frames",
-      VITE_BOOK_GESTURES: "true",
-    };
-    expect(modelABEnabled(preview, true)).toBe(true);
-    expect(modelABEnabled(preview, false)).toBe(false); // Built output even if NODE_ENV=development.
-    for (const field of Object.keys(preview))
-      expect(modelABEnabled({ ...preview, [field]: undefined }, true)).toBe(
-        false
+describe("Owner-approved Model B and byte integrity", () => {
+  it("keeps the owner-approved B model in every environment", () => {
+    expect(selectGestureModel("current")).toBe(GESTURE_MODELS.current);
+    for (const obsoleteABFlag of [false, true])
+      expect(() => selectGestureModel("prototype", obsoleteABFlag)).toThrow(
+        "Model B"
       );
-    expect(modelABEnabled({ ...preview, DEV: false }, true)).toBe(false);
   });
   it("keeps current production selection and rejects original or unknown choices outside preview", () => {
     expect(selectGestureModel("current", false)).toBe(GESTURE_MODELS.current);
-    expect(selectGestureModel("prototype", true)).toBe(
-      GESTURE_MODELS.prototype
-    );
+    expect(() => selectGestureModel("prototype", true)).toThrow("Model B");
     for (const key of [
       "prototype",
       "unknown",
