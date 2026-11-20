@@ -68,6 +68,7 @@ export class FrameScheduler {
   private listeners = new Set<() => void>();
   private focus = -1;
   private desired = new Set<number>();
+  private predicted = new Set<number>();
   private presentedFrame: number | null = null;
   presented(frame: number) {
     this.presentedFrame = frame;
@@ -177,10 +178,7 @@ export class FrameScheduler {
         const count = (this.pins.get(frame) ?? 1) - 1;
         if (count) this.pins.set(frame, count);
         else this.pins.delete(frame);
-        if (this.disposed && !count) {
-          this.decoded.get(frame)?.close();
-          this.decoded.delete(frame);
-        }
+        if (this.disposed && !count) this.dropDecoded(frame);
         this.trim();
       },
     };
@@ -192,19 +190,23 @@ export class FrameScheduler {
   ): number | undefined {
     if (this.decoded.has(requested)) return requested;
     if (displayed === null) return this.decoded.has(0) ? 0 : undefined;
-    return Array.from(this.decoded.keys())
-      .filter(i =>
+    let nearest = displayed;
+    this.decoded.forEach((_image, frame) => {
+      if (
         requested > displayed
-          ? i > displayed && i < requested
-          : i < displayed && i > requested
+          ? frame > nearest && frame < requested
+          : frame < nearest && frame > requested
       )
-      .sort((a, b) => Math.abs(a - requested) - Math.abs(b - requested))[0];
+        nearest = frame;
+    });
+    return nearest === displayed ? undefined : nearest;
   }
   /** Completion is non-owning. Renderers must acquireCached() to pin a bitmap before use. */
   request(
     frame: number,
     ranges: readonly FrameRange[],
-    direction: 1 | -1
+    direction: 1 | -1,
+    prefetchStep = 1
   ): Promise<ImageBitmap> {
     if (this.disposed)
       return Promise.reject(new Error("Frame scheduler disposed"));
@@ -217,8 +219,26 @@ export class FrameScheduler {
       return Promise.reject(new Error("Frame is outside permitted ranges"));
     this.focus = frame;
     const window = [frame];
-    for (let n = 1; n <= this.policy.prefetchAhead; n++)
-      if (allowed(frame + n * direction)) window.push(frame + n * direction);
+    const predicted = new Set<number>();
+    if (prefetchStep > 1) {
+      for (let n = 1; n <= Math.min(2, this.policy.prefetchAhead); n++) {
+        const next = frame + n * prefetchStep * direction;
+        if (allowed(next)) {
+          predicted.add(next);
+          window.push(next);
+        }
+      }
+    }
+    this.predicted = predicted;
+    for (
+      let n = 1;
+      n <= this.policy.prefetchAhead &&
+      window.length <= this.policy.prefetchAhead;
+      n++
+    ) {
+      const next = frame + n * direction;
+      if (allowed(next) && !predicted.has(next)) window.push(next);
+    }
     for (let n = 1; n <= this.policy.prefetchBehind; n++)
       if (allowed(frame - n * direction)) window.push(frame - n * direction);
     const desired = new Set(window);
@@ -272,24 +292,31 @@ export class FrameScheduler {
     map.delete(frame);
     map.set(frame, value);
   }
+  private dropDecoded(frame: number) {
+    const image = this.decoded.get(frame);
+    if (!image) return;
+    this.decoded.delete(frame);
+    image.close();
+  }
   private trim() {
     // Retain nearby forward/reverse frames rather than letting distant prefetch evict the warm buffer.
-    const candidates = Array.from(this.decoded.keys()).sort(
-      (a, b) => Math.abs(b - this.focus) - Math.abs(a - this.focus)
-    );
-    for (const frame of candidates) {
-      if (
-        this.decoded.size * FRAME_BYTES <= this.policy.maxDecodedBytes &&
-        !this.disposed
-      )
-        break;
-      if (frame !== this.focus && !this.pins.has(frame)) {
-        this.decoded.get(frame)!.close();
-        this.decoded.delete(frame);
+    if (this.decoded.size * FRAME_BYTES > this.policy.maxDecodedBytes) {
+      const candidates = Array.from(this.decoded.keys()).sort(
+        (a, b) =>
+          Number(this.predicted.has(a)) - Number(this.predicted.has(b)) ||
+          Math.abs(b - this.focus) - Math.abs(a - this.focus)
+      );
+      for (const frame of candidates) {
+        if (this.decoded.size * FRAME_BYTES <= this.policy.maxDecodedBytes)
+          break;
+        if (frame !== this.focus && !this.pins.has(frame))
+          this.dropDecoded(frame);
       }
     }
-    for (const [frame, bytes] of Array.from(this.encoded)) {
-      if (this.encodedBytes <= this.policy.maxEncodedBytes) break;
+    while (this.encodedBytes > this.policy.maxEncodedBytes) {
+      const oldest = this.encoded.entries().next();
+      if (oldest.done) break;
+      const [frame, bytes] = oldest.value;
       this.encoded.delete(frame);
       this.encodedBytes -= bytes.byteLength;
     }
@@ -437,11 +464,9 @@ export class FrameScheduler {
       task.reject(new Error("Frame scheduler disposed"));
     this.decodeQueue.clear();
     this.listeners.clear();
-    for (const [frame, image] of Array.from(this.decoded))
-      if (!this.pins.has(frame)) {
-        image.close();
-        this.decoded.delete(frame);
-      }
+    this.decoded.forEach((_image, frame) => {
+      if (!this.pins.has(frame)) this.dropDecoded(frame);
+    });
     this.encoded.clear();
     this.encodedBytes = 0;
   }

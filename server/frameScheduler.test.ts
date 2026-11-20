@@ -97,6 +97,26 @@ describe("Network frame scheduling", () => {
     expect(scheduler.stats.cacheHits).toBe(2);
     scheduler.dispose();
   });
+  it("warms frames along a sustained scrub without exceeding the prefetch window", async () => {
+    const transport = vi.fn(async (_frame: number) => new ArrayBuffer(8));
+    const scheduler = new FrameScheduler(
+      manifest,
+      "https://example.test/",
+      { ...desktopPolicy, prefetchAhead: 3, prefetchBehind: 1 },
+      transport,
+      async () => image()
+    );
+    try {
+      await scheduler.request(100, ranges, 1, 6);
+      await idle(scheduler);
+      expect(transport.mock.calls.map(([frame]) => frame)).toEqual([
+        100, 106, 112, 101, 99,
+      ]);
+      expect(scheduler.closestReady(100, 106)).toBe(106);
+    } finally {
+      scheduler.dispose();
+    }
+  });
   it("enforces mobile decoded/encoded budgets and releases evicted images", async () => {
     const decoded: ImageBitmap[] = [];
     const scheduler = new FrameScheduler(
@@ -138,7 +158,7 @@ describe("Network frame scheduling", () => {
       },
       async () => image()
     );
-    await scheduler.request(238, [ranges[0]], 1);
+    await scheduler.request(238, [ranges[0]], 1, 6);
     await idle(scheduler);
     expect(starts.every(frame => frame < 239)).toBe(true);
     await expect(scheduler.request(239, [ranges[0]], 1)).rejects.toThrow(

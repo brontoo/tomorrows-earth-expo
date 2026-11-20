@@ -12,6 +12,7 @@ export class FrameTimeline {
   private dirty = true;
   private revision = 0;
   private previousRequest: number;
+  private prefetchStep = 1;
   private requestedAt = performance.now();
   private disposed = false;
   private unsubscribe: () => void;
@@ -36,9 +37,20 @@ export class FrameTimeline {
       Math.min(this.scheduler.manifest.frameCount - 1, frame)
     );
     if (next === this.state.requested) return;
+    const now = performance.now();
+    const delta = next - this.state.requested;
+    const distance = Math.abs(delta);
+    // Predict only sustained local movement. A jump or reversal starts a fresh window.
+    this.prefetchStep =
+      now - this.requestedAt <= 160 &&
+      distance <= 24 &&
+      Math.sign(delta) ===
+        Math.sign(this.state.requested - this.previousRequest)
+        ? distance
+        : 1;
     this.previousRequest = this.state.requested;
     this.state.requested = next;
-    this.requestedAt = performance.now();
+    this.requestedAt = now;
     this.revision++;
     this.dirty = true;
     this.state.error = null;
@@ -73,7 +85,8 @@ export class FrameTimeline {
               endExclusive: this.scheduler.manifest.frameCount,
             },
           ],
-          requested >= this.previousRequest ? 1 : -1
+          requested >= this.previousRequest ? 1 : -1,
+          this.prefetchStep
         )
         .catch(error => {
           if (!this.disposed && revision === this.revision) {
