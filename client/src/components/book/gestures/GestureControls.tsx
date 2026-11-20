@@ -1,3 +1,4 @@
+import type { PresentationScene } from "../frames/presentation";
 import { bookDiagnostics } from "../frames/FrameDiagnostics";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import {
@@ -39,12 +40,19 @@ const CONNECTIONS = [
   [0, 17],
 ];
 const IDLE: GestureView = { mode: "idle", pointer: null, selected: false };
+const sceneInstructions: Record<PresentationScene, string> = {
+  entrance:
+    "Close both fists and pull backward to enter, or move one fist sideways.",
+  panorama: "Move one fist sideways to look around.",
+  discovery:
+    "Pull with both fists or move one fist sideways to approach the book.",
+  book: "Move one fist sideways to turn the pages.",
+};
 const instructions = {
-  idle: "Show a fist to turn pages, or point to select",
-  candidate: "Hold your fist briefly to grab the pages",
-  fist: "Closed fist · move LEFT to advance, RIGHT to rewind",
-  pointer: "Point · move the cursor; pinch to select",
-  pinch: "Pinch · selection held; release before selecting again",
+  "dual-fist-candidate": "Hold both fists steady to start.",
+  "dual-fist-pull": "Two fists active · pull backward or push forward.",
+  pointer: "Point to move the cursor. Pinch to select.",
+  pinch: "Release the pinch before selecting again.",
 };
 
 export function GesturePointer({ view }: { view: GestureView }) {
@@ -60,35 +68,37 @@ export function GesturePointer({ view }: { view: GestureView }) {
 }
 function drawSkeleton(
   canvas: HTMLCanvasElement | null,
-  hand: readonly Landmark[] | undefined,
+  hands: readonly (readonly Landmark[])[] | undefined,
   video: HTMLVideoElement | null
 ) {
   const ctx = canvas?.getContext("2d");
   if (!ctx || !canvas) return;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!hand || hand.length !== 21) return;
-  const points = hand.map(point =>
-    previewPoint(
-      point,
-      canvas.width,
-      canvas.height,
-      video?.videoWidth || canvas.width,
-      video?.videoHeight || canvas.height
-    )
-  );
-  ctx.strokeStyle = "#ffffff";
-  ctx.fillStyle = "#35c5ff";
-  ctx.lineWidth = 2;
-  for (const [a, b] of CONNECTIONS) {
-    ctx.beginPath();
-    ctx.moveTo(points[a].x, points[a].y);
-    ctx.lineTo(points[b].x, points[b].y);
-    ctx.stroke();
-  }
-  for (const p of points) {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
-    ctx.fill();
+  for (const hand of hands ?? []) {
+    if (hand.length !== 21) continue;
+    const points = hand.map(point =>
+      previewPoint(
+        point,
+        canvas.width,
+        canvas.height,
+        video?.videoWidth || canvas.width,
+        video?.videoHeight || canvas.height
+      )
+    );
+    ctx.strokeStyle = "#ffffff";
+    ctx.fillStyle = "#35c5ff";
+    ctx.lineWidth = 2;
+    for (const [a, b] of CONNECTIONS) {
+      ctx.beginPath();
+      ctx.moveTo(points[a].x, points[a].y);
+      ctx.lineTo(points[b].x, points[b].y);
+      ctx.stroke();
+    }
+    for (const p of points) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    }
   }
 }
 
@@ -96,13 +106,17 @@ function drawSkeleton(
 export default function GestureControls({
   scope,
   input,
+  scene = "book",
 }: {
   scope: RefObject<HTMLElement | null>;
   input: RefObject<BookFrameInput | null>;
+  scene?: PresentationScene;
 }) {
   const video = useRef<HTMLVideoElement>(null),
     skeleton = useRef<HTMLCanvasElement>(null);
   const runtime = useRef<HandTrackingRuntime | null>(null);
+  const controller = useRef(new BookGestureController());
+  const [reverseDepth, setReverseDepth] = useState(false);
   const modelId = "current";
   const model = GESTURE_MODELS.current;
   const [camera, setCamera] = useState<CameraStatus>("off");
@@ -122,7 +136,7 @@ export default function GestureControls({
     let mounted = true,
       manualUntil = -Infinity,
       physicalHeld = false;
-    const controller = new BookGestureController();
+    const gestures = controller.current;
     const clearHover = () => {
       hover.current?.removeAttribute("data-gesture-hover");
       hover.current = null;
@@ -135,7 +149,7 @@ export default function GestureControls({
           top = Math.max(0, rect.top);
         const width = Math.max(0, Math.min(innerWidth, rect.right) - left);
         const height = Math.max(0, Math.min(innerHeight, rect.bottom) - top);
-        const next = controller.process(
+        const next = gestures.process(
           result,
           now,
           input.current,
@@ -160,7 +174,7 @@ export default function GestureControls({
         const skeletonStarted = performance.now();
         drawSkeleton(
           skeleton.current,
-          skeletonEnabled.current ? result.landmarks?.[0] : undefined,
+          skeletonEnabled.current ? result.landmarks : undefined,
           video.current
         );
         bookDiagnostics()?.record("skeleton", {
@@ -187,7 +201,7 @@ export default function GestureControls({
     runtime.current = instance;
     const manual = () => {
       manualUntil = performance.now() + 650;
-      controller.reset();
+      gestures.reset();
       clearHover();
       setView(IDLE);
     };
@@ -222,7 +236,7 @@ export default function GestureControls({
       mounted = false;
       instance.stop();
       runtime.current = null;
-      controller.reset();
+      gestures.reset();
       clearHover();
       root.removeEventListener("pointerdown", down, true);
       root.removeEventListener("pointermove", manual, true);
@@ -238,6 +252,7 @@ export default function GestureControls({
     <aside
       className="book-gesture-controls"
       data-camera-status={camera}
+      data-gesture-mode={view.mode}
       data-book-model={modelId}
       data-model-sha256={model.sha256}
       aria-label="Optional hand controls"
@@ -254,17 +269,12 @@ export default function GestureControls({
           {active || pending ? "Disable Camera" : "Enable Hand Controls"}
         </button>
         <span role="status" aria-live="polite">
-          {camera === "active" ? instructions[view.mode] : message}
+          {active
+            ? view.mode === "idle" || view.mode === "single-fist"
+              ? sceneInstructions[scene]
+              : instructions[view.mode]
+            : message}
         </span>
-        <details>
-          <summary>Hand control guide</summary>
-          <p>
-            Fist: move left to advance, right to rewind. Point: move the blue
-            cursor. Pinch and release: select available book controls. Locked
-            chapters stay locked. Move your mouse or use the keyboard to take
-            over.
-          </p>
-        </details>
       </div>
       <p className="book-gesture-privacy">
         Optional camera · processed locally · never transmitted, recorded or
@@ -294,6 +304,20 @@ export default function GestureControls({
           />{" "}
           Show hand landmarks
         </label>
+        {(scene === "entrance" || scene === "discovery") && (
+          <label>
+            <input
+              type="checkbox"
+              checked={reverseDepth}
+              onChange={event => {
+                const reverse = event.target.checked;
+                setReverseDepth(reverse);
+                controller.current.setDepthDirection(reverse ? -1 : 1);
+              }}
+            />{" "}
+            Reverse pull direction
+          </label>
+        )}
       </div>
       <GesturePointer view={view} />
     </aside>

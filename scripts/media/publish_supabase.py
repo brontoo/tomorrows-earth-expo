@@ -47,11 +47,24 @@ def build_plan(root, bucket=BUCKET):
     version = manifest["mediaVersion"]
     if not re.fullmatch(r"[A-Za-z0-9_-][A-Za-z0-9._-]*", version): raise ValueError("Unsafe media version")
     if not re.fullmatch(r"seven-emirates-[a-z0-9-]+", bucket): raise ValueError("Use a dedicated seven-emirates-* bucket, never student upload storage")
-    if manifest["frameCount"] != 1673 or len(manifest["frames"]) != 1673: raise ValueError("Unexpected sequence count")
+    library = manifest.get("kind") == "school-library-introduction"
+    if library and (bucket != BUCKET or not re.fullmatch(r"library-[a-f0-9]{16}", version)):
+        raise ValueError("Use a new immutable library version in the existing public game bucket")
+    count = manifest["frameCount"]
+    if (not isinstance(count, int) or len(manifest["frames"]) != count or
+        (not 3 <= count <= 1376 if library else count != 1673)):
+        raise ValueError("Unexpected sequence count")
+    if library:
+        unsigned = dict(manifest)
+        del unsigned["mediaVersion"]
+        expected_version = "library-" + sha((json.dumps(unsigned, indent=2, ensure_ascii=False) + "\n").encode())[:16]
+        if version != expected_version:
+            raise ValueError("Library version does not match manifest content")
     objects = []
     seen = set()
     for index, frame in enumerate(manifest["frames"]):
         key = frame["url"]
+        if library and key != f"frames/f_{index:04d}.webp": raise ValueError("Invalid library frame path")
         local = (root / key).resolve()
         if frame["index"] != index or frame["width"] != 1920 or frame["height"] != 1080 or not local.is_relative_to(root) or key in seen: raise ValueError("Invalid frame mapping")
         seen.add(key)
@@ -157,6 +170,8 @@ if __name__ == "__main__":
     parser.add_argument("--report",type=Path,help="Credential-free successful publication summary")
     args=parser.parse_args()
     plan=build_plan(args.root,args.bucket)
+    if plan["mediaVersion"].startswith("library-") and (args.create_bucket or args.project.rstrip("/") != PROJECT):
+        parser.error("Library media uses the existing approved project and bucket")
     print(json.dumps({k:v for k,v in plan.items() if k!="objects"},indent=2))
     if args.apply:
         token=os.environ.get("SUPABASE_SECRET_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")

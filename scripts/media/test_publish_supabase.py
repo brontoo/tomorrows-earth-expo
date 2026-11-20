@@ -45,6 +45,30 @@ class DeliveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'manifest.json').write_text(json.dumps(dict(mediaVersion='v1')))
             with self.assertRaises(ValueError):build_plan(root,'project-files')
+    def test_library_plan_is_content_addressed_and_manifest_is_last(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "frames").mkdir()
+            frames = []
+            for index in range(3):
+                key = f"frames/f_{index:04d}.webp"
+                (root / key).write_bytes(self.body)
+                frames.append(dict(index=index, url=key, width=1920, height=1080,
+                                   byteLength=len(self.body), sha256=self.obj["sha256"]))
+            manifest = dict(kind="school-library-introduction", frameCount=3, frames=frames)
+            canonical = (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode()
+            version = "library-" + hashlib.sha256(canonical).hexdigest()[:16]
+            path = root / "manifest.json"
+            path.write_text(json.dumps(dict(manifest, mediaVersion=version)))
+            plan = build_plan(root)
+            self.assertEqual(plan["objects"][-1]["key"], version + "/manifest.json")
+            self.assertEqual(plan["objectCount"], 4)
+            with self.assertRaises(ValueError):
+                build_plan(root, "seven-emirates-other")
+            path.write_text(json.dumps(dict(manifest, mediaVersion="library-0000000000000000")))
+            with self.assertRaises(ValueError):
+                build_plan(root)
+
     def test_failed_frame_never_publishes_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             plan=dict(mediaVersion='v1',manifestSha256='abc',objects=[dict(self.obj,key='a'),dict(self.obj,key='b'),dict(self.obj,key='manifest.json')])

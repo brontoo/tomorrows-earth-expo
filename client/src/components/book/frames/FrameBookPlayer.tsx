@@ -3,44 +3,67 @@ import type { EmirateChapterId, FrameManifest } from "./contracts";
 import { FrameScheduler, adaptivePolicy } from "./FrameScheduler";
 import { FrameTimeline, type TimelineState } from "./FrameTimeline";
 import { bookDiagnostics } from "./FrameDiagnostics";
+import {
+  framePresentation,
+  type LibraryMedia,
+  type PresentationScene,
+} from "./presentation";
 import type { BookFrameInput } from "../gestures/BookGestureController";
 import "./frames.css";
 interface Props {
   gestureInput?: RefObject<BookFrameInput | null>;
   manifest: FrameManifest;
   baseUrl: string;
+  intro?: LibraryMedia;
   chapter: number;
   reduced: boolean;
   interactive: boolean;
   initialFrame?: number;
   firstFrameUrl?: string;
   initialFrameBytes?: ArrayBuffer;
+  seedFrame?: number;
   /** Explicit user navigation is separate from the chapter inferred from a displayed frame. */
   navigation?: { serial: number; frame: number };
   followChapterProp?: boolean;
   onChapter: (id: EmirateChapterId) => void;
-  onFrameDisplayed?: (frame: number) => void;
+  onFrameDisplayed?: (frame: number, scene: PresentationScene) => void;
   onReady: () => void;
   onFallback: () => void;
 }
 export default function FrameBookPlayer(props: Props) {
-  const { manifest, baseUrl, chapter, reduced, gestureInput, firstFrameUrl } =
-    props;
+  const {
+    manifest,
+    baseUrl,
+    intro,
+    chapter,
+    reduced,
+    gestureInput,
+    firstFrameUrl,
+  } = props;
   const root = useRef<HTMLDivElement>(null),
     canvas = useRef<HTMLCanvasElement>(null),
     slider = useRef<HTMLInputElement>(null);
   const timeline = useRef<FrameTimeline | null>(null);
+  const bookStart = intro?.manifest.frameCount ?? 0;
+  const frameCount = bookStart + manifest.frameCount;
   const live = useRef(props);
   live.current = props;
   const initial = useRef(
-    props.initialFrame ?? manifest.chapters[chapter].restingFrame
+    props.initialFrame ??
+      (intro?.manifest.frameCount ?? 0) +
+        manifest.chapters[chapter].restingFrame
   );
   const [view, setView] = useState<TimelineState>({
     requested: initial.current,
     displayed: null,
     error: null,
   });
-  const drag = useRef<{ id: number; x: number; frame: number } | null>(null);
+  const drag = useRef<{
+    id: number;
+    x: number;
+    frame: number;
+    scale: number;
+  } | null>(null);
   const lastUI = useRef(-Infinity);
   const lastView = useRef(view);
   useEffect(() => {
@@ -53,17 +76,22 @@ export default function FrameBookPlayer(props: Props) {
       matchMedia("(max-width:767px)").matches ||
       /Android|iPhone|iPad/i.test(nav.userAgent) ||
       (/Macintosh/i.test(nav.userAgent) && nav.maxTouchPoints > 1);
+    const presentation = framePresentation(manifest, baseUrl, intro);
     const scheduler = new FrameScheduler(
-      manifest,
+      presentation,
       baseUrl,
       adaptivePolicy({
         mobile,
         deviceMemory: nav.deviceMemory,
         saveData: nav.connection?.saveData,
-      })
+      }),
+      presentation.load
     );
     if (live.current.initialFrameBytes)
-      scheduler.seedEncoded(0, live.current.initialFrameBytes);
+      scheduler.seedEncoded(
+        live.current.seedFrame ?? 0,
+        live.current.initialFrameBytes
+      );
     let lastChapter = -1,
       first = true;
     const context = canvas.current?.getContext("2d", { alpha: false });
@@ -75,13 +103,15 @@ export default function FrameBookPlayer(props: Props) {
         // Never change canvas width/height, clear it or hide a successful image while loading.
         canvas.current!.style.visibility = "visible";
         root.current?.setAttribute("data-frame-displayed", String(frame));
+        const local = frame - presentation.bookStart;
         const active = manifest.chapters.findIndex(
-          c => frame >= c.startInclusive && frame < c.endExclusive
+          c => local >= c.startInclusive && local < c.endExclusive
         );
-        live.current.onFrameDisplayed?.(frame);
+        live.current.onFrameDisplayed?.(frame, presentation.sceneAt(frame));
         if (active !== lastChapter) {
           lastChapter = active;
-          live.current.onChapter(manifest.chapters[active].chapterId);
+          if (active >= 0)
+            live.current.onChapter(manifest.chapters[active].chapterId);
         }
         if (first || live.current.followChapterProp !== false) {
           first = false;
@@ -120,7 +150,12 @@ export default function FrameBookPlayer(props: Props) {
     }
     if (gestureInput)
       gestureInput.current = {
-        frameCount: manifest.frameCount,
+        frameCount: presentation.frameCount,
+        depthRange: () => presentation.dualRangeAt(player.state.requested),
+        frameRateScale: () =>
+          player.state.requested < presentation.bookStart
+            ? (presentation.introFps ?? 24) / 24
+            : 1,
         getFrame: () => player.state.requested,
         isAvailable: () => live.current.interactive && drag.current === null,
         seekTo: frame => {
@@ -132,11 +167,13 @@ export default function FrameBookPlayer(props: Props) {
       if (gestureInput) gestureInput.current = null;
       player.dispose();
     };
-  }, [manifest, baseUrl, gestureInput]);
+  }, [manifest, baseUrl, intro, gestureInput]);
   useEffect(() => {
     if (props.followChapterProp !== false)
-      timeline.current?.seek(manifest.chapters[chapter].restingFrame);
-  }, [chapter, manifest, props.followChapterProp]);
+      timeline.current?.seek(
+        bookStart + manifest.chapters[chapter].restingFrame
+      );
+  }, [bookStart, chapter, manifest, props.followChapterProp]);
   useEffect(() => {
     if (props.navigation) timeline.current?.seek(props.navigation.frame);
   }, [props.navigation]);
@@ -144,6 +181,8 @@ export default function FrameBookPlayer(props: Props) {
     if (live.current.interactive) timeline.current?.seek(frame);
   };
   const position = () => timeline.current?.state.requested ?? initial.current;
+  const frameScale = (frame: number) =>
+    frame < bookStart ? (intro?.manifest.fps ?? 24) / 24 : 1;
   const finish = (el: HTMLCanvasElement, id: number) => {
     drag.current = null;
     if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
@@ -160,7 +199,11 @@ export default function FrameBookPlayer(props: Props) {
           <img
             className="frame-book-placeholder"
             src={firstFrameUrl}
-            alt="Original Seven Emirates closed book"
+            alt={
+              initial.current < bookStart
+                ? "Umm Al Emarat School Library entrance"
+                : "The Seven Emirates book"
+            }
             aria-hidden={view.displayed !== null}
           />
         )}
@@ -171,13 +214,15 @@ export default function FrameBookPlayer(props: Props) {
           style={{ visibility: view.displayed === null ? "hidden" : "visible" }}
           tabIndex={0}
           role="group"
-          aria-label={`Full HD book, ${manifest.chapters[chapter].chapterId}. Drag left to advance, right to reverse. Arrow keys step frames.`}
+          aria-label={`${view.requested < bookStart ? "Umm Al Emarat School Library" : "Seven Emirates book"}. Drag left to advance, right to reverse. Arrow keys step frames.`}
           onKeyDown={e => {
             let n: number | undefined;
-            if (e.key === "ArrowRight") n = position() + (e.shiftKey ? 24 : 1);
-            if (e.key === "ArrowLeft") n = position() - (e.shiftKey ? 24 : 1);
+            const current = position();
+            const step = e.shiftKey ? Math.round(24 * frameScale(current)) : 1;
+            if (e.key === "ArrowRight") n = current + step;
+            if (e.key === "ArrowLeft") n = current - step;
             if (e.key === "Home") n = 0;
-            if (e.key === "End") n = manifest.frameCount - 1;
+            if (e.key === "End") n = frameCount - 1;
             if (n !== undefined) {
               e.preventDefault();
               seek(n);
@@ -185,7 +230,13 @@ export default function FrameBookPlayer(props: Props) {
           }}
           onPointerDown={e => {
             if (!props.interactive || e.button !== 0 || !e.isPrimary) return;
-            drag.current = { id: e.pointerId, x: e.clientX, frame: position() };
+            const frame = position();
+            drag.current = {
+              id: e.pointerId,
+              x: e.clientX,
+              frame,
+              scale: frameScale(frame),
+            };
             e.currentTarget.setPointerCapture(e.pointerId);
             e.currentTarget.focus();
           }}
@@ -197,7 +248,8 @@ export default function FrameBookPlayer(props: Props) {
                 Math.round(
                   ((held.x - e.clientX) /
                     Math.max(350, e.currentTarget.clientWidth)) *
-                    239
+                    239 *
+                    held.scale
                 )
             );
           }}
@@ -218,12 +270,12 @@ export default function FrameBookPlayer(props: Props) {
           Previous frame
         </button>
         <label>
-          Book frame
+          {intro ? "Journey frame" : "Book frame"}
           <input
             ref={slider}
             type="range"
             min={0}
-            max={manifest.frameCount - 1}
+            max={frameCount - 1}
             step={1}
             defaultValue={initial.current}
             disabled={!props.interactive}
@@ -234,16 +286,14 @@ export default function FrameBookPlayer(props: Props) {
           type="button"
           data-book-gesture="frame-step"
           onClick={() => seek(position() + 1)}
-          disabled={
-            !props.interactive || view.requested === manifest.frameCount - 1
-          }
+          disabled={!props.interactive || view.requested === frameCount - 1}
         >
           Next frame
         </button>
         <output aria-live="off">
           {view.displayed === null
-            ? "Loading original book"
-            : `Frame ${view.displayed} / ${manifest.frameCount - 1}`}
+            ? "Loading journey frame"
+            : `Frame ${view.displayed} / ${frameCount - 1}`}
         </output>
         {reduced && (
           <span>Reduced motion: frames move only with your input.</span>

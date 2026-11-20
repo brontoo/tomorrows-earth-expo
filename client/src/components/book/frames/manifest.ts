@@ -132,11 +132,12 @@ export async function loadFrameImage(
 }
 
 export async function loadFrameBytes(
-  manifest: FrameManifest,
+  manifest: Pick<FrameManifest, "frames">,
   frame: number,
   baseUrl: string,
   signal: AbortSignal,
-  priority: "high" | "low" = "high"
+  priority: "high" | "low" = "high",
+  diagnosticFrame = frame
 ): Promise<ArrayBuffer> {
   const record = manifest.frames[frame];
   if (!record) throw new Error("Unknown frame index");
@@ -147,7 +148,7 @@ export async function loadFrameBytes(
     priority,
   });
   bookDiagnostics()?.record("http", {
-    frame,
+    frame: diagnosticFrame,
     status: response.status,
     cacheControl: response.headers.get("cache-control"),
     age: response.headers.get("age"),
@@ -174,7 +175,7 @@ export async function loadFrameBytes(
         }
       : null;
   bookDiagnostics()?.record("transfer", {
-    frame,
+    frame: diagnosticFrame,
     duration: transferredAt - started,
     headersMs: headersAt - started,
     bodyMs: transferredAt - headersAt,
@@ -194,7 +195,7 @@ export async function loadFrameBytes(
     b => b.toString(16).padStart(2, "0")
   ).join("");
   bookDiagnostics()?.record("sha256", {
-    frame,
+    frame: diagnosticFrame,
     duration: performance.now() - transferredAt,
   });
   if (digest !== record.sha256) throw new Error("Frame checksum mismatch");

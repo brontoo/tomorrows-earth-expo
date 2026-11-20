@@ -99,9 +99,11 @@ export const OPTIONS = Object.freeze({
   pointerGraceMs: 430,
   lostHandMs: 480,
 });
+type GestureCategory = { categoryName: string; score: number };
 export interface HandSample {
   landmarks?: readonly Landmark[][];
-  gestures?: readonly (readonly { categoryName: string; score: number }[])[];
+  gestures?: readonly (readonly GestureCategory[])[];
+  handedness?: readonly (readonly GestureCategory[])[];
 }
 export function gesturePreviewEnabled(
   engine: string | undefined,

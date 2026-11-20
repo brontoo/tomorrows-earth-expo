@@ -11,7 +11,11 @@ import {
   stopBookDiagnostics,
 } from "./frames/FrameDiagnostics";
 import GestureControls from "./gestures/GestureControls";
-import { frameBookMediaConfig } from "./frames/frameBookMediaConfig";
+import {
+  frameBookMediaConfig,
+  ORIGINAL_BOOK_MEDIA,
+} from "./frames/frameBookMediaConfig";
+import { LIBRARY_ZONES, type PresentationScene } from "./frames/presentation";
 import type { BookFrameInput } from "./gestures/BookGestureController";
 import "./book.css";
 import "./frames/frames.css";
@@ -28,19 +32,38 @@ export default function FrameTravelBook() {
     VITE_BOOK_ASSET_BASE_URL: import.meta.env.VITE_BOOK_ASSET_BASE_URL,
     VITE_BOOK_MEDIA_VERSION: import.meta.env.VITE_BOOK_MEDIA_VERSION,
   });
+  const scope = useRef<HTMLElement>(null),
+    input = useRef<BookFrameInput | null>(null);
+  const [initialChapter] = useState(() =>
+    chapters.findIndex(
+      c => c.id === new URLSearchParams(location.search).get("chapter")
+    )
+  );
+  const introVersion = import.meta.env.VITE_LIBRARY_MEDIA_VERSION?.trim();
+  const introSha = import.meta.env.VITE_LIBRARY_MANIFEST_SHA256?.trim();
+  const introEnabled = Boolean(introVersion && introSha);
   const media = useFrameManifest(
     true,
     mediaConfig.baseUrl,
     mediaConfig.version,
-    attempt
+    attempt,
+    initialChapter,
+    introEnabled
+      ? {
+          baseUrl:
+            import.meta.env.VITE_LIBRARY_ASSET_BASE_URL?.trim() ||
+            ORIGINAL_BOOK_MEDIA.baseUrl,
+          version: introVersion,
+          sha256: introSha,
+        }
+      : undefined
   );
-  const scope = useRef<HTMLElement>(null),
-    input = useRef<BookFrameInput | null>(null);
-  const requested = chapters.findIndex(
-    c => c.id === new URLSearchParams(location.search).get("chapter")
+  const bookStart = media.intro?.manifest.frameCount ?? 0;
+  const [scene, setScene] = useState<PresentationScene>(
+    introEnabled && initialChapter < 0 ? LIBRARY_ZONES[0] : "book"
   );
-  const initialChapter = useRef(requested);
-  const [chapter, setChapter] = useState(Math.max(0, requested));
+  const sceneRef = useRef(scene);
+  const [chapter, setChapter] = useState(Math.max(0, initialChapter));
   const [painted, setPainted] = useState(false);
   const [atCover, setAtCover] = useState(true);
   const coverRef = useRef(true);
@@ -64,17 +87,20 @@ export default function FrameTravelBook() {
     s => s.missionId === mission?.id
   )?.status;
   useEffect(() => {
-    if (painted)
+    if (painted && scene === "book")
       saveBook(
         education.profile,
         chapter,
         readBook(education.profile).seenStamps
       );
-  }, [education.profile, chapter, painted]);
+  }, [education.profile, chapter, painted, scene]);
   const jump = (index: number) => {
     const frame = media.manifest?.chapters[index]?.restingFrame;
     if (frame !== undefined)
-      setNavigation(old => ({ serial: (old?.serial ?? 0) + 1, frame }));
+      setNavigation(old => ({
+        serial: (old?.serial ?? 0) + 1,
+        frame: bookStart + frame,
+      }));
   };
   return (
     <main
@@ -100,7 +126,7 @@ export default function FrameTravelBook() {
           <Link href="/innovation-hub">Projects</Link>
         </nav>
       </header>
-      <GestureControls scope={scope} input={input} />
+      <GestureControls scope={scope} input={input} scene={scene} />
       <div className="book-stage-wrap" id="book-content">
         <section
           className="book-stage"
@@ -113,11 +139,9 @@ export default function FrameTravelBook() {
               chapter={chapter}
               reduced={reduced}
               interactive
-              initialFrame={
-                initialChapter.current >= 0
-                  ? media.manifest.chapters[initialChapter.current].restingFrame
-                  : 0
-              }
+              intro={media.intro}
+              initialFrame={media.initialFrame}
+              seedFrame={media.initialFrame}
               firstFrameUrl={media.firstFrameUrl}
               initialFrameBytes={media.initialFrameBytes}
               navigation={navigation}
@@ -127,8 +151,12 @@ export default function FrameTravelBook() {
                 const index = chapters.findIndex(c => c.id === id);
                 if (index >= 0) setChapter(index);
               }}
-              onFrameDisplayed={frame => {
-                const next = frame === 0;
+              onFrameDisplayed={(frame, currentScene) => {
+                if (currentScene !== sceneRef.current) {
+                  sceneRef.current = currentScene;
+                  setScene(currentScene);
+                }
+                const next = frame <= bookStart;
                 if (next !== coverRef.current) {
                   coverRef.current = next;
                   setAtCover(next);
@@ -143,11 +171,11 @@ export default function FrameTravelBook() {
                 <>
                   <p>{media.error}</p>
                   <button type="button" onClick={() => setAttempt(n => n + 1)}>
-                    Retry original book
+                    Retry journey
                   </button>
                 </>
               ) : (
-                <p>Loading the original Full HD closed book…</p>
+                <p>Loading journey frames…</p>
               )}
             </div>
           )}
@@ -158,14 +186,18 @@ export default function FrameTravelBook() {
               key={c.id}
               type="button"
               data-book-gesture="chapter"
-              aria-current={painted && chapter === i ? "page" : undefined}
+              aria-current={
+                painted && scene === "book" && chapter === i
+                  ? "page"
+                  : undefined
+              }
               onClick={() => jump(i)}
             >
               {c.name}
             </button>
           ))}
         </nav>
-        {!atCover && (
+        {scene === "book" && !atCover && (
           <section
             className="book-chapter-note book-optional-mission"
             aria-label="Optional educational mission"

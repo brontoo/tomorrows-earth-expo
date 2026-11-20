@@ -1,0 +1,101 @@
+{
+  "proxyPixels": [
+    240,
+    135
+  ],
+  "metric": "mean absolute RGB difference on an 8-bit range",
+  "zones": {
+    "approachAndEntry": {
+      "source30": {
+        "kept": 458,
+        "adjacentRgbMaeP95": 7.889923868312756,
+        "adjacentRgbMaeMax": 9.253343621399177
+      },
+      "repeatAware24": {
+        "kept": 366,
+        "adjacentRgbMaeP95": 8.020909465020576,
+        "adjacentRgbMaeMax": 9.253343621399177,
+        "omittedPreviousRgbMaeMedian": 0.03439300411522633,
+        "omittedPreviousRgbMaeP95": 0.1597644032921811,
+        "omittedPreviousRgbMaeMax": 1.103230452674897
+      },
+      "alternatePhase24": {
+        "kept": 367,
+        "adjacentRgbMaeP95": 11.594151234567901,
+        "adjacentRgbMaeMax": 15.557026748971193,
+        "omittedPreviousRgbMaeMedian": 5.3140329218107,
+        "omittedPreviousRgbMaeP95": 7.9295987654320985,
+        "omittedPreviousRgbMaeMax": 9.230205761316872
+      }
+    },
+    "panorama": {
+      "source30": {
+        "kept": 260,
+        "adjacentRgbMaeP95": 21.21172839506173,
+        "adjacentRgbMaeMax": 21.60022633744856
+      },
+      "repeatAware24": {
+        "kept": 208,
+        "adjacentRgbMaeP95": 21.291101851851852,
+        "adjacentRgbMaeMax": 21.596574074074073,
+        "omittedPreviousRgbMaeMedian": 0.026574074074074073,
+        "omittedPreviousRgbMaeP95": 0.08773302469135796,
+        "omittedPreviousRgbMaeMax": 1.0754526748971194
+      },
+      "alternatePhase24": {
+        "kept": 209,
+        "adjacentRgbMaeP95": 26.698460905349794,
+        "adjacentRgbMaeMax": 28.04980452674897,
+        "omittedPreviousRgbMaeMedian": 19.666286008230454,
+        "omittedPreviousRgbMaeP95": 21.292278806584363,
+        "omittedPreviousRgbMaeMax": 21.60022633744856
+      }
+    },
+    "bookDiscovery": {
+      "source30": {
+        "kept": 630,
+        "adjacentRgbMaeP95": 8.705662551440334,
+        "adjacentRgbMaeMax": 11.227973251028807
+      },
+      "repeatAware24": {
+        "kept": 504,
+        "adjacentRgbMaeP95": 9.365546296296296,
+        "adjacentRgbMaeMax": 11.2275,
+        "omittedPreviousRgbMaeMedian": 0.05169238683127572,
+        "omittedPreviousRgbMaeP95": 0.22382458847736625,
+        "omittedPreviousRgbMaeMax": 1.012253086419753
+      },
+      "alternatePhase24": {
+        "kept": 505,
+        "adjacentRgbMaeP95": 9.864555041152258,
+        "adjacentRgbMaeMax": 16.57437242798354,
+        "omittedPreviousRgbMaeMedian": 0.938508230452675,
+        "omittedPreviousRgbMaeP95": 9.479827160493826,
+        "omittedPreviousRgbMaeMax": 11.227973251028807
+      }
+    },
+    "floatingAndApproachingBook": {
+      "source30": {
+        "kept": 320,
+        "adjacentRgbMaeP95": 9.982194444444444,
+        "adjacentRgbMaeMax": 11.227973251028807
+      },
+      "repeatAware24": {
+        "kept": 256,
+        "adjacentRgbMaeP95": 10.275890946502056,
+        "adjacentRgbMaeMax": 11.2275,
+        "omittedPreviousRgbMaeMedian": 0.051810699588477366,
+        "omittedPreviousRgbMaeP95": 0.22543467078189292,
+        "omittedPreviousRgbMaeMax": 1.012253086419753
+      },
+      "alternatePhase24": {
+        "kept": 256,
+        "adjacentRgbMaeP95": 11.136896090534975,
+        "adjacentRgbMaeMax": 16.57437242798354,
+        "omittedPreviousRgbMaeMedian": 1.1716512345679013,
+        "omittedPreviousRgbMaeP95": 10.082517489711934,
+        "omittedPreviousRgbMaeMax": 11.227973251028807
+      }
+    }
+  }
+}

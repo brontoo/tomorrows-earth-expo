@@ -1,0 +1,68 @@
+{
+  "upperBackground": {
+    "rgbMae": 1.4953558444976807,
+    "sourceMinusOriginalMeanRgb": [
+      0.3779999911785126,
+      -0.3970000147819519,
+      0.10999999940395355
+    ]
+  },
+  "coverArtwork": {
+    "rgbMae": 9.68831729888916,
+    "sourceMinusOriginalMeanRgb": [
+      -4.3979997634887695,
+      -5.739999771118164,
+      -3.055999994277954
+    ],
+    "gradientAgreement": {
+      "zeroShift": 0.8533909320831299,
+      "bestShift": {
+        "x": 0,
+        "y": 0
+      },
+      "bestCorrelation": 0.8533909320831299
+    }
+  },
+  "bookFrontEdge": {
+    "rgbMae": 8.309103965759277,
+    "sourceMinusOriginalMeanRgb": [
+      -2.6630001068115234,
+      -3.9049999713897705,
+      -3.1659998893737793
+    ],
+    "gradientAgreement": {
+      "zeroShift": 0.7286905646324158,
+      "bestShift": {
+        "x": 5,
+        "y": 0
+      },
+      "bestCorrelation": 0.7299328446388245
+    }
+  },
+  "lowerShadow": {
+    "rgbMae": 2.4863178730010986,
+    "sourceMinusOriginalMeanRgb": [
+      -2.193000078201294,
+      0.42899999022483826,
+      -0.26600000262260437
+    ],
+    "gradientAgreement": {
+      "zeroShift": 0.5755287408828735,
+      "bestShift": {
+        "x": 0,
+        "y": 2
+      },
+      "bestCorrelation": 0.6876940131187439
+    }
+  },
+  "coverOutline": {
+    "gradientAgreement": {
+      "zeroShift": 0.8420605063438416,
+      "bestShift": {
+        "x": 0,
+        "y": 0
+      },
+      "bestCorrelation": 0.8420605063438416
+    }
+  }
+}

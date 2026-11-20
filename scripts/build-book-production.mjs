@@ -13,6 +13,20 @@ const flags = {
     "https://hjqyhybgitdizfhwpdcv.supabase.co/storage/v1/object/public/seven-emirates-game/",
   VITE_BOOK_MEDIA_VERSION: "7e-1bc718ef5e77",
 };
+const libraryVersion = process.env.VITE_LIBRARY_MEDIA_VERSION?.trim();
+const libraryManifestSha = process.env.VITE_LIBRARY_MANIFEST_SHA256?.trim();
+if (
+  (libraryVersion || libraryManifestSha) &&
+  (!/^library-[a-f0-9]{16}$/.test(libraryVersion ?? "") ||
+    !/^[a-f0-9]{64}$/.test(libraryManifestSha ?? ""))
+)
+  throw Error(
+    "Configure both the immutable library version and manifest SHA-256"
+  );
+const library =
+  libraryVersion && libraryManifestSha
+    ? { mediaVersion: libraryVersion, manifestSha256: libraryManifestSha }
+    : null;
 const result = spawnSync(
   process.execPath,
   [path.join(root, "node_modules/vite/bin/vite.js"), "build"],
@@ -40,6 +54,7 @@ writeFileSync(
       schemaVersion: 1,
       commit,
       publicBookFlags: flags,
+      library,
       model: "B",
       modelSha256:
         "97952348cf6a6a4915c2ea1496b4b37ebabc50cbbf80571435643c455f2b0482",

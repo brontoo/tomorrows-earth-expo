@@ -23,15 +23,13 @@
   color: white;
   font-weight: 700;
 }
-.book-gesture-bar details {
-  flex: 1;
-  min-width: 180px;
+.book-gesture-controls[data-gesture-mode="dual-fist-pull"]
+  .book-gesture-preview {
+  outline: 2px solid #2b765b;
+  outline-offset: 2px;
 }
-.book-gesture-bar summary {
-  cursor: pointer;
-}
-.book-gesture-bar p {
-  line-height: 1.6;
+.book-gesture-camera label {
+  display: block;
 }
 .book-gesture-privacy {
   font-size: 11px;
