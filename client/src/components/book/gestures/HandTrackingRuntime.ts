@@ -31,14 +31,13 @@ export async function createBookRecognizer(
   const model = selectGestureModel(modelId, false);
   // Verify before SDK creation; both GPU and CPU receive the SAME verified bytes.
   const modelAssetBuffer = await loadGestureModel(model);
-  const { FilesetResolver, GestureRecognizer } = await import(
-    "@mediapipe/tasks-vision"
-  );
+  const { FilesetResolver, GestureRecognizer } =
+    await import("@mediapipe/tasks-vision");
   const vision = await FilesetResolver.forVisionTasks(HAND_RESOURCES.wasm);
   const options = (delegate: "GPU" | "CPU") => ({
     baseOptions: { modelAssetBuffer: modelAssetBuffer.slice(), delegate },
     runningMode: "VIDEO" as const,
-    numHands: 1,
+    numHands: 2,
     minHandDetectionConfidence: 0.55,
     minHandPresenceConfidence: 0.55,
     minTrackingConfidence: 0.55,
@@ -78,11 +77,7 @@ export function runtimeForModel(model: GestureModelId): RuntimeDependencies {
   };
 }
 export type CameraStatus =
-  | "off"
-  | "loading"
-  | "permission"
-  | "active"
-  | "error";
+  "off" | "loading" | "permission" | "active" | "error";
 
 /** Sole camera/recognizer owner for this book mount. No global script or provider. */
 export class HandTrackingRuntime {

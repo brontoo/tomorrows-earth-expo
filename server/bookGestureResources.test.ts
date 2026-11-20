@@ -34,7 +34,7 @@ describe("production recognizer factory (SDK mocked for unit tests only)", () =>
     expect(sdk.resolve).not.toHaveBeenCalled();
     expect(sdk.create).not.toHaveBeenCalled();
   });
-  it("explicit creation retains the current pinned model and one-hand VIDEO configuration", async () => {
+  it("explicit creation retains the current pinned model and two-hand VIDEO configuration", async () => {
     const recognizer = { close: vi.fn(), recognizeForVideo: vi.fn() };
     sdk.create.mockResolvedValueOnce(recognizer);
     expect(await createBookRecognizer()).toBe(recognizer);
@@ -47,7 +47,7 @@ describe("production recognizer factory (SDK mocked for unit tests only)", () =>
           delegate: "GPU",
         },
         runningMode: "VIDEO",
-        numHands: 1,
+        numHands: 2,
         minHandDetectionConfidence: 0.55,
         minHandPresenceConfidence: 0.55,
         minTrackingConfidence: 0.55,

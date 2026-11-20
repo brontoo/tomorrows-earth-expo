@@ -92,7 +92,7 @@ describe("Original 7E gesture behavior with educational guards", () => {
     const c = new BookGestureController(),
       { input, seek } = port();
     expect(c.process(sample(), 0, input, scope, false, () => false).mode).toBe(
-      "candidate"
+      "idle"
     );
     c.process(sample("Closed_Fist", 0.7), 68, input, scope, false, () => false);
     expect(seek).not.toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe("Original 7E gesture behavior with educational guards", () => {
     expect(seek).toHaveBeenCalledTimes(count);
     expect(
       c.process(sample(), 420, input, scope, false, () => false).mode
-    ).toBe("candidate");
+    ).toBe("idle");
   });
   it("rejects hits outside the book, disabled controls and unmarked browser/platform buttons", () => {
     const target = {
@@ -449,5 +449,94 @@ describe("single owner camera lifecycle", () => {
     h.callbacks.at(-1)!(280);
     expect(h.stop).toHaveBeenCalledTimes(1);
     expect(h.close).toHaveBeenCalledTimes(1);
+  });
+});
+
+function pairedFists(left: number, right = left, reversed = false): HandSample {
+  const scaled = (x: number, size: number) => {
+    const points = hand(x);
+    points[5].x = x - 0.06;
+    points[17].x = x + 0.06;
+    return points.map(point => ({
+      x: x + (point.x - x) * size,
+      y: 0.7 + (point.y - 0.7) * size,
+    }));
+  };
+  const hands = [scaled(0.32, left), scaled(0.7, right)];
+  if (reversed) hands.reverse();
+  return {
+    landmarks: hands,
+    gestures: hands.map(() => [{ categoryName: "Closed_Fist", score: 0.95 }]),
+  };
+}
+
+describe("Dual fist-depth navigation", () => {
+  function rig(start = 100, direction: 1 | -1 = 1) {
+    const controller = new BookGestureController(direction);
+    const { input, seek } = port(start);
+    let eligible = true;
+    input.depthRange = () =>
+      eligible ? { startInclusive: 0, endExclusive: 200 } : undefined;
+    const tick = (sample: HandSample, time: number) =>
+      controller.process(sample, time, input, scope, false, () => false).mode;
+    return {
+      input,
+      seek,
+      tick,
+      singleOnly: () => {
+        eligible = false;
+      },
+    };
+  }
+
+  it("anchors after stable detection and follows both fists in either direction with reordered detection", () => {
+    const { input, seek, tick } = rig();
+    expect(tick(pairedFists(1.1), 0)).toBe("dual-fist-candidate");
+    expect(tick(pairedFists(1, 1, true), 70)).toBe("dual-fist-candidate");
+    expect(tick(pairedFists(1), 140)).toBe("dual-fist-pull");
+    expect(seek).not.toHaveBeenCalled();
+    tick(pairedFists(0.92, 0.93, true), 210);
+    expect(input.getFrame()).toBeGreaterThan(100);
+    for (let t = 280; t <= 630; t += 70)
+      tick(pairedFists(0.921, 0.928, t % 140 === 0), t);
+    expect(seek).toHaveBeenCalledTimes(1);
+    tick(pairedFists(1.1, 1.1), 700);
+    expect(input.getFrame()).toBeLessThan(125);
+  });
+
+  it("rejects unilateral movement, pauses on loss, and reanchors without jumping", () => {
+    const { input, seek, tick } = rig();
+    tick(pairedFists(1), 0);
+    tick(pairedFists(1), 140);
+    tick(pairedFists(0.85, 1), 210);
+    expect(seek).not.toHaveBeenCalled();
+    expect(tick(sample(), 280)).toBe("dual-fist-candidate");
+    expect(tick(pairedFists(0.72), 350)).toBe("dual-fist-pull");
+    expect(input.getFrame()).toBe(100);
+    tick(sample(), 420);
+    tick(sample(), 560);
+    tick(sample(), 700);
+    expect(input.getFrame()).toBe(100);
+    expect(tick(sample("Closed_Fist", 0.7), 770)).toBe("single-fist");
+    expect(input.getFrame()).toBeGreaterThan(100);
+  });
+
+  it("reverses calibration when configured and respects zone boundaries", () => {
+    const reverse = rig(100, -1);
+    reverse.tick(pairedFists(1), 0);
+    reverse.tick(pairedFists(1), 140);
+    reverse.tick(pairedFists(0.88), 210);
+    expect(reverse.input.getFrame()).toBeLessThan(100);
+    const seam = rig(199);
+    seam.tick(pairedFists(1), 0);
+    seam.tick(pairedFists(1), 140);
+    seam.tick(pairedFists(0.85), 210);
+    expect(seam.input.getFrame()).toBe(200);
+    seam.singleOnly();
+    expect(seam.tick(pairedFists(0.7), 240)).toBe("idle");
+    expect(seam.input.getFrame()).toBe(200);
+    expect(seam.tick(sample(), 280)).toBe("idle");
+    expect(seam.tick(sample(), 420)).toBe("single-fist");
+    expect(seam.input.getFrame()).toBe(200);
   });
 });

@@ -101,7 +101,10 @@ export class FrameScheduler {
   private transport: Transport;
   private currentPolicy: FrameCacheBudget;
   constructor(
-    readonly manifest: FrameManifest,
+    readonly manifest: {
+      readonly frameCount: number;
+      readonly frames?: FrameManifest["frames"];
+    },
     readonly baseUrl: string,
     policy: FrameCacheBudget,
     transport?: Transport,
@@ -116,14 +119,16 @@ export class FrameScheduler {
     this.currentPolicy = policy;
     this.transport =
       transport ??
-      ((frame, signal, foreground) =>
-        loadFrameBytes(
-          manifest,
+      ((frame, signal, foreground) => {
+        if (!manifest.frames) throw new Error("Missing frame records");
+        return loadFrameBytes(
+          { frames: manifest.frames },
           frame,
           baseUrl,
           signal,
           foreground ? "high" : "low"
-        ));
+        );
+      });
   }
   get policy() {
     return this.currentPolicy;

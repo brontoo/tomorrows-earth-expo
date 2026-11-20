@@ -1,0 +1,100 @@
+[
+  {
+    "fromGlobalFrame": 1065,
+    "toGlobalFrame": 1066,
+    "luminanceBlockSsim": 0.9889638469721025,
+    "rgbMeanAbsoluteError": 1.0407833397633746,
+    "normalizedRgbMeanAbsoluteError": 0.0040815032931897045
+  },
+  {
+    "fromGlobalFrame": 1066,
+    "toGlobalFrame": 1067,
+    "luminanceBlockSsim": 0.990936847637193,
+    "rgbMeanAbsoluteError": 0.947114358281893,
+    "normalizedRgbMeanAbsoluteError": 0.0037141739540466393
+  },
+  {
+    "fromGlobalFrame": 1067,
+    "toGlobalFrame": 1068,
+    "luminanceBlockSsim": 0.9854906205686179,
+    "rgbMeanAbsoluteError": 2.2339340599279836,
+    "normalizedRgbMeanAbsoluteError": 0.00876052572520778
+  },
+  {
+    "fromGlobalFrame": 1068,
+    "toGlobalFrame": 1069,
+    "luminanceBlockSsim": 0.9861439705104933,
+    "rgbMeanAbsoluteError": 1.2893304719650207,
+    "normalizedRgbMeanAbsoluteError": 0.005056197929274591
+  },
+  {
+    "fromGlobalFrame": 1069,
+    "toGlobalFrame": 1070,
+    "luminanceBlockSsim": 0.9840747346293511,
+    "rgbMeanAbsoluteError": 1.298772505144033,
+    "normalizedRgbMeanAbsoluteError": 0.0050932255103687575
+  },
+  {
+    "fromGlobalFrame": 1070,
+    "toGlobalFrame": 1071,
+    "luminanceBlockSsim": 0.9786762469368729,
+    "rgbMeanAbsoluteError": 1.4552390367798353,
+    "normalizedRgbMeanAbsoluteError": 0.005706819752077786
+  },
+  {
+    "fromGlobalFrame": 1071,
+    "toGlobalFrame": 1072,
+    "luminanceBlockSsim": 0.9750373950888581,
+    "rgbMeanAbsoluteError": 1.4992748521090535,
+    "normalizedRgbMeanAbsoluteError": 0.005879509223957072
+  },
+  {
+    "fromGlobalFrame": 1072,
+    "toGlobalFrame": 1073,
+    "luminanceBlockSsim": 0.9661279493605631,
+    "rgbMeanAbsoluteError": 2.0181759580761316,
+    "normalizedRgbMeanAbsoluteError": 0.007914415521867182
+  },
+  {
+    "fromGlobalFrame": 1073,
+    "toGlobalFrame": 1074,
+    "luminanceBlockSsim": 0.9798496843081994,
+    "rgbMeanAbsoluteError": 1.4731484696502057,
+    "normalizedRgbMeanAbsoluteError": 0.00577705282215767
+  },
+  {
+    "fromGlobalFrame": 1074,
+    "toGlobalFrame": 1075,
+    "luminanceBlockSsim": 0.9837852975288301,
+    "rgbMeanAbsoluteError": 1.3090496399176954,
+    "normalizedRgbMeanAbsoluteError": 0.0051335279996772365
+  },
+  {
+    "fromGlobalFrame": 1075,
+    "toGlobalFrame": 1076,
+    "luminanceBlockSsim": 0.9873508424478646,
+    "rgbMeanAbsoluteError": 1.1392857831790122,
+    "normalizedRgbMeanAbsoluteError": 0.004467787385015734
+  },
+  {
+    "fromGlobalFrame": 1076,
+    "toGlobalFrame": 1077,
+    "luminanceBlockSsim": 0.9896757749193988,
+    "rgbMeanAbsoluteError": 1.0496489197530865,
+    "normalizedRgbMeanAbsoluteError": 0.004116270273541516
+  },
+  {
+    "fromGlobalFrame": 1077,
+    "toGlobalFrame": 1078,
+    "luminanceBlockSsim": 0.9898070874783376,
+    "rgbMeanAbsoluteError": 1.4351191165123456,
+    "normalizedRgbMeanAbsoluteError": 0.005627918103969983
+  },
+  {
+    "fromGlobalFrame": 1078,
+    "toGlobalFrame": 1079,
+    "luminanceBlockSsim": 0.9931420309933766,
+    "rgbMeanAbsoluteError": 0.896513470936214,
+    "normalizedRgbMeanAbsoluteError": 0.0035157391017106433
+  }
+]

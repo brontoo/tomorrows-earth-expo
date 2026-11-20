@@ -1,0 +1,15 @@
+{
+  "landmarks": "simulated",
+  "sdk": "simulated",
+  "camera": "simulated",
+  "media": "actual verified packages via localhost",
+  "checks": [
+    "numHands=2",
+    "two-fist advance, reverse, and stationary pause",
+    "two fists held in panorama do not scrub",
+    "one-fist panorama",
+    "one-fist book",
+    "pointer visible",
+    "one camera, cleanup on disable"
+  ]
+}
