@@ -23,17 +23,34 @@ if (
   throw Error(
     "Configure both the immutable library version and manifest SHA-256"
   );
+// Task 17 verified every object in this public Supabase release.
+const publishedLibrary = {
+  mediaVersion: "library-83e47f63f8ba623f",
+  manifestSha256:
+    "50c3e7391eafffbff908d1bbe9b91c9ccbe7b43d1685e2049f87c51e5efa10aa",
+};
+const production =
+  !process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production";
 const library =
   libraryVersion && libraryManifestSha
     ? { mediaVersion: libraryVersion, manifestSha256: libraryManifestSha }
-    : null;
+    : production
+      ? publishedLibrary
+      : null;
+const libraryFlags = library
+  ? {
+      VITE_LIBRARY_MEDIA_VERSION: library.mediaVersion,
+      VITE_LIBRARY_MANIFEST_SHA256: library.manifestSha256,
+    }
+  : {};
+console.log(`Library release: ${library?.mediaVersion ?? "disabled"}`);
 const result = spawnSync(
   process.execPath,
   [path.join(root, "node_modules/vite/bin/vite.js"), "build"],
   {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, ...flags, NODE_ENV: "production" },
+    env: { ...process.env, ...flags, ...libraryFlags, NODE_ENV: "production" },
   }
 );
 if (result.status !== 0) process.exit(result.status ?? 1);

@@ -41,7 +41,7 @@ Headless Chromium exercised the actual generated and original local assets on de
 
 The gesture state machine passed deterministic landmark tests for advance, reverse, stationary hold, reordered detection, partial hand loss, calibration direction, panorama single-fist controls and pointer/pinch. The local preview exercised the engine with a simulated camera and recognizer. Physical webcam acceptance, Edge and hosted Supabase performance remain open. [Simulated camera results](qa/task-16/camera-simulation.json)
 
-No authorized Supabase publishing secret was available, and the workspace network returned 403 for public Supabase requests. GitHub identifies the existing Vercel project under `elavukatoo-7058s-projects`. The Vercel connection returned 403 for that scope and could not generate a team consent link. The asset prefix has not been published. There is no verified hosted library preview or production deployment.
+The Task 17 upload from the owner's Windows computer verified all 1,079 public Supabase objects. GitHub identifies the existing Vercel project under `elavukatoo-7058s-projects`. The workspace network returned 403 for public Supabase and Vercel requests, and the connected Vercel account did not have team access.
 
 ## Reproduce and publish
 
@@ -64,7 +64,7 @@ python3 scripts/media/publish_supabase.py --root "$library_package" --apply \
   --report "$library_package/publish-report.json"
 ```
 
-In the existing Vercel project, set the public `VITE_LIBRARY_MEDIA_VERSION` and `VITE_LIBRARY_MANIFEST_SHA256` from the verified publication report for the feature-branch preview. The default asset base is the approved Supabase bucket. The build refuses incomplete or malformed release pins. Confirm the published preview with a physical webcam in Chrome and Edge, check hosted delivery and verify the existing authenticated education flows before setting the same public pins for Production and merging against the then-current `main`.
+The production build defaults to the verified Task 17 publication in the approved Supabase bucket. To select a different verified release, set both public variables `VITE_LIBRARY_MEDIA_VERSION` and `VITE_LIBRARY_MANIFEST_SHA256` from its publication report. Set both values to opt in on a Vercel preview. The build refuses incomplete or malformed release pins and records the selected library in `/seven-emirates-release.json`.
 
 For a local browser run, start the frontend with the package version and manifest SHA. Use `scripts/qa-library-intro.py --library "$library_package" --book "$book_package" --report "$qa_report"` to replay the local packages through Chromium with a deliberately delayed seam response. This browser check uses guest API fixtures.
 
@@ -72,4 +72,4 @@ For a local browser run, start the frontend with the package version and manifes
 
 Before release, record the deployment currently attached to the production domain. The Git rollback commit is `d1babc0cd0be04569a9b619edc5c7a6d79d8db39`. Its successful GitHub Vercel check points to [the existing project's deployment dashboard](https://vercel.com/elavukatoo-7058s-projects/tomorrows-earth-expo/HBbT9kTB2eFWgK9SoFzeo7L7Vzz9). The owner should confirm that deployment against the domain before using it as a Vercel rollback target.
 
-For an emergency after release, use Vercel Instant Rollback to the pre-release deployment in that same project. Remove both library environment pins and rebuild to restore the book-only entry. Revert the feature merge on GitHub if a code rollback is needed. The immutable library prefix can remain available for investigation.
+For an emergency after release, use Vercel Instant Rollback to the book-only deployment in that same project. For a code rollback, revert the production-default commit and remove both library environment pins before rebuilding. The immutable library prefix can remain available for investigation.
