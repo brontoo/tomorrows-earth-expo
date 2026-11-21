@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "provenance": "User-supplied abu_dhabi_living_forest_prototype.zip, plus original runtime geometry and materials authored for this integration.",
+  "licensing": "Confirm redistribution rights for the prototype GLBs and derived mangrove-far.glb before publication. The supplied ZIP does not include the original archive, bark/leaf textures, or a redistribution grant.",
+  "assets": [
+    {
+      "id": "mangrove-hero",
+      "file": "mangrove-hero.glb",
+      "use": "Foreground detail when inspecting the grey mangrove",
+      "source": "50307.rar → Maxtree Avicennia marina OBJ → prototype hero GLB",
+      "format": "GLB",
+      "triangles": 136186,
+      "textureDimensions": [],
+      "bytes": 5396520,
+      "sha256": "177fd43ce145e9ff73332097f07d197d21ecfcdf5a27504e259f3b07f5d10deb",
+      "animation": "None; static geometry",
+      "optimisation": "Prototype mesh reduced from 389,008 triangles; deferred close-up load",
+      "scientificReview": "Species intended by source; morphology and textures pending expert review"
+    },
+    {
+      "id": "mangrove-low",
+      "file": "mangrove-low.glb",
+      "use": "Primary tree visible from initial camera",
+      "source": "50307.rar → Maxtree Avicennia marina OBJ → prototype low GLB",
+      "format": "GLB",
+      "triangles": 22697,
+      "textureDimensions": [],
+      "bytes": 1054244,
+      "sha256": "d5f3d42555756516da09e8be3b9f30d469af85dda48ea59ef9cf329ea51f63a8",
+      "animation": "None; static geometry",
+      "optimisation": "Prototype low-poly mesh; vertex colours; drawn while close-up loads",
+      "scientificReview": "Species intended by source; morphology and textures pending expert review"
+    },
+    {
+      "id": "mangrove-far",
+      "file": "mangrove-far.glb",
+      "use": "Repeated canopy along distant tidal banks",
+      "source": "Prototype mangrove-low.glb → Blender decimation (0.24 collapse ratio)",
+      "format": "GLB",
+      "triangles": 5402,
+      "textureDimensions": [],
+      "bytes": 552088,
+      "sha256": "f00e324edbd3176b42a109c0911d3ff769649d795b8ce930be0c3096d85e6df2",
+      "animation": "None; static geometry",
+      "optimisation": "Instanced geometry, reduced to approximately 24% of the low mesh",
+      "scientificReview": "Inherited from low mesh; background representation"
+    },
+    {
+      "id": "roots-study",
+      "file": "roots-study.glb",
+      "use": "Supplementary decorative structure in the roots view",
+      "source": "mangrove_tree_roots.glb → prototype roots-study.glb",
+      "format": "GLB",
+      "triangles": 3926,
+      "textureDimensions": [
+        "1024 × 1024",
+        "1024 × 1024"
+      ],
+      "bytes": 3697912,
+      "sha256": "0ba956096dbba1e2ee4f0bb5fc83e9b0d5f4d5e3d683868a1a03946e7583e5f5",
+      "animation": "None; static geometry",
+      "optimisation": "Deferred on standard profile; disabled on constrained profile",
+      "scientificReview": "Decorative only; authored cutaway provides the scientific model"
+    },
+    {
+      "id": "tidal-terrain",
+      "use": "Creek bed, shallows, exposed mudflats and raised banks",
+      "source": "client/src/components/book/worlds/mangroveScene.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 15200,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "None; exposed surface changes as water moves",
+      "optimisation": "Vertex colours and shared terrain material",
+      "scientificReview": "Schematic shape, with continuous elevation crossing the tide line"
+    },
+    {
+      "id": "coastal-water",
+      "use": "Surface ripples, shore visibility and underwater tint",
+      "source": "client/src/components/book/worlds/mangroveScene.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 2448,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Wave and shoreline tint",
+      "optimisation": "Single simple animated transparent shader; no texture loads",
+      "scientificReview": "Conceptual tide-height response; no local tide table or calibrated fluid model"
+    },
+    {
+      "id": "root-field",
+      "use": "Pencil-like above-ground roots and representative scattered shell fragments",
+      "source": "client/src/components/book/worlds/mangroveScene.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": [
+        3900,
+        6300
+      ],
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "None; tide covers and exposes the field",
+      "optimisation": "Two small instanced mesh batches for roots and shell fragments",
+      "scientificReview": "Illustrative distribution",
+      "triangleCountNotes": "Root instances only, constrained and standard profile. Add 2,320 shell triangles."
+    },
+    {
+      "id": "grey-mangrove-anatomy",
+      "use": "Close-up pneumatophores and lateral roots",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 4128,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Root anatomy reveals on selection",
+      "optimisation": "Shared radial geometry and materials; visible in roots view",
+      "scientificReview": "Source-linked diagram, expert review pending"
+    },
+    {
+      "id": "leaf-specimen",
+      "use": "Magnified leaf, seedling and conceptual salt deposits",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 2668,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Salt deposit overlay reveals on selection",
+      "optimisation": "Procedural meshes; no texture loads",
+      "scientificReview": "Source-linked illustrative specimen, expert review pending"
+    },
+    {
+      "id": "juvenile-killifish",
+      "use": "School of juvenile fish, near-water shelter",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 298,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Swimming and tail motion",
+      "optimisation": "Shared geometry and materials across 7 or 11 individual models",
+      "scientificReview": "Aphaniops dispar-inspired body; independent local review pending"
+    },
+    {
+      "id": "fiddler-crab",
+      "use": "Sediment feeding area and burrow",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 1632,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Small bank movements and claw motion",
+      "optimisation": "Low-poly procedural specimen and joint",
+      "scientificReview": "Family-level schematic, no exact local species claimed"
+    },
+    {
+      "id": "western-reef-heron",
+      "use": "Wading, resting and short canopy flight",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 1300,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Wading leg and short wing motion",
+      "optimisation": "Lightweight articulated geometry and shared materials",
+      "scientificReview": "Egretta gularis-inspired form; independent local review pending"
+    },
+    {
+      "id": "carbon-study",
+      "use": "Sediment layers, organic matter and conceptual carbon pathways",
+      "source": "client/src/components/book/worlds/forestModels.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 1104,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Layer separation and moving path tracers",
+      "optimisation": "Uses shared tracer geometry; adds a small separate root specimen",
+      "scientificReview": "Source-linked schematic, with no measured carbon quantities",
+      "triangleCountNotes": "Includes sediment paths and tracers. Excludes the shared root specimen used in the cross-section."
+    },
+    {
+      "id": "tidal-molluscs",
+      "use": "Small representative shell-bearing organisms on the creek edge",
+      "source": "client/src/components/book/worlds/mangroveScene.ts",
+      "format": "Procedural Three.js mesh",
+      "triangles": 1056,
+      "textureDimensions": [],
+      "bytes": null,
+      "animation": "Static specimens become more or less visible as the tide rises and falls",
+      "optimisation": "One instanced batch using the shared shell material",
+      "scientificReview": "Generic bivalve-like shapes; no species identification"
+    }
+  ]
+}

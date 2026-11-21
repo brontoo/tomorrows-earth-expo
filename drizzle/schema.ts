@@ -600,3 +600,12 @@ export const impactEntries = pgTable("impact_entries", {
 
 export type ImpactEntry = typeof impactEntries.$inferSelect;
 export type InsertImpactEntry = typeof impactEntries.$inferInsert;
+
+// Exploration evidence is separate from the legacy mission and points tables.
+export const hiddenForestEvidence = pgTable("hidden_forest_evidence", {
+  studentId: integer("student_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: varchar("action", { length: 48 }).notNull(),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  uniqueIndex("hidden_forest_evidence_student_action_idx").on(table.studentId, table.action),
+]);

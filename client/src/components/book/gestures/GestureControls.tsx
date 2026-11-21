@@ -107,10 +107,12 @@ export default function GestureControls({
   scope,
   input,
   scene = "book",
+  suspended = false,
 }: {
   scope: RefObject<HTMLElement | null>;
   input: RefObject<BookFrameInput | null>;
   scene?: PresentationScene;
+  suspended?: boolean;
 }) {
   const video = useRef<HTMLVideoElement>(null),
     skeleton = useRef<HTMLCanvasElement>(null);
@@ -128,6 +130,9 @@ export default function GestureControls({
   const skeletonEnabled = useRef(showSkeleton);
   skeletonEnabled.current = showSkeleton;
   const hover = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (suspended) runtime.current?.stop();
+  }, [suspended]);
   const active = camera === "active",
     pending = camera === "loading" || camera === "permission";
   useEffect(() => {

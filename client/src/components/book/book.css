@@ -1092,3 +1092,43 @@
   flex-wrap: wrap;
   margin-top: 18px;
 }
+
+.book-chapter-actions .book-forest-entry {
+  background: #245146;
+  color: #fff5dc;
+  border-color: #947544;
+  border-radius: 6px;
+  min-height: 44px;
+  padding: 7px 14px;
+}
+.book-chapter-actions .book-forest-entry:hover { background: #32665a; }
+.book-forest-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #bb9857;
+  color: #60451f;
+  background: #f4e6c1;
+  padding: 7px 9px;
+  border-radius: 6px;
+}
+.book-forest-opening {
+  position: fixed;
+  z-index: 110;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #17362db2;
+  color: #fff2d5;
+}
+.book-forest-opening button {
+  border: 1px solid #d2bd8b;
+  border-radius: 6px;
+  background: #22463a;
+  color: #fff2d5;
+  min-height: 44px;
+  padding: 6px 14px;
+}

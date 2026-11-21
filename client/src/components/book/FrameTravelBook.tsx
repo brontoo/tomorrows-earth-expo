@@ -1,6 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Link } from "wouter";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Sprout } from "lucide-react";
 import { chapters, chapterProgress } from "./chapters";
 import { useBookProgress } from "./useBookProgress";
 import { readBook, saveBook } from "./persistence";
@@ -17,8 +25,62 @@ import {
 } from "./frames/frameBookMediaConfig";
 import { LIBRARY_ZONES, type PresentationScene } from "./frames/presentation";
 import type { BookFrameInput } from "./gestures/BookGestureController";
+import { trpc } from "@/lib/trpc";
+import { forestProgress } from "@shared/hiddenForest";
+import { readGuestForest } from "./worlds/forestSave";
 import "./book.css";
 import "./frames/frames.css";
+
+const AbuDhabiWorld = lazy(() => import("./worlds/AbuDhabiWorld"));
+
+function ForestOpening({
+  close,
+  error = false,
+}: {
+  close: () => void;
+  error?: boolean;
+}) {
+  return (
+    <div
+      className="book-forest-opening"
+      role="dialog"
+      aria-modal="true"
+      aria-label="The Hidden Forest"
+      onKeyDown={event => {
+        if (event.key === "Escape") close();
+        if (event.key === "Tab") event.preventDefault();
+      }}
+    >
+      <span role="status">
+        {error ? "The forest could not load." : "Opening The Hidden Forest…"}
+      </span>
+      <button
+        type="button"
+        ref={button => button?.focus({ preventScroll: true })}
+        onClick={close}
+      >
+        Back to Book
+      </button>
+    </div>
+  );
+}
+
+class ForestEntryBoundary extends Component<
+  { children: ReactNode; close: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? (
+      <ForestOpening close={this.props.close} error />
+    ) : (
+      this.props.children
+    );
+  }
+}
 
 /** /eco-journey only. Education consumes displayed chapter; it never controls the timeline. */
 export default function FrameTravelBook() {
@@ -71,6 +133,28 @@ export default function FrameTravelBook() {
     serial: number;
     frame: number;
   }>();
+  const [forestOpen, setForestOpen] = useState(false);
+  const [forestEntryReady, setForestEntryReady] = useState(false);
+  const forestEntry = useRef<HTMLButtonElement>(null);
+  const forestEntryReadyRef = useRef(false);
+  const forestFrame =
+    bookStart + (media.manifest?.chapters[0].restingFrame ?? -1);
+  const closeForest = () => {
+    setForestOpen(false);
+    requestAnimationFrame(() =>
+      forestEntry.current?.focus({ preventScroll: true })
+    );
+  };
+  const forestSave = trpc.hiddenForest.mine.useQuery(
+    { cacheScope: education.profile },
+    {
+      enabled: education.student && (forestEntryReady || forestOpen),
+      retry: false,
+    }
+  );
+  const forestSeal = education.student
+    ? forestSave.data?.legacySeal
+    : forestEntryReady && forestProgress(readGuestForest()).legacySeal;
   const [reduced, setReduced] = useState(
     () => matchMedia("(prefers-reduced-motion: reduce)").matches
   );
@@ -103,162 +187,210 @@ export default function FrameTravelBook() {
       }));
   };
   return (
-    <main
-      ref={scope}
-      className="travel-book book-continuous"
-      data-book-engine="frames"
-      id="main-content"
-    >
-      <a className="book-skip-link" href="#book-content">
-        Skip to book content
-      </a>
-      <header className="book-header">
-        <Link href="/" className="book-wordmark">
-          <BookOpen size={21} />
-          <span>
-            THE SEVEN EMIRATES<small>A JOURNEY TO KEEP</small>
-          </span>
-        </Link>
-        <nav aria-label="Platform navigation">
-          <Link href="/my-journey">
-            My travel stamps <span>{achievement.count}/7</span>
+    <>
+      <main
+        ref={scope}
+        inert={forestOpen}
+        className="travel-book book-continuous"
+        data-book-engine="frames"
+        id="main-content"
+      >
+        <a className="book-skip-link" href="#book-content">
+          Skip to book content
+        </a>
+        <header className="book-header">
+          <Link href="/" className="book-wordmark">
+            <BookOpen size={21} />
+            <span>
+              THE SEVEN EMIRATES<small>A JOURNEY TO KEEP</small>
+            </span>
           </Link>
-          <Link href="/innovation-hub">Projects</Link>
-        </nav>
-      </header>
-      <GestureControls scope={scope} input={input} scene={scene} />
-      <div className="book-stage-wrap" id="book-content">
-        <section
-          className="book-stage"
-          aria-label="Continuous Full HD travel book"
-        >
-          {media.manifest ? (
-            <FrameBookPlayer
-              manifest={media.manifest}
-              baseUrl={media.baseUrl}
-              chapter={chapter}
-              reduced={reduced}
-              interactive
-              intro={media.intro}
-              initialFrame={media.initialFrame}
-              seedFrame={media.initialFrame}
-              firstFrameUrl={media.firstFrameUrl}
-              initialFrameBytes={media.initialFrameBytes}
-              navigation={navigation}
-              followChapterProp={false}
-              gestureInput={input}
-              onChapter={id => {
-                const index = chapters.findIndex(c => c.id === id);
-                if (index >= 0) setChapter(index);
-              }}
-              onFrameDisplayed={(frame, currentScene) => {
-                if (currentScene !== sceneRef.current) {
-                  sceneRef.current = currentScene;
-                  setScene(currentScene);
-                }
-                const next = frame <= bookStart;
-                if (next !== coverRef.current) {
-                  coverRef.current = next;
-                  setAtCover(next);
-                }
-              }}
-              onReady={() => setPainted(true)}
-              onFallback={() => {}}
-            />
-          ) : (
-            <div className="book-original-loading" role="status">
-              {media.error ? (
-                <>
-                  <p>{media.error}</p>
-                  <button type="button" onClick={() => setAttempt(n => n + 1)}>
-                    Retry journey
-                  </button>
-                </>
-              ) : (
-                <p>Loading journey frames…</p>
-              )}
-            </div>
-          )}
-        </section>
-        <nav className="book-compact-chapters" aria-label="Jump to any Emirate">
-          {chapters.map((c, i) => (
-            <button
-              key={c.id}
-              type="button"
-              data-book-gesture="chapter"
-              aria-current={
-                painted && scene === "book" && chapter === i
-                  ? "page"
-                  : undefined
-              }
-              onClick={() => jump(i)}
-            >
-              {c.name}
-            </button>
-          ))}
-        </nav>
-        {scene === "book" && !atCover && (
+          <nav aria-label="Platform navigation">
+            <Link href="/my-journey">
+              My travel stamps <span>{achievement.count}/7</span>
+            </Link>
+            <Link href="/innovation-hub">Projects</Link>
+          </nav>
+        </header>
+        <GestureControls
+          scope={scope}
+          input={input}
+          scene={scene}
+          suspended={forestOpen}
+        />
+        <div className="book-stage-wrap" id="book-content">
           <section
-            className="book-chapter-note book-optional-mission"
-            aria-label="Optional educational mission"
+            className="book-stage"
+            aria-label="Continuous Full HD travel book"
           >
-            <div>
-              <span className="book-eyebrow">
-                {`CHAPTER ${String(chapter + 1).padStart(2, "0")}`}
-              </span>
-              <h1>{active.name}</h1>
-              <p>
-                Explore every Emirate freely. Missions and earned stamps are
-                optional achievements.
-              </p>
-            </div>
-            <div className="book-chapter-actions">
-              {education.loading ? (
-                <p>Loading optional mission details…</p>
-              ) : education.error ? (
-                <>
-                  <p>
-                    Optional missions are unavailable. Every Emirate remains
-                    open.
-                  </p>
-                  <button onClick={education.refresh}>
-                    Refresh optional missions
-                  </button>
-                </>
-              ) : !education.student ? (
-                <Link
-                  href={
-                    education.profile !== "guest"
-                      ? "/dashboard"
-                      : `/login?redirectTo=${encodeURIComponent(`/eco-journey?chapter=${active.id}`)}`
+            {media.manifest ? (
+              <FrameBookPlayer
+                manifest={media.manifest}
+                baseUrl={media.baseUrl}
+                chapter={chapter}
+                reduced={reduced}
+                interactive={!forestOpen}
+                intro={media.intro}
+                initialFrame={media.initialFrame}
+                seedFrame={media.initialFrame}
+                firstFrameUrl={media.firstFrameUrl}
+                initialFrameBytes={media.initialFrameBytes}
+                navigation={navigation}
+                followChapterProp={false}
+                gestureInput={input}
+                onChapter={id => {
+                  const index = chapters.findIndex(c => c.id === id);
+                  if (index >= 0) setChapter(index);
+                }}
+                onSettledFrame={frame => {
+                  const settled = frame === forestFrame;
+                  if (settled === forestEntryReadyRef.current) return;
+                  forestEntryReadyRef.current = settled;
+                  setForestEntryReady(settled);
+                }}
+                onFrameDisplayed={(frame, currentScene) => {
+                  if (currentScene !== sceneRef.current) {
+                    sceneRef.current = currentScene;
+                    setScene(currentScene);
                   }
-                >
-                  {education.profile !== "guest"
-                    ? "My account"
-                    : "Sign in for optional missions"}
-                </Link>
-              ) : mission ? (
-                <>
-                  <p>Mission status: {status ?? "Not started"}</p>
-                  <Link data-book-gesture="mission" href={active.route}>
-                    View optional challenge
-                  </Link>
-                </>
-              ) : (
-                <p>This optional challenge has not been published yet.</p>
-              )}
-              {achievement.completed[chapter] && (
-                <p
-                  className="book-earned-achievement"
-                  aria-label={`${active.name} stamp collected`}
-                >
-                  Mission stamp earned
-                </p>
-              )}
-            </div>
+                  const next = frame <= bookStart;
+                  if (next !== coverRef.current) {
+                    coverRef.current = next;
+                    setAtCover(next);
+                  }
+                }}
+                onReady={() => setPainted(true)}
+                onFallback={() => {}}
+              />
+            ) : (
+              <div className="book-original-loading" role="status">
+                {media.error ? (
+                  <>
+                    <p>{media.error}</p>
+                    <button
+                      type="button"
+                      onClick={() => setAttempt(n => n + 1)}
+                    >
+                      Retry journey
+                    </button>
+                  </>
+                ) : (
+                  <p>Loading journey frames…</p>
+                )}
+              </div>
+            )}
           </section>
-        )}
-      </div>
-    </main>
+          <nav
+            className="book-compact-chapters"
+            aria-label="Jump to any Emirate"
+          >
+            {chapters.map((c, i) => (
+              <button
+                key={c.id}
+                type="button"
+                data-book-gesture="chapter"
+                aria-current={
+                  painted && scene === "book" && chapter === i
+                    ? "page"
+                    : undefined
+                }
+                onClick={() => jump(i)}
+              >
+                {c.name}
+              </button>
+            ))}
+          </nav>
+          {scene === "book" && !atCover && (
+            <section
+              className="book-chapter-note book-optional-mission"
+              aria-label="Optional educational mission"
+            >
+              <div>
+                <span className="book-eyebrow">
+                  {`CHAPTER ${String(chapter + 1).padStart(2, "0")}`}
+                </span>
+                <h1>{active.name}</h1>
+                <p>
+                  Explore every Emirate freely. Missions and earned stamps are
+                  optional achievements.
+                </p>
+              </div>
+              <div className="book-chapter-actions">
+                {forestEntryReady && chapter === 0 && (
+                  <>
+                    {forestSeal && (
+                      <span className="book-forest-seal">
+                        <Sprout size={15} /> Abu Dhabi Legacy Seal
+                      </span>
+                    )}
+                    <button
+                      ref={forestEntry}
+                      className="book-forest-entry"
+                      data-book-gesture="world"
+                      type="button"
+                      onClick={() => {
+                        if (input.current?.getFrame() === forestFrame)
+                          setForestOpen(true);
+                      }}
+                    >
+                      Enter The Hidden Forest
+                    </button>
+                  </>
+                )}
+                {education.loading ? (
+                  <p>Loading optional mission details…</p>
+                ) : education.error ? (
+                  <>
+                    <p>
+                      Optional missions are unavailable. Every Emirate remains
+                      open.
+                    </p>
+                    <button onClick={education.refresh}>
+                      Refresh optional missions
+                    </button>
+                  </>
+                ) : !education.student ? (
+                  <Link
+                    href={
+                      education.profile !== "guest"
+                        ? "/dashboard"
+                        : `/login?redirectTo=${encodeURIComponent(`/eco-journey?chapter=${active.id}`)}`
+                    }
+                  >
+                    {education.profile !== "guest"
+                      ? "My account"
+                      : "Sign in for optional missions"}
+                  </Link>
+                ) : mission ? (
+                  <>
+                    <p>Mission status: {status ?? "Not started"}</p>
+                    <Link data-book-gesture="mission" href={active.route}>
+                      View optional challenge
+                    </Link>
+                  </>
+                ) : (
+                  <p>This optional challenge has not been published yet.</p>
+                )}
+                {achievement.completed[chapter] && (
+                  <p
+                    className="book-earned-achievement"
+                    aria-label={`${active.name} stamp collected`}
+                  >
+                    Mission stamp earned
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+      {forestOpen && (
+        <ForestEntryBoundary close={closeForest}>
+          <Suspense fallback={<ForestOpening close={closeForest} />}>
+            <AbuDhabiWorld onBack={closeForest} />
+          </Suspense>
+        </ForestEntryBoundary>
+      )}
+    </>
   );
 }

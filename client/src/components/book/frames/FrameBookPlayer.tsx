@@ -27,6 +27,7 @@ interface Props {
   followChapterProp?: boolean;
   onChapter: (id: EmirateChapterId) => void;
   onFrameDisplayed?: (frame: number, scene: PresentationScene) => void;
+  onSettledFrame?: (frame: number | null) => void;
   onReady: () => void;
   onFallback: () => void;
 }
@@ -93,6 +94,7 @@ export default function FrameBookPlayer(props: Props) {
         live.current.initialFrameBytes
       );
     let lastChapter = -1,
+      lastSettled: number | null = null,
       first = true;
     const context = canvas.current?.getContext("2d", { alpha: false });
     const player = new FrameTimeline(
@@ -119,6 +121,12 @@ export default function FrameBookPlayer(props: Props) {
         }
       },
       state => {
+        const settled =
+          state.displayed === state.requested ? state.displayed : null;
+        if (settled !== lastSettled) {
+          lastSettled = settled;
+          live.current.onSettledFrame?.(settled);
+        }
         root.current?.setAttribute(
           "data-frame-requested",
           String(state.requested)

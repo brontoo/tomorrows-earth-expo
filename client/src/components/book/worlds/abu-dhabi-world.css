@@ -1,0 +1,387 @@
+.forest-world,
+.forest-entry-fallback {
+  --forest-paper: #f5ead3;
+  --forest-ink: #163b33;
+  --forest-gold: #dcc28b;
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  color: var(--forest-paper);
+  background: #263d35;
+  font-family: Inter, system-ui, sans-serif;
+  overflow: hidden;
+}
+.forest-world.is-entering,
+.forest-world.is-ready[data-from-book="true"] {
+  background: transparent;
+}
+.forest-scene {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity 580ms ease-out,
+    transform 700ms ease-out;
+  background: linear-gradient(#b7cbbd, #48635a 75%, #253c33);
+}
+.forest-world.is-ready .forest-scene {
+  opacity: 1;
+  transform: scale(1);
+}
+.forest-scene canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+.forest-scene canvas:active {
+  cursor: grabbing;
+}
+.forest-header {
+  position: absolute;
+  inset: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto minmax(210px, 1fr);
+  align-items: start;
+  padding: clamp(16px, 2.2vw, 38px);
+  gap: 15px;
+  background: linear-gradient(180deg, #132b22d9, #142f2450 75%, transparent);
+  pointer-events: none;
+}
+.forest-title {
+  text-align: center;
+  text-shadow: 0 1px 12px #172b22;
+}
+.forest-title div {
+  font-size: 12px;
+  letter-spacing: 0.29em;
+  color: var(--forest-gold);
+  font-weight: 650;
+}
+.forest-title h1 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(28px, 4.2vw, 62px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 400;
+  margin: 5px 0 11px;
+}
+.forest-world button,
+.forest-back,
+.forest-world select {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid #cab48755;
+  background: #18372fe8;
+  color: #fff4db;
+  border-radius: 9px;
+  min-height: 44px;
+  padding: 8px 13px;
+  text-align: left;
+}
+.forest-world button:hover,
+.forest-back:hover,
+.forest-world select:hover {
+  background: #2e5145;
+}
+.forest-world button[aria-pressed="true"] {
+  color: #fff7e4;
+  border-color: #e8cb87;
+  background: #325445;
+}
+.forest-world button:disabled {
+  cursor: default;
+  opacity: 0.64;
+  background: #203a30;
+}
+.forest-world :is(button, a, select, input):focus-visible,
+.forest-entry-fallback :is(button, a):focus-visible {
+  outline: 3px solid #eed490;
+  outline-offset: 3px;
+}
+.forest-back {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  pointer-events: auto;
+  font-size: 14px;
+}
+.forest-tabs {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: auto;
+}
+.forest-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  white-space: nowrap;
+}
+.forest-controls {
+  position: absolute;
+  left: clamp(14px, 2.2vw, 38px);
+  bottom: clamp(18px, 3vh, 46px);
+  width: 325px;
+  max-height: min(63vh, 650px);
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #caba8b72;
+  border-radius: 15px;
+  background: #122f26ee;
+  box-shadow: 0 18px 48px #14261c65;
+}
+.forest-controls h2 {
+  font:
+    400 26px/1.1 Georgia,
+    serif;
+  margin: 10px 0;
+  color: #f7ecd1;
+}
+.forest-area-picker,
+.forest-setting {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+}
+.forest-area-picker select {
+  width: 100%;
+}
+.forest-interactions {
+  display: grid;
+  gap: 6px;
+}
+.forest-interactions button {
+  font-size: 13px;
+}
+.forest-note {
+  margin: 10px 0 0;
+  line-height: 1.5;
+  font-size: 13px;
+  color: #f7edd9;
+}
+.forest-note a {
+  display: inline-block;
+  color: #f2d692;
+  text-decoration: underline;
+}
+.forest-tide {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.forest-tide label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.forest-tide strong {
+  color: #ebd29c;
+}
+.forest-world input[type="range"] {
+  width: 100%;
+  accent-color: #dbb96c;
+  min-height: 36px;
+  cursor: pointer;
+}
+.forest-setting,
+.forest-check {
+  margin-top: 13px;
+}
+.forest-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+.forest-atlas-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 7px;
+}
+.forest-atlas-heading span {
+  color: var(--forest-gold);
+  font-size: 13px;
+}
+.forest-collection {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, 1fr);
+}
+.forest-collection button {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  text-align: center;
+  font-size: 11px;
+  min-height: 59px;
+}
+.forest-collection button:not(:disabled) svg {
+  color: #edcc7d;
+}
+.forest-seal,
+.book-forest-seal {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  background: #f2e5bf;
+  color: #614719;
+  border: 1px solid #b99049;
+  border-radius: 8px;
+  font:
+    600 14px Georgia,
+    serif;
+}
+.forest-orbit {
+  position: absolute;
+  bottom: clamp(18px, 3vh, 46px);
+  right: clamp(14px, 2.2vw, 38px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+.forest-world .forest-orbit button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 44px;
+  padding: 4px 8px;
+}
+.forest-orbit button:last-child {
+  grid-column: 1/-1;
+  min-height: 44px;
+}
+.forest-loading,
+.forest-issue,
+.forest-record {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  margin: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  background: #152f26ee;
+  color: #fff2d7;
+  font-size: 14px;
+}
+.forest-loading {
+  top: 46%;
+}
+.forest-issue {
+  top: 114px;
+}
+.forest-record {
+  bottom: 20px;
+  pointer-events: none;
+}
+.forest-record:empty {
+  display: none;
+}
+.forest-record:not(:empty) {
+  animation: forest-record-flash 2.9s both;
+}
+.forest-entry-fallback {
+  display: grid;
+  place-content: center;
+  gap: 16px;
+  background: #183127ab;
+  padding: 24px;
+}
+.forest-entry-fallback p {
+  margin: 0;
+}
+@keyframes forest-record-flash {
+  0%,
+  98%,
+  100% {
+    opacity: 0;
+  }
+  8%,
+  78% {
+    opacity: 1;
+  }
+}
+@media (max-width: 740px) {
+  .forest-header {
+    padding: 10px 12px 22px;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .forest-title {
+    grid-row: 2;
+    grid-column: 1/-1;
+  }
+  .forest-title div {
+    font-size: 10px;
+  }
+  .forest-title h1 {
+    margin-bottom: 0;
+  }
+  .forest-tabs button {
+    padding: 7px 8px;
+  }
+  .forest-tabs button svg:not(:only-child) {
+    display: none;
+  }
+  .forest-controls {
+    left: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    max-height: min(42dvh, 420px);
+    width: min(304px, calc(100vw - 74px));
+    padding: 11px;
+  }
+  .forest-controls h2 {
+    font-size: 23px;
+    margin: 6px 0;
+  }
+  .forest-orbit {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    right: 10px;
+    grid-template-columns: 1fr;
+  }
+  .forest-world .forest-orbit button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .forest-issue {
+    top: 123px;
+  }
+  .forest-record {
+    bottom: min(46dvh, 458px);
+  }
+}
+.forest-world[data-reduced-motion="true"] .forest-scene {
+  transform: none;
+  transition: none;
+}
+.forest-world[data-reduced-motion="true"] .forest-record:not(:empty) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .forest-scene {
+    transform: none;
+    transition: none;
+  }
+  .forest-record:not(:empty) {
+    animation: none;
+  }
+}

@@ -199,6 +199,7 @@ function TeacherDashboardContent() {
             <TabsTrigger value="rejected">
               Needs Revision ({rejectedProjects.length})
             </TabsTrigger>
+            <TabsTrigger value="forest">Forest exploration</TabsTrigger>
             <TabsTrigger value="assignments">
               <Users className="mr-1.5 h-3.5 w-3.5" />
               Students ({(studentAssignments as any[]).length})
@@ -283,6 +284,9 @@ function TeacherDashboardContent() {
             )}
           </TabsContent>
 
+          <TabsContent value="forest">
+            <ForestObservations />
+          </TabsContent>
           <TabsContent value="assignments" className="space-y-4">
             {(studentAssignments as any[]).length ? (
               <div className="grid gap-4 lg:grid-cols-2">
@@ -519,5 +523,67 @@ function ProjectCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ForestObservations() {
+  const forest = trpc.hiddenForest.supervised.useQuery(undefined, {
+    retry: false,
+  });
+  if (forest.isLoading) return <p>Loading forest observations…</p>;
+  if (forest.isError)
+    return <p>Forest reporting is temporarily unavailable.</p>;
+  return (
+    <section aria-label="Hidden Forest observations" className="space-y-3">
+      <h2 className="text-xl font-semibold">Hidden Forest observations</h2>
+      <p className="text-sm text-muted-foreground">
+        Recorded interactions show which parts of the forest students explored.
+        Assess scientific understanding separately.
+      </p>
+      {!forest.data?.length ? (
+        <p>No observations from your supervised students yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {forest.data.map((student) => (
+            <li key={student.id} className="rounded-lg border p-3">
+              <p className="font-semibold">{student.name}</p>
+              <p className="text-sm">
+                {student.views.length} areas visited ·{" "}
+                {student.discoveries.length} discoveries ·{" "}
+                {student.actions.length - student.views.length} observations
+              </p>
+              <details className="mt-2 text-sm">
+                <summary className="cursor-pointer">
+                  View exploration record
+                </summary>
+                <dl className="mt-2 space-y-1">
+                  <div>
+                    <dt className="font-medium">Areas visited</dt>
+                    <dd>{student.views.join(", ") || "None recorded"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">Observations</dt>
+                    <dd>
+                      {student.actions
+                        .filter((action) => !action.startsWith("visit-"))
+                        .map((action) => action.replaceAll("-", " "))
+                        .join(", ") || "None recorded"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">Discoveries</dt>
+                    <dd>
+                      {student.discoveries
+                        .map((id) => id.replaceAll("-", " "))
+                        .join(", ") || "None recorded"}
+                    </dd>
+                  </div>
+                </dl>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

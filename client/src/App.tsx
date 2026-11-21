@@ -33,6 +33,9 @@ const SubcategoryDetailPage = lazy(
 );
 const ChooseRole = lazy(() => import("./pages/ChooseRole"));
 // تمت إضافة مسار اللعبة كتحميل متأخر (Lazy-load)
+const AbuDhabiWorld = lazy(
+  () => import("./components/book/worlds/AbuDhabiWorld")
+);
 const EcoJourneyPage = lazy(() => import("./pages/EcoJourneyPage"));
 // Sustainability missions & gamification (additive)
 const Missions = lazy(() => import("./pages/Missions"));
@@ -110,6 +113,9 @@ function Router() {
         <Route path="/my-projects" component={StudentDashboard} />
         <Route path="/my-projects/:projectId" component={ProjectDetail} />
         {/* تمت إضافة مسار اللعبة هنا */}
+        <Route path="/eco-journey/abu-dhabi-world">
+          {() => <AbuDhabiWorld />}
+        </Route>
         <Route path="/eco-journey" component={EcoJourneyPage} />
         {/* مسارات المهام والتلعيب (إضافية) */}
         <Route path="/missions" component={Missions} />

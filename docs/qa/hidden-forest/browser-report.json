@@ -1,0 +1,32 @@
+{
+  "entryAndFirstDrawMs": 1238,
+  "desktop": {
+    "frameMs": "162.5",
+    "drawCalls": "63",
+    "triangles": "157651",
+    "pixelRatio": "0.60",
+    "usedJsHeapBytes": 30428080
+  },
+  "mobile": {
+    "frameMs": "63.0",
+    "drawCalls": "37",
+    "triangles": "120347",
+    "pixelRatio": "0.90",
+    "usedJsHeapBytes": 18089684
+  },
+  "repeatedEntries": 3,
+  "discoveryCount": 12,
+  "otherChapterCount": 6,
+  "webglFallback": "passed",
+  "keyboardFocusReturn": "passed",
+  "audioOptInAndMute": "passed",
+  "browser": "156.0.8078.79",
+  "models": [
+    "http://127.0.0.1:4298/worlds/abu-dhabi/mangrove-far.glb",
+    "http://127.0.0.1:4298/worlds/abu-dhabi/mangrove-hero.glb",
+    "http://127.0.0.1:4298/worlds/abu-dhabi/mangrove-low.glb",
+    "http://127.0.0.1:4298/worlds/abu-dhabi/roots-study.glb"
+  ],
+  "errors": [],
+  "conditions": "Headless Chromium SwiftShader, intercepted book CDN and guest tRPC responses"
+}

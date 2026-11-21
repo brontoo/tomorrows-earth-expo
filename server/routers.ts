@@ -14,6 +14,7 @@ import { academicYearsRouter } from "./routers/academicYears.js";
 import { missionCompletionsRouter } from "./routers/missionCompletions.js";
 import { passportRouter } from "./routers/passport.js";
 import { impactRouter } from "./routers/impact.js";
+import { hiddenForestRouter } from "./routers/hiddenForest.js";
 import { zonesRouter } from "./routers/zones.js";
 import * as db from "./db.js";
 import { storagePut } from "./storage.js";
@@ -74,6 +75,7 @@ export const appRouter = router({
   passport: passportRouter,
   impact: impactRouter,
   zones: zonesRouter,
+  hiddenForest: hiddenForestRouter,
 
   users: router({
     getAll: adminProcedure.query(async () => {
