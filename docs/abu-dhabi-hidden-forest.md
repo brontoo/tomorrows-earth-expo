@@ -7,8 +7,8 @@ The experience opens when the Abu Dhabi chapter settles. Back to Book and Escape
 | Area | Interaction |
 | --- | --- |
 | Living Page | Enter from the rendered Abu Dhabi chapter and return to its settled frame. |
-| Forest Canopy | Orbit the grey mangrove, magnify a leaf, reveal salt deposits, and inspect the reef heron and crab. |
-| Beneath the Surface | Follow the juvenile fish and compare swimming space near roots with open water. |
+| Forest Canopy | Orbit the grey mangrove, magnify a leaf, reveal salt deposits, observe a bird in flight, and inspect the mud crab. |
+| Beneath the Surface | Follow juvenile flathead grey mullet and compare swimming space near roots with open water. |
 | Root Labyrinth | Select pencil-like pneumatophores and expose the lateral roots in a cutaway. |
 | Tidal World | Move from low to high water, compare the tidal bank, and trace the creek toward the coast. |
 | Carbon Vault | Follow plant uptake, litter and burial. Inspect sediment layers and compare disturbed sediment. |
@@ -27,9 +27,11 @@ The supplied integration script was inspected and run in dry-run mode. The world
 
 The selected game-development skills and router are available in `.agents/skills`, pinned to upstream commit `c6ca6c41c839b68319ffc08430b99ab768debc32`. The Apache 2.0 license and NOTICE are alongside the router. The renderer uses the existing Three.js version `0.186.1`. [Upstream skill repository](https://github.com/gamedev-skills/awesome-gamedev-agent-skills)
 
+The Gallery uses the same scene canvas and camera controls to display the freshwater climbing perch and fictional scarlet plant as standalone exhibits. The gallery downloads models upon selection and carries the scarlet plant attribution. The mullet loads when students enter the underwater view. The crab loads when they enter the tidal view or inspect the crab. The bird loads after the first forest frame. Saved discovery IDs are stable across the wildlife changes.
+
 ## Scientific review
 
-Content references accompany the individual observations and atlas entries. The scene uses schematic tides and conceptual carbon arrows. It omits measured tide predictions and carbon quantities. Grey mangrove adaptation, nursery habitat and carbon storage were authored against the linked ecological references. Regional species identification, habitat details and classroom wording still need an independent review. The fiddler crab is labelled at group level. [Environment Agency – Abu Dhabi](https://www.ead.gov.ae/en/) · [Mangrove habitat review](https://doi.org/10.1016/j.aquabot.2007.12.007) · [Mangrove water balance](https://doi.org/10.1093/aob/mcu174) · [Mangrove carbon storage](https://doi.org/10.1038/ngeo1123)
+Content references accompany the individual observations and atlas entries. The scene uses schematic tides and conceptual carbon arrows. It omits measured tide predictions and carbon quantities. Grey mangrove adaptation, nursery habitat and carbon storage were authored against the linked ecological references. Regional species identification, habitat details and classroom wording still need an independent review. The crab is identified at genus level. The supplied bird has no species label. [Environment Agency – Abu Dhabi](https://www.ead.gov.ae/en/) · [Mangrove habitat review](https://doi.org/10.1016/j.aquabot.2007.12.007) · [Mangrove water balance](https://doi.org/10.1093/aob/mcu174) · [Mangrove carbon storage](https://doi.org/10.1038/ngeo1123)
 
 ## Verification and release approvals
 

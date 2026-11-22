@@ -339,6 +339,9 @@
   .forest-tabs button {
     padding: 7px 8px;
   }
+  .forest-gallery-tab span {
+    display: none;
+  }
   .forest-tabs button svg:not(:only-child) {
     display: none;
   }

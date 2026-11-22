@@ -30,12 +30,12 @@ export const forestReferences = {
     url: "https://doi.org/10.1038/ngeo1123",
   },
   fish: {
-    title: "FishBase, Arabian killifish",
-    url: "https://www.fishbase.se/summary/Aphanius-dispar.html",
+    title: "FishBase, flathead grey mullet",
+    url: "https://www.fishbase.se/summary/Mugil-cephalus.html",
   },
   bird: {
-    title: "Cornell Lab, Western Reef-Heron",
-    url: "https://ebird.org/species/werher1",
+    title: "Cornell Lab, All About Birds",
+    url: "https://www.allaboutbirds.org/news/",
   },
   crab: {
     title: "WoRMS, marine species registry",
@@ -63,21 +63,21 @@ export const forestDiscoveries: Record<ForestDiscovery, Entry> = {
     specimen: "feather",
     source: "bird",
     description:
-      "A western reef heron (Egretta gularis) can stalk small prey in shallow coastal water. Its long legs and pointed bill suit this hunting method.",
+      "Watch how a bird tilts its wings to turn. Mangrove canopies and tidal flats provide different feeding and resting places for coastal birds.",
   },
   "juvenile-fish": {
     title: "Juvenile Fish",
     specimen: "fish",
     source: "fish",
     description:
-      "The Arabian killifish (Aphaniops dispar) tolerates a range of salinities. This illustrated fish follows a sheltered edge of the creek.",
+      "Young flathead grey mullet (Mugil cephalus) can enter shallow estuaries. Follow the fish and look for the shelter created by the mangrove roots.",
   },
   "mangrove-crab": {
     title: "Mangrove Crab",
     specimen: "crab",
     source: "abuDhabi",
     description:
-      "Fiddler crabs feed on particles in sediment and retreat into burrows. An enlarged claw is characteristic of male fiddler crabs.",
+      "Mud crabs (Scylla) have strong claws and a broad shell. They use muddy coastal habitats, including mangrove creeks.",
   },
   "hidden-nursery": {
     title: "Hidden Nursery",
@@ -172,16 +172,16 @@ export const forestAreas: Record<
       },
       {
         action: "watch-heron",
-        label: "Watch the reef heron",
+        label: "Watch the bird in flight",
         detail:
-          "Long legs allow the heron to hunt in the shallows without immersing most of its body.",
+          "Follow the bird as it banks over the canopy. The supplied model shows a small bird in a glide.",
         source: "bird",
       },
       {
         action: "inspect-crab",
-        label: "Inspect the fiddler crab",
+        label: "Inspect the mud crab",
         detail:
-          "Look for its raised claw and the narrow burrow entrance along the mudflat.",
+          "Look for the broad carapace, paired claws, and legs that let a mud crab move across soft ground.",
         source: "crab",
       },
     ],
@@ -191,7 +191,7 @@ export const forestAreas: Record<
     interactions: [
       {
         action: "follow-fish",
-        label: "Follow the juvenile fish",
+        label: "Follow the juvenile mullet",
         detail: "Watch the small fish move along the creek near shelter.",
         source: "fish",
       },

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "provenance": "User-supplied abu_dhabi_living_forest_prototype.zip, plus original runtime geometry and materials authored for this integration.",
-  "licensing": "Confirm redistribution rights for the prototype GLBs and derived mangrove-far.glb before publication. The supplied ZIP does not include the original archive, bark/leaf textures, or a redistribution grant.",
+  "licensing": "See individual model entries. Confirm redistribution terms for the original prototype, derived far tree, Little Bird and archive fish before wider publication.",
   "assets": [
     {
       "id": "mangrove-hero",
@@ -127,42 +127,6 @@
       "scientificReview": "Source-linked illustrative specimen, expert review pending"
     },
     {
-      "id": "juvenile-killifish",
-      "use": "School of juvenile fish, near-water shelter",
-      "source": "client/src/components/book/worlds/forestModels.ts",
-      "format": "Procedural Three.js mesh",
-      "triangles": 298,
-      "textureDimensions": [],
-      "bytes": null,
-      "animation": "Swimming and tail motion",
-      "optimisation": "Shared geometry and materials across 7 or 11 individual models",
-      "scientificReview": "Aphaniops dispar-inspired body; independent local review pending"
-    },
-    {
-      "id": "fiddler-crab",
-      "use": "Sediment feeding area and burrow",
-      "source": "client/src/components/book/worlds/forestModels.ts",
-      "format": "Procedural Three.js mesh",
-      "triangles": 1632,
-      "textureDimensions": [],
-      "bytes": null,
-      "animation": "Small bank movements and claw motion",
-      "optimisation": "Low-poly procedural specimen and joint",
-      "scientificReview": "Family-level schematic, no exact local species claimed"
-    },
-    {
-      "id": "western-reef-heron",
-      "use": "Wading, resting and short canopy flight",
-      "source": "client/src/components/book/worlds/forestModels.ts",
-      "format": "Procedural Three.js mesh",
-      "triangles": 1300,
-      "textureDimensions": [],
-      "bytes": null,
-      "animation": "Wading leg and short wing motion",
-      "optimisation": "Lightweight articulated geometry and shared materials",
-      "scientificReview": "Egretta gularis-inspired form; independent local review pending"
-    },
-    {
       "id": "carbon-study",
       "use": "Sediment layers, organic matter and conceptual carbon pathways",
       "source": "client/src/components/book/worlds/forestModels.ts",
@@ -186,6 +150,100 @@
       "animation": "Static specimens become more or less visible as the tide rises and falls",
       "optimisation": "One instanced batch using the shared shell material",
       "scientificReview": "Generic bivalve-like shapes; no species identification"
+    },
+    {
+      "id": "flathead-mullet",
+      "file": "wildlife/flathead-mullet.glb",
+      "use": "Juvenile flathead grey mullet in the tidal creek",
+      "source": "cc0____flathead_mullet_mugil_cephalus.glb",
+      "format": "GLB",
+      "triangles": 4036,
+      "textureDimensions": [
+        "768 × 768"
+      ],
+      "bytes": 512956,
+      "sha256": "0dd3b4b9a2e967287e6b4a280098b5c0a6fd40ba19db3dbbb3895d8960265228",
+      "animation": "Scene-driven swimming and body sway",
+      "optimisation": "Shared static mesh per school. Delayed until the underwater area. Geometry decimation and smaller diffuse map.",
+      "scientificReview": "Species identified by the supplied scan. Display scaled to represent a juvenile.",
+      "license": "CC0-1.0 (http://creativecommons.org/publicdomain/zero/1.0/)",
+      "credit": "ffish.asia / floraZia.com (https://sketchfab.com/ffishAsia-and-floraZia)",
+      "sourceUrl": "https://sketchfab.com/3d-models/cc0-flathead-mullet-mugil-cephalus-5d24b4f1b10c432693d7848aa82766cc"
+    },
+    {
+      "id": "mangrove-crab",
+      "file": "wildlife/mangrove-crab.glb",
+      "use": "Mud crab on the tidal bank",
+      "source": "dab91b8fd50c4eb4a4ef47ac2c4d5468.glb",
+      "format": "GLB",
+      "triangles": 13179,
+      "textureDimensions": [
+        "768 × 768"
+      ],
+      "bytes": 1051904,
+      "sha256": "e041d2722e59db168bac6305bde654ec7492ae9c3b74dfd410d0bcd5a4b106dc",
+      "animation": "Scene-driven short movement and tide visibility",
+      "optimisation": "Source annotation cube removed. Geometry decimated and diffuse map resized.",
+      "scientificReview": "Source identifies a mud crab. The exhibit describes the genus Scylla and characteristic anatomy.",
+      "license": "CC0-1.0 (http://creativecommons.org/publicdomain/zero/1.0/)",
+      "credit": "ffish.asia / floraZia.com (https://sketchfab.com/ffishAsia-and-floraZia)",
+      "sourceUrl": "https://sketchfab.com/3d-models/cc0-mangrove-crab-dab91b8fd50c4eb4a4ef47ac2c4d5468"
+    },
+    {
+      "id": "little-bird",
+      "file": "wildlife/little-bird.glb",
+      "use": "Small bird gliding above the canopy",
+      "source": "Little Bird.glb",
+      "format": "GLB",
+      "triangles": 8000,
+      "textureDimensions": [
+        "768 × 593",
+        "768 × 768"
+      ],
+      "bytes": 489356,
+      "sha256": "45412dbb8a25e4cc0f20bb7c39581038a2beff94d94e801030ad16a3fe325ebd",
+      "animation": "Scene-driven glide and bank",
+      "optimisation": "Static meshes combined into material batches. Geometry decimated and texture dimensions reduced.",
+      "scientificReview": "The supplied title does not identify a species. The exhibit describes visible flying behaviour.",
+      "license": "User-supplied. Redistribution terms lack embedded documentation."
+    },
+    {
+      "id": "archive-fish",
+      "file": "wildlife/archive-fish.glb",
+      "use": "Gallery comparison fish",
+      "source": "48-fish3d.rar / fish3D/fish/obj/fish.obj and fish3D/fish/Texture/fish.png",
+      "format": "GLB",
+      "triangles": 420,
+      "textureDimensions": [
+        "768 × 388"
+      ],
+      "bytes": 368376,
+      "sha256": "cca2ba120f0d7b41ea1a748b34d9de5ed6599ab2ddbf6b7da447d6a8e6d0922e",
+      "animation": "Static",
+      "optimisation": "OBJ converted to GLB with its source texture, downsampled.",
+      "scientificReview": "Texture reference identifies Anabas testudineus. Presented in the gallery as a freshwater comparison.",
+      "license": "User-supplied. Redistribution terms lack embedded documentation."
+    },
+    {
+      "id": "scarlet-plant",
+      "file": "wildlife/scarlet-plant.glb",
+      "use": "Gallery botanical artwork",
+      "source": "scarlet_alien_plant.glb",
+      "format": "GLB",
+      "triangles": 1955,
+      "textureDimensions": [
+        "640 × 640",
+        "640 × 640",
+        "640 × 640"
+      ],
+      "bytes": 751856,
+      "sha256": "f16d64ebaf9aa231b4a6a0ec4f905c821c0ebdbb35fb98d4e34c5d7bbadf60b2",
+      "animation": "Static",
+      "optimisation": "Embedded textures resized and compressed. Original credit retained and displayed.",
+      "scientificReview": "Fictional plant artwork.",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "credit": "Varvara (https://sketchfab.com/krauchankavarvara)",
+      "sourceUrl": "https://sketchfab.com/3d-models/scarlet-alien-plant-9b1d368a8e144a88ab275b5ac7a306c3"
     }
   ]
 }

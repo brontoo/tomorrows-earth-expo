@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Bird,
   BookOpen,
+  Box,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -42,6 +43,11 @@ import {
 } from "./forestContent";
 import { enableForestAudio } from "./forestAudio";
 import { readGuestForest, saveGuestForest } from "./forestSave";
+import {
+  forestSpecimens,
+  forestSpecimenIds,
+  type ForestSpecimen,
+} from "./forestSpecimens";
 import { mountMangroveWorld, type MangroveWorldHandle } from "./mangroveScene";
 import "./abu-dhabi-world.css";
 
@@ -59,7 +65,7 @@ const specimenIcons = {
 };
 const fallbackLink = "/eco-journey?chapter=abu-dhabi";
 type Props = { onBack?: () => void };
-type Drawer = "explore" | "atlas" | "settings";
+type Drawer = "explore" | "atlas" | "gallery" | "settings";
 const firstTide = 47;
 
 export function ForestBack({ onBack }: Props) {
@@ -124,6 +130,10 @@ function WorldSession({
   const [saveIssue, setSaveIssue] = useState("");
   const [drawer, setDrawer] = useState<Drawer>("explore");
   const [view, setView] = useState<ForestView>("canopy");
+  const [specimen, setSpecimen] = useState<ForestSpecimen>("perch");
+  const [exhibitState, setExhibitState] = useState<
+    "loading" | "ready" | "failed"
+  >("ready");
   const [tide, setTide] = useState(firstTide);
   const [selected, setSelected] = useState<ForestAction | null>(null);
   const [inspected, setInspected] = useState<string | null>(null);
@@ -173,6 +183,20 @@ function WorldSession({
     setPlayingTide(false);
   }, []);
 
+  function showDrawer(next: Drawer) {
+    if (drawer === next) return;
+    if (next === "gallery") {
+      cancelTide();
+      setSelected(null);
+      world.current?.setSpecimen(specimen);
+      audio.current?.setUnderwater(false);
+    } else if (drawer === "gallery") {
+      world.current?.setSpecimen(null);
+      audio.current?.setUnderwater(view === "underwater");
+    }
+    setDrawer(next);
+  }
+
   function selectView(next: ForestView) {
     if (next === view) return;
     cancelTide();
@@ -210,7 +234,8 @@ function WorldSession({
           setReady(true);
           recordRef.current("visit-canopy");
         },
-        setIssue
+        setIssue,
+        setExhibitState
       );
       world.current = handle;
     } catch {
@@ -325,6 +350,7 @@ function WorldSession({
   const information = selected ? forestInteractions[selected] : undefined;
   const detail = inspected && forestDiscoveryIds.find(id => id === inspected);
   const selectedCard = detail ? forestDiscoveries[detail] : undefined;
+  const galleryModel = forestSpecimens[specimen];
   const tideLabel =
     tide <= 15 ? "Low tide" : tide >= 85 ? "High tide" : "Between tides";
   return (
@@ -369,22 +395,33 @@ function WorldSession({
           <button
             type="button"
             aria-pressed={drawer === "explore"}
-            onClick={() => setDrawer("explore")}
+            onClick={() => showDrawer("explore")}
           >
             <Sprout size={17} /> Explore
           </button>
           <button
             type="button"
             aria-pressed={drawer === "atlas"}
-            onClick={() => setDrawer("atlas")}
+            onClick={() => showDrawer("atlas")}
           >
             <BookOpen size={17} /> Atlas
           </button>
           <button
             type="button"
+            aria-label="Gallery"
+            title="Model gallery"
+            className="forest-gallery-tab"
+            disabled={!ready}
+            aria-pressed={drawer === "gallery"}
+            onClick={() => showDrawer("gallery")}
+          >
+            <Box size={17} /> <span>Gallery</span>
+          </button>
+          <button
+            type="button"
             aria-label="Settings"
             aria-pressed={drawer === "settings"}
-            onClick={() => setDrawer("settings")}
+            onClick={() => showDrawer("settings")}
           >
             <Settings2 size={18} />
           </button>
@@ -409,7 +446,9 @@ function WorldSession({
                 ? "Explore the forest"
                 : drawer === "atlas"
                   ? "Living Atlas"
-                  : "Forest settings"
+                  : drawer === "gallery"
+                    ? "Model gallery"
+                    : "Forest settings"
             }
           >
             {drawer === "explore" && (
@@ -548,6 +587,60 @@ function WorldSession({
                 )}
               </>
             )}
+            {drawer === "gallery" && (
+              <div aria-busy={exhibitState === "loading"}>
+                <label className="forest-area-picker">
+                  Gallery model
+                  <select
+                    value={specimen}
+                    onChange={event => {
+                      const next = event.currentTarget.value as ForestSpecimen;
+                      setSpecimen(next);
+                      world.current?.setSpecimen(next);
+                    }}
+                  >
+                    {forestSpecimenIds.map(id => (
+                      <option key={id} value={id}>
+                        {forestSpecimens[id].name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <h2>{galleryModel.name}</h2>
+                {exhibitState === "loading" && (
+                  <p role="status">Loading 3D model…</p>
+                )}
+                {exhibitState === "failed" && (
+                  <button
+                    type="button"
+                    onClick={() => world.current?.setSpecimen(specimen)}
+                  >
+                    Retry 3D preview
+                  </button>
+                )}
+                <p className="forest-note">{galleryModel.detail}</p>
+                {"credit" in galleryModel && (
+                  <p className="forest-note">
+                    <a
+                      href={galleryModel.credit.source}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {galleryModel.credit.author}
+                    </a>
+                    {" · "}
+                    <a
+                      href={galleryModel.credit.license}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      CC BY 4.0
+                    </a>
+                    {" · Textures resized for the browser"}
+                  </p>
+                )}
+              </div>
+            )}
             {drawer === "settings" && (
               <>
                 <h2>Settings</h2>
@@ -651,7 +744,13 @@ function WorldSession({
             >
               <Minus size={19} />
             </button>
-            <button type="button" onClick={() => world.current?.setView(view)}>
+            <button
+              type="button"
+              onClick={() => {
+                if (drawer === "gallery") world.current?.setSpecimen(specimen);
+                else world.current?.setView(view);
+              }}
+            >
               Reset
             </button>
           </nav>

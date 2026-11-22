@@ -4,18 +4,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { ForestAction, ForestView } from "@shared/hiddenForest";
 import {
   branch,
-  fiddlerCrab,
-  fishFactory,
   leafStudy,
   mangroveSpecimen,
-  reefHeron,
   sedimentStudy,
 } from "./forestModels";
+import { forestSpecimens, type ForestSpecimen } from "./forestSpecimens";
 
 export interface MangroveWorldHandle {
   setTide(value: number): void;
   setView(view: ForestView): void;
   inspect(action: ForestAction): void;
+  setSpecimen(specimen: ForestSpecimen | null): void;
   orbit(turn: number, lift: number): void;
   zoom(amount: number): void;
   setReducedMotion(value: boolean): void;
@@ -38,8 +37,8 @@ const views = {
 const detail = {
   "inspect-tree": frame([-2.2, 4.8, 7.3], [-7.1, 3, -0.65]),
   "inspect-leaf": frame([6.2, 3.2, 8.3], [4.9, 1.15, 5.45]),
-  "watch-heron": frame([7.6, 2.2, -5.9], [5.9, 0.9, -9.1]),
-  "inspect-crab": frame([4.6, 1.7, 3.6], [3.6, 0.46, 1.9]),
+  "watch-heron": frame([6.9, 2.6, -6.9], [5.7, 2.1, -9.1]),
+  "inspect-crab": frame([6.65, 1.17, 3.28], [5.65, 0.27, 1.9]),
   "compare-shelter": frame([-1.4, -0.36, 2.7], [-3.1, -0.35, -0.85]),
   "connect-habitats": frame([4.1, 8.1, 10.5], [-0.4, 0.1, -13]),
 } as const;
@@ -109,6 +108,25 @@ function waterMaterial() {
   });
 }
 
+function fitModel(
+  model: THREE.Group,
+  size: number,
+  rotation: [number, number, number],
+  ground = false
+) {
+  const oriented = new THREE.Group();
+  oriented.rotation.set(...rotation);
+  oriented.add(model);
+  const bounds = new THREE.Box3().setFromObject(oriented, true);
+  const extent = bounds.getSize(new THREE.Vector3());
+  const scale = size / Math.max(extent.x, extent.y, extent.z, 0.001);
+  const center = bounds.getCenter(new THREE.Vector3());
+  if (ground) center.y = bounds.min.y;
+  oriented.scale.setScalar(scale);
+  oriented.position.copy(center.multiplyScalar(-scale));
+  return oriented;
+}
+
 function disposeModels(roots: Iterable<THREE.Object3D>) {
   const geometry = new Set<THREE.BufferGeometry>();
   const materials = new Set<THREE.Material>();
@@ -145,7 +163,8 @@ export function mountMangroveWorld(
   host: HTMLElement,
   onAction: (action: ForestAction) => void,
   onReady: () => void,
-  onIssue: (message: string) => void
+  onIssue: (message: string) => void,
+  onExhibitState: (state: "loading" | "ready" | "failed") => void
 ): MangroveWorldHandle {
   const scene = new THREE.Scene();
   const background = air.clone();
@@ -332,26 +351,30 @@ export function mountMangroveWorld(
   scene.add(sediment.root);
   pickable(sediment.root, "inspect-sediment");
 
-  const { crab, pincer } = fiddlerCrab(),
-    heron = reefHeron();
-  const burrow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.17, 14),
-    new THREE.MeshBasicMaterial({ color: 0x463c32 })
+  const crab = new THREE.Group();
+  const coastalBird = new THREE.Group();
+  const crabShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.24, 20).rotateX(-Math.PI / 2),
+    materials.shade
   );
-  burrow.rotateX(-Math.PI / 2);
-  burrow.position.set(4.08, bankY(4.08, 2.24) + 0.011, 2.24);
-  landscape.add(crab, burrow, heron.bird);
-  pickable(crab, "inspect-crab");
-  pickable(heron.bird, "watch-heron");
-
-  const makeFish = fishFactory();
-  const school = Array.from({ length: constrained ? 7 : 11 }, (_, i) => {
-    const item = makeFish();
-    item.group.scale.setScalar(0.48 + (i % 5) * 0.12);
-    landscape.add(item.group);
-    pickable(item.group, "follow-fish");
-    return { ...item, phase: rand() * 6.28, z: -8 + i * 1.44 };
+  crabShadow.scale.z = 0.68;
+  landscape.add(crab, crabShadow, coastalBird);
+  const school = Array.from({ length: constrained ? 4 : 6 }, (_, i) => {
+    const group = new THREE.Group();
+    group.scale.setScalar(0.78 + (i % 4) * 0.085);
+    landscape.add(group);
+    return { group, phase: rand() * 6.28, z: -6.8 + i * 1.55 };
   });
+
+  const exhibit = new THREE.Group();
+  const exhibitPlinth = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.27, 1.35, 0.15, 32),
+    new THREE.MeshStandardMaterial({ color: 0x31574a, roughness: 0.92 })
+  );
+  exhibitPlinth.position.y = -0.075;
+  exhibit.add(exhibitPlinth);
+  scene.add(exhibit);
+  const exhibitModels = new Map<ForestSpecimen, THREE.Group>();
 
   const treePositions: [number, number, number, number][] = [
     [-7.1, -0.8, 1.05, 0.24],
@@ -401,6 +424,49 @@ export function mountMangroveWorld(
       return undefined;
     }
     return group;
+  }
+  const wildlifeRequests = new Set<string>();
+  function requestWildlife(
+    file: string,
+    place: (group: THREE.Group) => void,
+    failed?: () => void
+  ) {
+    if (wildlifeRequests.has(file)) return;
+    wildlifeRequests.add(file);
+    void model(file)
+      .then(group => {
+        if (!group) return;
+        place(group);
+        invalidate();
+      })
+      .catch(() => {
+        wildlifeRequests.delete(file);
+        if (destroyed) return;
+        if (failed) failed();
+        else
+          onIssue("A wildlife model could not load. Reopen its view to retry.");
+      });
+  }
+  function loadCrab() {
+    requestWildlife("wildlife/mangrove-crab.glb", model => {
+      crab.add(fitModel(model, 0.69, [-Math.PI / 2, 0, Math.PI], true));
+      pickable(crab, "inspect-crab");
+    });
+  }
+  function loadBird() {
+    requestWildlife("wildlife/little-bird.glb", model => {
+      coastalBird.add(fitModel(model, 1.25, [0, 0, 0]));
+      pickable(coastalBird, "watch-heron");
+    });
+  }
+  function loadFish() {
+    requestWildlife("wildlife/flathead-mullet.glb", model => {
+      const fish = fitModel(model, 0.54, [0, Math.PI / 2, 0]);
+      for (const { group } of school) {
+        group.add(group === school[0].group ? fish : fish.clone());
+        pickable(group, "follow-fish");
+      }
+    });
   }
   function treeMaterial(mesh: THREE.Mesh) {
     const material = mesh.material as THREE.MeshStandardMaterial;
@@ -495,6 +561,8 @@ export function mountMangroveWorld(
       if (!destroyed) onIssue("Some background trees could not load.");
     });
 
+  let specimen: ForestSpecimen | null = null;
+  let exhibitDrawn: ForestSpecimen | null = null;
   let view: ForestView = "canopy",
     reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let targetWater = water.position.y,
@@ -525,21 +593,30 @@ export function mountMangroveWorld(
     const leafOn =
       view === "canopy" &&
       (active === "inspect-leaf" || active === "reveal-salt");
-    leaf.root.visible = leafOn;
+    leaf.root.visible = !specimen && leafOn;
     leaf.salt.visible = active === "reveal-salt";
-    nearRoot.root.visible = view === "roots";
+    nearRoot.root.visible = !specimen && view === "roots";
     nearRoot.lateral.visible = active === "reveal-lateral-roots";
     cut.visible = nearRoot.lateral.visible;
-    sediment.root.visible = view === "carbon";
-    landscape.visible = !leafOn && view !== "carbon";
-    if (referenceRoot) referenceRoot.visible = view === "roots";
+    sediment.root.visible = !specimen && view === "carbon";
+    landscape.visible = !specimen && !leafOn && view !== "carbon";
+    if (referenceRoot) referenceRoot.visible = !specimen && view === "roots";
+    exhibit.visible = specimen !== null;
+    for (const [id, item] of Array.from(exhibitModels.entries())) {
+      item.visible = id === specimen;
+    }
     sediment.pathways.children.forEach((item, i) => {
       item.visible =
         active === ["trace-uptake", "trace-litter", "trace-burial"][i];
     });
   }
   function setView(next: ForestView) {
+    specimen = null;
+    exhibitDrawn = null;
     view = next;
+    if (next === "underwater") loadFish();
+    if (next === "tides") loadCrab();
+    if (next === "canopy" || next === "tides") loadBird();
     active = null;
     controls.enableDamping = !reduced;
     controls.maxPolarAngle =
@@ -548,7 +625,53 @@ export function mountMangroveWorld(
     navigate(views[next]);
     show();
   }
+  function frameExhibit() {
+    const framing = frame([2.6, 1.8, 3.55], [0, 0.77, 0]);
+    const distanceScale = Math.max(1, 0.55 / camera.aspect);
+    framing[0].sub(framing[1]).multiplyScalar(distanceScale).add(framing[1]);
+    return framing;
+  }
+  function setSpecimen(next: ForestSpecimen | null) {
+    if (!next) {
+      setView(view);
+      return;
+    }
+    specimen = next;
+    active = null;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.minDistance = 1.45;
+    navigate(frameExhibit());
+    show();
+    onExhibitState(exhibitModels.has(next) ? "ready" : "loading");
+    if (!exhibitModels.has(next)) {
+      requestWildlife(
+        forestSpecimens[next].file,
+        model => {
+          const isFish = next === "perch";
+          const item = new THREE.Group();
+          item.add(
+            fitModel(
+              model,
+              isFish ? 2 : 1.62,
+              isFish ? [0, -0.64, 0] : [0, 0, 0],
+              true
+            )
+          );
+          if (isFish) item.position.y = 0.34;
+          exhibitModels.set(next, item);
+          exhibit.add(item);
+          show();
+        },
+        () => {
+          if (specimen === next) onExhibitState("failed");
+        }
+      );
+    }
+  }
   function inspect(action: ForestAction) {
+    if (action === "inspect-crab") loadCrab();
+    if (action === "watch-heron") loadBird();
+    if (action === "follow-fish") loadFish();
     active = action;
     transition = undefined;
     const target = detail[action as keyof typeof detail];
@@ -674,7 +797,11 @@ export function mountMangroveWorld(
       blend
     );
     water.material.uniforms.time.value = t;
-    sub = THREE.MathUtils.lerp(sub, view === "underwater" ? 1 : 0, blend);
+    sub = THREE.MathUtils.lerp(
+      sub,
+      !specimen && view === "underwater" ? 1 : 0,
+      blend
+    );
     water.material.uniforms.underwater.value = sub;
     background.copy(air).lerp(marine, sub);
     fog.color.copy(background);
@@ -683,54 +810,48 @@ export function mountMangroveWorld(
       0.022 + sub * (0.12 + Math.min(0.07, waterAboveCamera * 0.06));
     fill.intensity = 2.03 - sub * 0.55;
     sun.intensity = 2.35 - sub * 1.41;
-    crab.position.x = 3.6 + Math.sin(t * 0.8) * 0.32;
-    crab.position.z = 1.9 + Math.cos(t * 0.62) * 0.15;
-    crab.position.y = bankY(crab.position.x, crab.position.z) + 0.02;
-    crab.visible =
-      water.position.y < crab.position.y + 0.24 || active === "inspect-crab";
-    pincer.rotation.y = Math.sin(t * 1.3) * 0.16;
-    const birdPhase = t % 23;
-    const flying =
-      birdPhase > 17.8 && view === "canopy" && active !== "watch-heron";
-    const flyAmplitude = flying
-      ? Math.sin(((birdPhase - 17.8) / 5.2) * Math.PI)
-      : 0;
-    heron.bird.position.set(
-      5.85 + Math.sin(t * 0.23) * 0.35 - flyAmplitude * 2.7,
-      Math.max(bankY(5.85, -9.1), water.position.y - 0.17) + flyAmplitude * 1.8,
-      -9.1 + Math.sin(t * 0.18) * 0.43
+    const inspectingCrab = active === "inspect-crab";
+    crab.position.x = 5.65 + (inspectingCrab ? 0 : Math.sin(t * 0.9) * 0.23);
+    crab.position.z = 1.9;
+    crab.position.y = bankY(crab.position.x, crab.position.z);
+    crab.rotation.y = 0.35 + Math.sin(t * 0.71) * 0.18;
+    crab.visible = inspectingCrab || water.position.y < crab.position.y + 0.28;
+
+    crabShadow.visible = crab.visible && crab.children.length > 0;
+    crabShadow.position.copy(crab.position);
+    crabShadow.position.y += 0.012;
+    const bankSlope =
+      (bankY(crab.position.x + 0.1, 1.9) - crab.position.y) / 0.1;
+    crabShadow.rotation.z = Math.atan(bankSlope);
+
+    const watchingBird = active === "watch-heron";
+    const flight = t * (watchingBird ? 0.29 : 0.46);
+    const circle = watchingBird ? 0.48 : 2.2;
+    coastalBird.position.set(
+      5.7 + Math.cos(flight) * circle,
+      2.08 + Math.sin(t * 1.7) * 0.15,
+      -9.1 + Math.sin(flight) * circle
     );
-    heron.bird.rotation.y = -0.49 + Math.sin(t * 0.25) * 0.34;
-    heron.legs.forEach(
-      (leg, i) =>
-        (leg.rotation.z = flying
-          ? -0.45
-          : Math.sin(t * 2.7 + i * Math.PI) *
-            0.22 *
-            Math.max(0, Math.sin(t * 0.37)))
-    );
-    heron.wings.forEach(
-      (wing, i) =>
-        (wing.rotation.x = flying
-          ? (i === 0 ? -1 : 1) * (0.62 + Math.sin(t * 15) * 0.89)
-          : 0)
+    coastalBird.rotation.set(
+      -0.025,
+      watchingBird ? 0.79 : -flight,
+      Math.sin(t * 1.7) * 0.17
     );
 
-    school.forEach(({ group, finJoint, z, phase }, i) => {
-      const travel = z + Math.cos(t * 0.68 + phase) * 1.7;
-      const x = channel(travel) + Math.sin(t * 0.86 + phase) * 1.23;
+    school.forEach(({ group, z, phase }, i) => {
+      const travel = z + Math.cos(t * 0.68 + phase) * 1.44;
+      const x = channel(travel) + Math.sin(t * 0.86 + phase) * 1.14;
       const bed = bankY(x, travel);
       group.position.set(
         x,
-        Math.max(bed + 0.14, water.position.y - 0.36 + (i % 3) * 0.06),
+        Math.max(bed + 0.16, water.position.y - 0.37 + (i % 3) * 0.055),
         travel
       );
-      group.visible = water.position.y - bed > 0.28;
-      group.rotation.y = Math.atan2(
-        Math.sin(t * 0.68 + phase) * 1.16,
-        Math.cos(t * 0.86 + phase) * 1.06
-      );
-      finJoint.rotation.y = Math.sin(t * 12 + phase) * 0.31;
+      group.visible = water.position.y - bed > 0.31;
+      group.rotation.y =
+        Math.atan2(Math.cos(t * 0.86 + phase), -Math.sin(t * 0.68 + phase)) +
+        Math.sin(t * 10 + phase) * 0.1;
+      group.rotation.z = Math.sin(t * 2.6 + phase) * 0.08;
     });
     brown = THREE.MathUtils.lerp(
       brown,
@@ -752,14 +873,15 @@ export function mountMangroveWorld(
       if (camera.position.distanceToSquared(transition[0]) < 0.001)
         transition = undefined;
     }
-    if (view === "underwater") {
+    if (!specimen && view === "underwater") {
       camera.position.y = THREE.MathUtils.clamp(
         camera.position.y,
         bankY(camera.position.x, camera.position.z) + 0.11,
         water.position.y - 0.1
       );
-      if (active === "follow-fish" && school[6]?.group.visible) {
-        following.copy(school[6].group.position);
+      const focusFish = school[school.length - 1].group;
+      if (active === "follow-fish" && focusFish.visible) {
+        following.copy(focusFish.position);
         controls.target.lerp(following, reduced ? 1 : blend);
       }
     }
@@ -773,6 +895,10 @@ export function mountMangroveWorld(
       lowForeground.visible = !close;
     }
     renderer.render(scene, camera);
+    if (specimen && specimen !== exhibitDrawn && exhibitModels.has(specimen)) {
+      exhibitDrawn = specimen;
+      onExhibitState("ready");
+    }
     if (labels) {
       labels.dataset.drawCalls = String(renderer.info.render.calls);
       labels.dataset.triangles = String(renderer.info.render.triangles);
@@ -786,6 +912,7 @@ export function mountMangroveWorld(
     if (lowReady && !entryDrawn) {
       entryDrawn = true;
       onReady();
+      loadBird();
     }
     if (
       entryDrawn &&
@@ -849,6 +976,7 @@ export function mountMangroveWorld(
   return {
     setView,
     inspect,
+    setSpecimen,
     orbit,
     setTide(value) {
       targetWater = tideY(THREE.MathUtils.clamp(value, 0, 100));

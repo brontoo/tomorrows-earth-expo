@@ -109,7 +109,7 @@ async def run(browser):
     await expect(page.get_by_role("button", name="Reset")).to_be_focused()
     await page.keyboard.press("Tab")
     await expect(page.get_by_role("button", name="Back to Book")).to_be_focused()
-    assert not [url for url in requests if url.endswith(("mangrove-hero.glb", "roots-study.glb"))]
+    assert not [url for url in requests if url.endswith(("mangrove-hero.glb", "roots-study.glb", "flathead-mullet.glb", "mangrove-crab.glb", "archive-fish.glb", "scarlet-plant.glb"))]
     await expect(world).to_have_attribute("data-frame-ms", re.compile(r"[0-9]"), timeout=30000)
     await page.wait_for_timeout(6000)
     await screenshot(page, "canopy")
@@ -118,13 +118,33 @@ async def run(browser):
     await page.get_by_label("Reduce motion").check()
     await expect(world).to_have_attribute("data-render-quality", "on-demand")
     await page.get_by_role("button", name="Explore", exact=True).click()
-    for title in ["Inspect the grey mangrove", "Magnify a leaf", "Reveal salt secretion", "Watch the reef heron", "Inspect the fiddler crab"]:
+    for title in ["Inspect the grey mangrove", "Magnify a leaf", "Reveal salt secretion"]:
         await world_action(page, title)
+    await world_action(page, "Watch the bird in flight")
+    await screenshot(page, "coastal-bird")
+    async with page.expect_response(lambda response: response.url.endswith("mangrove-crab.glb") and response.ok, timeout=15000):
+        await world_action(page, "Inspect the mud crab")
+    await expect(world).to_have_attribute("data-triangles", re.compile(r"[0-9]+"))
+    await screenshot(page, "mud-crab")
     area = page.get_by_label("Exploration area")
-    await area.select_option("underwater")
-    await world_action(page, "Follow the juvenile fish")
+    async with page.expect_response(lambda response: response.url.endswith("flathead-mullet.glb") and response.ok, timeout=15000):
+        await area.select_option("underwater")
+    await world_action(page, "Follow the juvenile mullet")
+    await screenshot(page, "mullet")
     await world_action(page, "Compare open water and roots")
     await screenshot(page, "underwater")
+    async with page.expect_response(lambda response: response.url.endswith("archive-fish.glb") and response.ok, timeout=15000):
+        await page.get_by_role("button", name="Gallery", exact=True).click()
+    await expect(page.get_by_role("heading", name="Climbing perch")).to_be_visible()
+    await expect(page.locator("[aria-busy=false]").filter(has=page.get_by_role("heading", name="Climbing perch"))).to_be_visible()
+    await screenshot(page, "gallery-perch")
+    async with page.expect_response(lambda response: response.url.endswith("scarlet-plant.glb") and response.ok, timeout=15000):
+        await page.get_by_label("Gallery model").select_option("scarlet")
+    await expect(page.get_by_role("link", name="Varvara")).to_be_visible()
+    await expect(page.locator("[aria-busy=false]").filter(has=page.get_by_role("heading", name="Scarlet alien plant"))).to_be_visible()
+    await screenshot(page, "gallery-plant")
+    await page.get_by_role("button", name="Explore", exact=True).click()
+    await expect(area).to_have_value("underwater")
     await area.select_option("roots")
     await world_action(page, "Inspect breathing roots")
     await world_action(page, "Reveal underground roots")
@@ -181,6 +201,12 @@ async def run(browser):
     await expect(page.get_by_role("button", name="Pause tide")).to_be_visible()
     await page.get_by_role("button", name="Pause tide").tap()
     await screenshot(page, "mobile-tides")
+    await page.get_by_role("button", name="Gallery", exact=True).tap()
+    await expect(page.get_by_role("heading", name="Climbing perch")).to_be_visible()
+    await page.get_by_label("Gallery model").select_option("scarlet")
+    await expect(page.get_by_role("heading", name="Scarlet alien plant")).to_be_visible()
+    await page.get_by_role("button", name="Explore", exact=True).tap()
+    await expect(page.get_by_label("Exploration area")).to_have_value("tides")
     await mobile.close()
     detail = await browser.new_context(viewport={"width": 1280, "height": 800}, reduced_motion="reduce")
     await install_fixtures(detail)
@@ -211,6 +237,9 @@ async def run(browser):
     await page.get_by_role("button", name="Atlas", exact=True).click()
     await expect(page.get_by_text("1 / 12")).to_be_visible()
     await fallback.close()
+    assert {"little-bird.glb", "mangrove-crab.glb", "flathead-mullet.glb", "archive-fish.glb", "scarlet-plant.glb"} <= {
+        url.rsplit("/", 1)[-1] for url in downloads
+    }
     assert not errors, errors
     return {"entryAndFirstDrawMs": entry_ms, "desktop": metrics, "mobile": mobile_metrics,
             "repeatedEntries": 3, "discoveryCount": 12, "otherChapterCount": 6, "webglFallback": "passed", "keyboardFocusReturn": "passed", "audioOptInAndMute": "passed",
